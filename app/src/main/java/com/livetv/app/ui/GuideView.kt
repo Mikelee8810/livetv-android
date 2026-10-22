@@ -22,13 +22,18 @@ class Cell(val start: Long, val end: Long, val program: Program?)
  * vertically keeps your place in time. D-pad: up/down rows, left/right programmes, OK select.
  */
 class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
+    enum class GuideFocus { CHANNEL, PROGRAM }
+
     var rows: List<Item> = emptyList(); set(v) { field = v; cellCache.clear(); selRow = selRow.coerceIn(0, (v.size - 1).coerceAtLeast(0)); invalidate(); notifySel() }
     var playingKey: String? = null; set(v) { field = v; invalidate() }
+    var focusCol: GuideFocus = GuideFocus.PROGRAM
     var onPlay: (Item) -> Unit = {}
     var onFullscreen: (Item) -> Unit = {}
     var onMenu: (Item, Program?) -> Unit = { _, _ -> }
     var onProgram: (Item, Program) -> Unit = { _, _ -> }
     var onEdgeLeft: () -> Unit = {}
+    var onOpenCategories: () -> Unit = {}
+    var onBackToFullscreen: () -> Unit = {}
     var onSelection: (Item?, Program?) -> Unit = { _, _ -> }
 
     var selRow = 0; private set
@@ -38,7 +43,7 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
     private val cellCache = HashMap<String, List<Cell>>()
     private var cacheEpg: Any? = null
 
-    private val chanW get() = dp(270f)
+    private val chanW get() = dp(290f)
     private val rowH get() = dp(rowDp())
     private val headH get() = dp(44f)
     private val ppm get() = dp(160f) / 30f           // px per minute
@@ -131,14 +136,34 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
         val isSel = r == selRow
         val isPlaying = it.key == playingKey
         val cy = y + rowH / 2f
-        // number
+        val isChanFocused = isSel && focusCol == GuideFocus.CHANNEL && hasFocus()
+
+        // Draw Channel Column card background
+        val chanRect = RectF(dp(8f), y + dp(1.5f), chanW - dp(8f), y + rowH - dp(2.5f))
+        if (isChanFocused) {
+            p.color = Pal.focusFill
+            c.drawRoundRect(chanRect, dp(6f), dp(6f), p)
+        } else if (isSel) {
+            p.color = Pal.cardHi
+            c.drawRoundRect(chanRect, dp(6f), dp(6f), p)
+        } else {
+            p.color = Pal.card
+            c.drawRoundRect(chanRect, dp(6f), dp(6f), p)
+        }
+
+        // Channel Number
         if (prefs.guideChannelNumbers) {
             tp.textSize = sp(18f); tp.typeface = Fonts.regular; tp.textAlign = Paint.Align.CENTER
-            tp.color = if (isPlaying) Pal.accent else Pal.text
-            c.drawText(it.number.toString(), dp(26f), cy + sp(6.5f), tp)
+            tp.color = when {
+                isChanFocused -> Pal.focusText
+                isPlaying -> Pal.accent
+                else -> Pal.text
+            }
+            c.drawText(it.number.toString(), dp(28f), cy + sp(6.5f), tp)
         }
-        // logo
-        val lx = dp(52f); val lw = dp(45f); val lh = rowH - dp(9f)
+
+        // Logo
+        val lx = dp(54f); val lw = dp(46f); val lh = rowH - dp(9f)
         if (prefs.guideLogos) {
             val bmp = Logos.get(context, it.ch.logo) { invalidate() }
             if (bmp != null) {
@@ -146,45 +171,69 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
                 val dw = bmp.width * s; val dh = bmp.height * s
                 c.drawBitmap(bmp, null, RectF(lx + (lw - dw) / 2, cy - dh / 2, lx + (lw + dw) / 2, cy + dh / 2), p)
             } else {
-                p.color = Pal.card; c.drawRoundRect(RectF(lx + dp(6f), cy - lh / 2.4f, lx + lw - dp(6f), cy + lh / 2.4f), dp(5f), dp(5f), p)
-                tp.textSize = sp(11f); tp.color = Pal.textDim; tp.textAlign = Paint.Align.CENTER; tp.typeface = Fonts.medium
+                p.color = if (isChanFocused) Pal.card else Pal.cardHi
+                c.drawRoundRect(RectF(lx + dp(4f), cy - lh / 2.4f, lx + lw - dp(4f), cy + lh / 2.4f), dp(5f), dp(5f), p)
+                tp.textSize = sp(11f); tp.color = if (isChanFocused) Pal.text else Pal.textDim; tp.textAlign = Paint.Align.CENTER; tp.typeface = Fonts.medium
                 c.drawText(initials(it.name), lx + lw / 2, cy + sp(4f), tp)
             }
         }
-        // name
-        val nx = if (prefs.guideLogos) dp(107f) else dp(52f)
-        tp.textSize = sp(17f); tp.textAlign = Paint.Align.LEFT; tp.typeface = if (isPlaying || isSel) Fonts.medium else Fonts.regular
-        tp.color = if (isPlaying) Pal.accent else Pal.text
-        val maxNameW = chanW - nx - dp(18f)
+
+        // Name
+        val nx = if (prefs.guideLogos) dp(112f) else dp(56f)
+        tp.textSize = sp(17f); tp.textAlign = Paint.Align.LEFT
+        tp.typeface = if (isPlaying || isSel) Fonts.medium else Fonts.regular
+        tp.color = when {
+            isChanFocused -> Pal.focusText
+            isPlaying -> Pal.accent
+            else -> Pal.text
+        }
+        val maxNameW = chanW - nx - dp(24f)
         c.drawText(TextUtils_ellipsize(it.name, tp, maxNameW), nx, cy + sp(6f), tp)
+
         if (isPlaying) { // play triangle
-            p.color = Pal.accent
-            val px = chanW - dp(14f); val s = dp(6f)
+            p.color = if (isChanFocused) Pal.focusText else Pal.accent
+            val px = chanW - dp(16f); val s = dp(6f)
             val path = Path().apply { moveTo(px - s, cy - s); lineTo(px + s * 0.8f, cy); lineTo(px - s, cy + s); close() }
             c.drawPath(path, p)
         }
-        // cells
+
+        // Program Cells
         val save = c.save(); c.clipRect(chanW, y, width.toFloat(), y + rowH)
         for (cell in cellsFor(it)) {
             val x1 = chanW + (cell.start - viewStart) / 60_000f * ppm
             val x2 = chanW + (cell.end - viewStart) / 60_000f * ppm
             if (x2 < chanW || x1 > width) continue
             val rect = RectF(x1 + dp(1.5f), y + dp(1f), x2 - dp(1.5f), y + rowH - dp(2.5f))
-            val focused = isSel && selTime >= cell.start && selTime < cell.end && hasFocus()
-            val softSel = isSel && selTime >= cell.start && selTime < cell.end && !hasFocus()
-            p.color = when { focused -> Pal.focusFill; softSel -> Pal.cardHi; isSel -> Pal.cardHi; else -> Pal.card }
-            if (!focused && !softSel && isSel) p.color = Pal.card.blend(Pal.cardHi, 0.55f)
-            c.drawRoundRect(rect, dp(3f), dp(3f), p)
+            val isCurrentTime = selTime >= cell.start && selTime < cell.end
+            val focused = isSel && isCurrentTime && focusCol == GuideFocus.PROGRAM && hasFocus()
+            val softSel = isSel && isCurrentTime
+            p.color = when {
+                focused -> Pal.focusFill
+                softSel -> Pal.cardHi
+                isSel -> Pal.cardHi.blend(Pal.card, 0.4f)
+                else -> Pal.card
+            }
+            c.drawRoundRect(rect, dp(4f), dp(4f), p)
+
             // played portion
             if (prefs.guideProgress && cell.start < now && cell.end > now && cell.program != null) {
                 val px = (chanW + (now - viewStart) / 60_000f * ppm).coerceIn(rect.left, rect.right)
-                p.color = Color.argb(if (focused) 28 else 40, 0, 0, 0); c.drawRect(rect.left, rect.top, px, rect.bottom, p)
+                p.color = Color.argb(if (focused) 28 else 40, 0, 0, 0)
+                c.drawRect(rect.left, rect.top, px, rect.bottom, p)
             }
+
             tp.textSize = sp(17f); tp.textAlign = Paint.Align.LEFT; tp.typeface = Fonts.regular
-            tp.color = when { focused -> Pal.focusText; cell.program == null -> Pal.textFaint; isSel -> Pal.text; else -> Pal.textDim }
+            tp.color = when {
+                focused -> Pal.focusText
+                cell.program == null -> Pal.textFaint
+                isSel -> Pal.text
+                else -> Pal.textDim
+            }
             val tx = maxOf(rect.left, chanW) + dp(10f)
             val avail = rect.right - tx - dp(6f)
-            if (avail > dp(24f)) c.drawText(TextUtils_ellipsize(cell.program?.title ?: "No information", tp, avail), tx, cy + sp(6f), tp)
+            if (avail > dp(24f)) {
+                c.drawText(TextUtils_ellipsize(cell.program?.title ?: "No information", tp, avail), tx, cy + sp(6f), tp)
+            }
         }
         c.restoreToCount(save)
     }
@@ -223,41 +272,106 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
     override fun onFocusChanged(g: Boolean, d: Int, r: Rect?) { super.onFocusChanged(g, d, r); invalidate() }
     override fun onKeyDown(code: Int, e: KeyEvent): Boolean {
         val cur = selected() ?: return super.onKeyDown(code, e)
+        val now = System.currentTimeMillis()
         when (code) {
             KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_UP -> {
                 val d = if (code == KeyEvent.KEYCODE_DPAD_DOWN) 1 else -1
                 var n = selRow + d
                 if (n < 0) n = if (prefs.channelWrap) rows.size - 1 else 0
                 if (n >= rows.size) n = if (prefs.channelWrap) 0 else rows.size - 1
-                selRow = n; scrollTo(n); cellAt(rows[n], selTime)?.let { ensureTimeVisible(it) }; invalidate(); notifySel(); return true
+                selRow = n
+                scrollTo(n)
+                if (focusCol == GuideFocus.PROGRAM) {
+                    cellAt(rows[n], selTime)?.let { ensureTimeVisible(it) }
+                }
+                invalidate()
+                notifySel()
+                return true
             }
             KeyEvent.KEYCODE_PAGE_DOWN, KeyEvent.KEYCODE_CHANNEL_DOWN, KeyEvent.KEYCODE_PAGE_UP, KeyEvent.KEYCODE_CHANNEL_UP -> {
                 val d = if (code == KeyEvent.KEYCODE_PAGE_DOWN || code == KeyEvent.KEYCODE_CHANNEL_DOWN) visibleRows() else -visibleRows()
-                selRow = (selRow + d).coerceIn(0, rows.size - 1); scrollTo(selRow); invalidate(); notifySel(); return true
-            }
-            KeyEvent.KEYCODE_DPAD_LEFT -> {
-                val cells = cellsFor(cur); val i = cells.indexOfFirst { selTime >= it.start && selTime < it.end }
-                val minStart = floor30(System.currentTimeMillis()) - 6 * 3_600_000L
-                if (i <= 0 || cells[i - 1].end <= minStart) { onEdgeLeft(); return true }
-                selTime = cells[i - 1].start.coerceAtLeast(minStart); ensureTimeVisible(cells[i - 1]); invalidate(); notifySel(); return true
-            }
-            KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                val cells = cellsFor(cur); val i = cells.indexOfFirst { selTime >= it.start && selTime < it.end }
-                if (i in 0 until cells.size - 1) { selTime = cells[i + 1].start; ensureTimeVisible(cells[i + 1]); invalidate(); notifySel() }
+                selRow = (selRow + d).coerceIn(0, rows.size - 1)
+                scrollTo(selRow)
+                invalidate()
+                notifySel()
                 return true
             }
-            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> { e.startTracking(); return true }
-            KeyEvent.KEYCODE_MENU -> { onMenu(cur, selectedProgram()); return true }
+            KeyEvent.KEYCODE_DPAD_LEFT -> {
+                if (focusCol == GuideFocus.CHANNEL) {
+                    onOpenCategories()
+                    return true
+                } else {
+                    val cells = cellsFor(cur)
+                    val i = cells.indexOfFirst { selTime >= it.start && selTime < it.end }
+                    val minStart = floor30(now) - 6 * 3_600_000L
+                    if (i <= 0 || (cells[i].start <= now && cells[i].end > now) || cells[i].start < viewStart + 60_000) {
+                        focusCol = GuideFocus.CHANNEL
+                        invalidate()
+                        notifySel()
+                        return true
+                    }
+                    val prevCell = cells[i - 1]
+                    if (prevCell.end <= minStart) {
+                        focusCol = GuideFocus.CHANNEL
+                    } else {
+                        selTime = prevCell.start.coerceAtLeast(minStart)
+                        ensureTimeVisible(prevCell)
+                    }
+                    invalidate()
+                    notifySel()
+                    return true
+                }
+            }
+            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                if (focusCol == GuideFocus.CHANNEL) {
+                    focusCol = GuideFocus.PROGRAM
+                    cellAt(cur, selTime)?.let { ensureTimeVisible(it) }
+                    invalidate()
+                    notifySel()
+                    return true
+                } else {
+                    val cells = cellsFor(cur)
+                    val i = cells.indexOfFirst { selTime >= it.start && selTime < it.end }
+                    if (i in 0 until cells.size - 1) {
+                        selTime = cells[i + 1].start
+                        ensureTimeVisible(cells[i + 1])
+                        invalidate()
+                        notifySel()
+                    }
+                    return true
+                }
+            }
+            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                e.startTracking()
+                return true
+            }
+            KeyEvent.KEYCODE_MENU -> {
+                onMenu(cur, selectedProgram())
+                return true
+            }
+            KeyEvent.KEYCODE_BACK -> {
+                onBackToFullscreen()
+                return true
+            }
         }
         return super.onKeyDown(code, e)
     }
+
     override fun onKeyLongPress(code: Int, e: KeyEvent): Boolean {
-        if (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) { selected()?.let { onMenu(it, selectedProgram()) }; return true }
+        if (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) {
+            selected()?.let { onMenu(it, selectedProgram()) }
+            return true
+        }
         return super.onKeyLongPress(code, e)
     }
+
     override fun onKeyUp(code: Int, e: KeyEvent): Boolean {
         if ((code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) && e.isTracking && !e.isCanceled) {
             val it = selected() ?: return true
+            if (focusCol == GuideFocus.CHANNEL) {
+                onFullscreen(it)
+                return true
+            }
             val pr = selectedProgram()
             val now = System.currentTimeMillis()
             val future = pr != null && pr.start.toEpochMilli() > now + 60_000

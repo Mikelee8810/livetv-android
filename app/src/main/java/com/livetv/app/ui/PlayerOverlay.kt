@@ -604,12 +604,12 @@ class PlayerOverlay(
         when (code) {
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                 when (prefs.playerOk) {
-                    "Channel list" -> showQuickList()
                     "Pause" -> {
                         if (playerEngine.isPlaying) playerEngine.pause() else playerEngine.resume()
                         showBottomBar()
                     }
-                    else -> toggleBottomBar()
+                    "Info banner" -> toggleBottomBar()
+                    else -> onExitFullscreen() // Default TiviMate action: opens TV Guide with preview
                 }
                 return true
             }
@@ -630,25 +630,11 @@ class PlayerOverlay(
                 return true
             }
             KeyEvent.KEYCODE_DPAD_LEFT -> {
-                when (prefs.playerLeft) {
-                    "Channel list" -> showQuickList()
-                    "Rewind 10s" -> {
-                        playerEngine.seekRelative(-10)
-                        showBottomBar()
-                    }
-                    else -> showBottomBar()
-                }
+                showQuickList()
                 return true
             }
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                when (prefs.playerRight) {
-                    "Program info" -> showBottomBar()
-                    "Fast forward 10s" -> {
-                        playerEngine.seekRelative(10)
-                        showBottomBar()
-                    }
-                    else -> showQuickList()
-                }
+                showBottomBar()
                 return true
             }
             KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {

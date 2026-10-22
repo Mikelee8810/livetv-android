@@ -38,12 +38,16 @@ class MainActivity : Activity() {
 
     // Top-level containers
     private lateinit var rootContainer: FrameLayout
-    private lateinit var guideLayout: LinearLayout
-    private lateinit var leftRail: LinearLayout
-    private lateinit var groupsContainer: LinearLayout
-    private lateinit var groupsList: ListPanel
+    private lateinit var guideLayout: FrameLayout
     private lateinit var guideContainer: LinearLayout
     private lateinit var guideView: GuideView
+
+    // Drawer Overlays (TiviMate 1:1 Sliding Drawers)
+    private lateinit var categoriesDrawer: LinearLayout
+    private lateinit var groupsList: ListPanel
+    private lateinit var mainMenuDrawer: LinearLayout
+    private var isCategoriesDrawerOpen = false
+    private var isMainMenuDrawerOpen = false
 
     // Preview / Info header in Guide
     private lateinit var previewContainer: FrameLayout
@@ -63,7 +67,6 @@ class MainActivity : Activity() {
     private var settingsDrawer: SettingsDrawer? = null
     private var searchPanel: SearchPanel? = null
     private var isFullscreen = false
-    private var currentTab = "TV"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -116,160 +119,34 @@ class MainActivity : Activity() {
     }
 
     private fun setupGuideLayout() {
-        guideLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT)
+        guideLayout = FrameLayout(this).apply {
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
         }
 
-        // 1.1 Left Nav Rail
-        setupLeftRail()
-        guideLayout.addView(leftRail)
-
-        // 1.2 Groups Panel
-        setupGroupsPanel()
-        guideLayout.addView(groupsContainer)
-
-        // 1.3 Main Guide Area (Preview + Selection info on top, GuideView on bottom)
+        // 1. Base: Full-Width TV Guide (Live Preview & Program Details Header on top, GuideView on bottom)
         setupGuideContent()
-        guideLayout.addView(guideContainer)
-    }
+        guideLayout.addView(guideContainer, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
 
-    private fun setupLeftRail() {
-        leftRail = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(dpi(72f), LinearLayout.LayoutParams.MATCH_PARENT)
-            setBackgroundColor(Pal.rail)
-            setPadding(0, dpi(20f), 0, dpi(20f))
-        }
+        // 2. Sliding Categories Drawer Overlay (slides in over the guide on Left)
+        setupCategoriesDrawer()
+        guideLayout.addView(categoriesDrawer)
 
-        // Brand logo badge top
-        val brandLogo = ImageView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(dpi(36f), dpi(36f)).also {
-                it.bottomMargin = dpi(30f)
-            }
-            setImageResource(R.drawable.ic_tv)
-            setColorFilter(Pal.accent)
-        }
-        leftRail.addView(brandLogo)
-
-        fun makeRailButton(id: String, iconRes: Int): ImageView {
-            return ImageView(this).apply {
-                layoutParams = LinearLayout.LayoutParams(dpi(48f), dpi(48f)).also {
-                    it.bottomMargin = dpi(16f)
-                }
-                setImageResource(iconRes)
-                setColorFilter(if (id == currentTab) Pal.focusText else Pal.textDim)
-                isFocusable = true
-                isClickable = true
-                setPadding(dpi(12f), dpi(12f), dpi(12f), dpi(12f))
-                background = if (id == currentTab) GradientDrawable().apply {
-                    setColor(Pal.focusFill)
-                    cornerRadius = dp(24f)
-                } else null
-
-                setOnFocusChangeListener { _, f ->
-                    background = when {
-                        f -> GradientDrawable().apply { setColor(Pal.focusFill); cornerRadius = dp(24f) }
-                        id == currentTab -> GradientDrawable().apply { setColor(Pal.cardHi); cornerRadius = dp(24f) }
-                        else -> null
-                    }
-                    setColorFilter(when {
-                        f -> Pal.focusText
-                        id == currentTab -> Pal.accent
-                        else -> Pal.textDim
-                    })
-                }
-
-                setOnClickListener {
-                    onRailTabSelected(id)
-                }
-
-                setOnKeyListener { _, code, event ->
-                    if (event.action == KeyEvent.ACTION_DOWN) {
-                        when (code) {
-                            KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                                val curIdx = Repo.groups().indexOfFirst { it.id == prefs.lastGroup }.coerceAtLeast(0)
-                                groupsList.focusRow(curIdx)
-                                true
-                            }
-                            KeyEvent.KEYCODE_BACK -> {
-                                guideView.requestFocus()
-                                true
-                            }
-                            else -> false
-                        }
-                    } else false
-                }
-            }
-        }
-
-        leftRail.addView(makeRailButton("Search", R.drawable.ic_search))
-        leftRail.addView(makeRailButton("TV", R.drawable.ic_tv))
-        leftRail.addView(makeRailButton("Recordings", R.drawable.ic_dvr))
-        leftRail.addView(makeRailButton("My list", R.drawable.ic_bookmark))
-
-        // Spacer to push Settings to bottom
-        val spacer = View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(1, 0, 1f)
-        }
-        leftRail.addView(spacer)
-
-        leftRail.addView(makeRailButton("Settings", R.drawable.ic_settings))
-    }
-
-    private fun setupGroupsPanel() {
-        groupsContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(dpi(260f), LinearLayout.LayoutParams.MATCH_PARENT)
-            setBackgroundColor(Pal.panel)
-            setPadding(dpi(16f), dpi(24f), dpi(16f), dpi(16f))
-        }
-
-        val title = TextView(this).apply {
-            text = "Categories"
-            textSize = 20f * Fonts.scale
-            typeface = Fonts.medium
-            setTextColor(Pal.text)
-            setPadding(dpi(8f), 0, 0, dpi(12f))
-        }
-        groupsContainer.addView(title)
-
-        groupsList = ListPanel(this).apply {
-            rowHeightDp = 44f
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
-            onEdge = { code ->
-                when (code) {
-                    KeyEvent.KEYCODE_DPAD_LEFT -> {
-                        leftRail.getChildAt(1)?.requestFocus() // focus TV tab
-                        true
-                    }
-                    KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                        guideView.requestFocus()
-                        true
-                    }
-                    KeyEvent.KEYCODE_BACK -> {
-                        guideView.requestFocus()
-                        true
-                    }
-                    else -> false
-                }
-            }
-        }
-        groupsContainer.addView(groupsList)
+        // 3. Sliding Main Menu Drawer Overlay (slides in over the categories drawer on Left)
+        setupMainMenuDrawer()
+        guideLayout.addView(mainMenuDrawer)
     }
 
     private fun setupGuideContent() {
         guideContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
             setBackgroundColor(Pal.bg)
         }
 
         // Top Area: Preview Video (Left) + Selected Program Info (Right)
         val topArea = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dpi(240f))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dpi(230f))
             setPadding(dpi(24f), dpi(16f), dpi(24f), dpi(8f))
         }
 
@@ -295,7 +172,7 @@ class MainActivity : Activity() {
         infoContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).also {
-                it.leftMargin = dpi(24f)
+                it.leftMargin = dpi(28f)
             }
             gravity = Gravity.CENTER_VERTICAL
         }
@@ -347,7 +224,7 @@ class MainActivity : Activity() {
         topArea.addView(infoContainer)
         guideContainer.addView(topArea)
 
-        // Bottom Area: Guide View
+        // Bottom Area: Guide View (Full-width grid)
         guideView = GuideView(this, prefs).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
             onPlay = { item ->
@@ -371,15 +248,199 @@ class MainActivity : Activity() {
                     enterFullscreen()
                 })
             }
-            onEdgeLeft = {
-                val curIdx = Repo.groups().indexOfFirst { it.id == prefs.lastGroup }.coerceAtLeast(0)
-                groupsList.focusRow(curIdx)
+            onOpenCategories = {
+                openCategoriesDrawer()
+            }
+            onBackToFullscreen = {
+                if (playerEngine.currentItem != null) {
+                    enterFullscreen()
+                } else {
+                    confirmAppExit()
+                }
             }
             onSelection = { item, prog ->
                 updateInfoCard(item, prog)
             }
         }
         guideContainer.addView(guideView)
+    }
+
+    private fun setupCategoriesDrawer() {
+        categoriesDrawer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = FrameLayout.LayoutParams(dpi(360f), FrameLayout.LayoutParams.MATCH_PARENT, Gravity.START)
+            setBackgroundColor(Pal.panel)
+            setPadding(dpi(20f), dpi(24f), dpi(16f), dpi(16f))
+            elevation = dp(16f)
+            visibility = View.GONE
+            translationX = -dpi(360f).toFloat()
+        }
+
+        val title = TextView(this).apply {
+            text = "Categories"
+            textSize = 22f * Fonts.scale
+            typeface = Fonts.medium
+            setTextColor(Pal.text)
+            setPadding(dpi(8f), 0, 0, dpi(16f))
+        }
+        categoriesDrawer.addView(title)
+
+        groupsList = ListPanel(this).apply {
+            rowHeightDp = 44f
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+            onFocusRow = { index, _ ->
+                val groups = Repo.groups()
+                val group = groups.getOrNull(index)
+                if (group != null && prefs.lastGroup != group.id) {
+                    prefs.lastGroup = group.id
+                    updateGuideRows()
+                }
+            }
+            onEdge = { code ->
+                when (code) {
+                    KeyEvent.KEYCODE_DPAD_LEFT -> {
+                        openMainMenuDrawer()
+                        true
+                    }
+                    KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_BACK -> {
+                        closeCategoriesDrawer(focusGuide = true)
+                        true
+                    }
+                    else -> false
+                }
+            }
+        }
+        categoriesDrawer.addView(groupsList)
+    }
+
+    private fun setupMainMenuDrawer() {
+        mainMenuDrawer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = FrameLayout.LayoutParams(dpi(300f), FrameLayout.LayoutParams.MATCH_PARENT, Gravity.START)
+            setBackgroundColor(Pal.rail)
+            setPadding(dpi(20f), dpi(24f), dpi(20f), dpi(24f))
+            elevation = dp(24f)
+            visibility = View.GONE
+            translationX = -dpi(300f).toFloat()
+        }
+
+        // Brand logo badge top
+        val brandRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dpi(8f), 0, 0, dpi(28f))
+        }
+        val brandLogo = ImageView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dpi(32f), dpi(32f))
+            setImageResource(R.drawable.ic_tv)
+            setColorFilter(Pal.accent)
+        }
+        val brandText = TextView(this).apply {
+            text = "Live TV"
+            textSize = 20f * Fonts.scale
+            typeface = Fonts.medium
+            setTextColor(Pal.text)
+            setPadding(dpi(12f), 0, 0, 0)
+        }
+        brandRow.addView(brandLogo)
+        brandRow.addView(brandText)
+        mainMenuDrawer.addView(brandRow)
+
+        fun makeMenuItem(title: String, iconRes: Int, onAction: () -> Unit): LinearLayout {
+            return LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dpi(48f)).also {
+                    it.bottomMargin = dpi(8f)
+                }
+                setPadding(dpi(14f), 0, dpi(14f), 0)
+                isFocusable = true
+                isClickable = true
+                background = GradientDrawable().apply {
+                    setColor(Color.TRANSPARENT)
+                    cornerRadius = dp(8f)
+                }
+
+                val icon = ImageView(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(dpi(24f), dpi(24f))
+                    setImageResource(iconRes)
+                    setColorFilter(Pal.textDim)
+                }
+                val text = TextView(context).apply {
+                    this.text = title
+                    textSize = 16f * Fonts.scale
+                    typeface = Fonts.medium
+                    setTextColor(Pal.textDim)
+                    setPadding(dpi(14f), 0, 0, 0)
+                }
+                addView(icon)
+                addView(text)
+
+                setOnFocusChangeListener { _, hasFocus ->
+                    if (hasFocus) {
+                        background = GradientDrawable().apply {
+                            setColor(Pal.focusFill)
+                            cornerRadius = dp(8f)
+                        }
+                        icon.setColorFilter(Pal.focusText)
+                        text.setTextColor(Pal.focusText)
+                    } else {
+                        background = GradientDrawable().apply {
+                            setColor(Color.TRANSPARENT)
+                            cornerRadius = dp(8f)
+                        }
+                        icon.setColorFilter(Pal.textDim)
+                        text.setTextColor(Pal.textDim)
+                    }
+                }
+
+                setOnClickListener {
+                    onAction()
+                }
+
+                setOnKeyListener { _, keyCode, event ->
+                    if (event.action == KeyEvent.ACTION_DOWN) {
+                        when (keyCode) {
+                            KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_BACK -> {
+                                closeMainMenuDrawer(focusCategories = true)
+                                true
+                            }
+                            else -> false
+                        }
+                    } else false
+                }
+            }
+        }
+
+        mainMenuDrawer.addView(makeMenuItem("Search", R.drawable.ic_search) {
+            closeMainMenuDrawer(false)
+            closeCategoriesDrawer(false)
+            showSearch()
+        })
+        mainMenuDrawer.addView(makeMenuItem("TV Guide", R.drawable.ic_tv) {
+            closeMainMenuDrawer(false)
+            closeCategoriesDrawer(true)
+        })
+        mainMenuDrawer.addView(makeMenuItem("Recordings", R.drawable.ic_dvr) {
+            closeMainMenuDrawer(false)
+            Dialogs.message(this, "Recordings", "No recordings stored. You can schedule recordings from any upcoming program.")
+        })
+        mainMenuDrawer.addView(makeMenuItem("My list", R.drawable.ic_bookmark) {
+            closeMainMenuDrawer(false)
+            Dialogs.message(this, "My List", "Add channels to Favorites or schedule reminders to build your list.")
+        })
+
+        // Spacer to push Settings to bottom
+        val spacer = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(1, 0, 1f)
+        }
+        mainMenuDrawer.addView(spacer)
+
+        mainMenuDrawer.addView(makeMenuItem("Settings", R.drawable.ic_settings) {
+            closeMainMenuDrawer(false)
+            closeCategoriesDrawer(false)
+            showSettings()
+        })
     }
 
     private fun setupFullscreenLayout() {
@@ -411,29 +472,85 @@ class MainActivity : Activity() {
         fullscreenContainer.addView(playerOverlay, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
     }
 
-    private fun onRailTabSelected(tab: String) {
-        currentTab = tab
-        when (tab) {
-            "TV" -> {
-                removeOverlays()
-                guideLayout.visibility = View.VISIBLE
+    fun openCategoriesDrawer() {
+        if (isCategoriesDrawerOpen) return
+        isCategoriesDrawerOpen = true
+        categoriesDrawer.visibility = View.VISIBLE
+        categoriesDrawer.animate()
+            .translationX(0f)
+            .setDuration(220)
+            .withEndAction {
+                val curIdx = Repo.groups().indexOfFirst { it.id == prefs.lastGroup }.coerceAtLeast(0)
+                groupsList.focusRow(curIdx)
+            }
+            .start()
+    }
+
+    fun closeCategoriesDrawer(focusGuide: Boolean = true) {
+        if (!isCategoriesDrawerOpen) {
+            if (focusGuide) {
+                guideView.focusCol = GuideView.GuideFocus.CHANNEL
                 guideView.requestFocus()
             }
-            "Settings" -> {
-                showSettings()
-            }
-            "Search" -> {
-                showSearch()
-            }
-            "Recordings" -> {
-                removeOverlays()
-                Dialogs.message(this, "Recordings", "No recordings stored. You can schedule recordings from any upcoming program.")
-            }
-            "My list" -> {
-                removeOverlays()
-                Dialogs.message(this, "My List", "Add channels to Favorites or schedule reminders to build your list.")
-            }
+            return
         }
+        isCategoriesDrawerOpen = false
+        categoriesDrawer.animate()
+            .translationX(-dpi(360f).toFloat())
+            .setDuration(200)
+            .withEndAction {
+                categoriesDrawer.visibility = View.GONE
+                if (focusGuide) {
+                    guideView.focusCol = GuideView.GuideFocus.CHANNEL
+                    guideView.requestFocus()
+                }
+            }
+            .start()
+    }
+
+    fun openMainMenuDrawer() {
+        if (isMainMenuDrawerOpen) return
+        isMainMenuDrawerOpen = true
+        mainMenuDrawer.visibility = View.VISIBLE
+        categoriesDrawer.animate()
+            .translationX(dpi(300f).toFloat())
+            .setDuration(220)
+            .start()
+        mainMenuDrawer.animate()
+            .translationX(0f)
+            .setDuration(220)
+            .withEndAction {
+                mainMenuDrawer.getChildAt(2)?.requestFocus() ?: mainMenuDrawer.getChildAt(1)?.requestFocus()
+            }
+            .start()
+    }
+
+    fun closeMainMenuDrawer(focusCategories: Boolean = true) {
+        if (!isMainMenuDrawerOpen) {
+            if (focusCategories && isCategoriesDrawerOpen) {
+                val curIdx = Repo.groups().indexOfFirst { it.id == prefs.lastGroup }.coerceAtLeast(0)
+                groupsList.focusRow(curIdx)
+            }
+            return
+        }
+        isMainMenuDrawerOpen = false
+        mainMenuDrawer.animate()
+            .translationX(-dpi(300f).toFloat())
+            .setDuration(200)
+            .withEndAction {
+                mainMenuDrawer.visibility = View.GONE
+            }
+            .start()
+        categoriesDrawer.animate()
+            .translationX(0f)
+            .setDuration(200)
+            .withEndAction {
+                if (focusCategories) {
+                    val curIdx = Repo.groups().indexOfFirst { it.id == prefs.lastGroup }.coerceAtLeast(0)
+                    groupsList.focusRow(curIdx)
+                }
+            }
+            .start()
     }
 
     private fun showSettings() {
@@ -493,6 +610,8 @@ class MainActivity : Activity() {
     }
 
     private fun removeOverlays() {
+        closeMainMenuDrawer(false)
+        closeCategoriesDrawer(false)
         closeSettings()
         closeSearch()
     }
@@ -510,7 +629,7 @@ class MainActivity : Activity() {
                     prefs.lastGroup = g.id
                     updateGroups()
                     updateGuideRows()
-                    guideView.requestFocus()
+                    closeCategoriesDrawer(focusGuide = true)
                 }
             )
         }
@@ -578,6 +697,10 @@ class MainActivity : Activity() {
         fullscreenContainer.visibility = View.GONE
         guideLayout.visibility = View.VISIBLE
         playerEngine.attachTextureView(previewTexture)
+        playerEngine.currentItem?.let { playing ->
+            guideView.select(playing.key)
+        }
+        guideView.focusCol = GuideView.GuideFocus.CHANNEL
         guideView.requestFocus()
     }
 
@@ -638,38 +761,34 @@ class MainActivity : Activity() {
             }
         }
 
-        // Guide Layout navigation hierarchy on BACK
+        // Guide Layout navigation hierarchy on BACK (TiviMate 1:1 order: Main Menu -> Categories -> TV Guide -> Fullscreen TV)
         if (code == KeyEvent.KEYCODE_BACK && !isFullscreen) {
-            // 1. If in Left Nav Rail -> go to Categories
-            if (leftRail.hasFocus()) {
-                val curIdx = Repo.groups().indexOfFirst { it.id == prefs.lastGroup }.coerceAtLeast(0)
-                groupsList.focusRow(curIdx)
+            if (isMainMenuDrawerOpen) {
+                closeMainMenuDrawer(focusCategories = true)
                 return true
             }
-
-            // 2. If in Categories list -> go to Guide View
-            if (groupsList.hasFocus()) {
-                guideView.requestFocus()
+            if (isCategoriesDrawerOpen) {
+                closeCategoriesDrawer(focusGuide = true)
                 return true
             }
-
-            // 3. If in Guide View -> return to FULLSCREEN video if currently playing
-            if (playerEngine.isPlaying || playerEngine.currentItem != null) {
+            if (playerEngine.currentItem != null) {
                 enterFullscreen()
                 return true
             }
-
-            // 4. Otherwise confirm exit
-            val now = System.currentTimeMillis()
-            if (now - lastBackPress < 2500L) {
-                finish()
-            } else {
-                lastBackPress = now
-                Toast.makeText(this, "Press Back again to exit", Toast.LENGTH_SHORT).show()
-            }
+            confirmAppExit()
             return true
         }
 
         return super.onKeyDown(code, event)
+    }
+
+    private fun confirmAppExit() {
+        val now = System.currentTimeMillis()
+        if (now - lastBackPress < 2500L) {
+            finish()
+        } else {
+            lastBackPress = now
+            Toast.makeText(this, "Press Back again to exit", Toast.LENGTH_SHORT).show()
+        }
     }
 }
