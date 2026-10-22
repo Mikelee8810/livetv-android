@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<tv-input android:setupActivity="com.livetv.app.tvinput.LiveTvSetupActivity" android:canRecord="false"
+  xmlns:android="http://schemas.android.com/apk/res/android" />
