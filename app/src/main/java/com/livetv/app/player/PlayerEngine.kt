@@ -21,6 +21,7 @@ import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.hls.HlsMediaSource
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.datasource.DefaultHttpDataSource
 import com.livetv.app.OnDeviceStreamServer
 import com.livetv.app.data.Item
@@ -77,7 +78,16 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             setEnableDecoderFallback(true)
         }
 
+        val trackSelector = DefaultTrackSelector(context).apply {
+            setParameters(
+                buildUponParameters()
+                    .setPreferredAudioLanguages("en", "eng")
+                    .setPreferredAudioLanguage(prefs.preferAudioLang.ifBlank { "eng" })
+            )
+        }
+
         val player = ExoPlayer.Builder(context, renderersFactory)
+            .setTrackSelector(trackSelector)
             .setLoadControl(loadControl)
             .setAudioAttributes(
                 AudioAttributes.Builder()

@@ -51,11 +51,12 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
     public NanoHTTPD.Response serve(NanoHTTPD.IHTTPSession session) {
         Resolved resolved;
         try {
-            if (session.getUri().equals("/health")) {
+            String uri = session.getUri();
+            if (uri.equals("/health")) {
                 return newFixedLengthResponse("ok");
             }
             Map<String, String> q = session.getParms();
-            if (session.getUri().equals("/live/manifest.m3u8")) {
+            if (uri.endsWith("manifest.m3u8") || uri.contains("/manifest")) {
                 String id = q.get("id");
                 int player = parseInt(q.get("player"), 0);
                 String upstream = q.get("url");
@@ -70,12 +71,12 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                 }
                 return proxyManifest(id, player, upstream, resolved);
             }
-            if (!session.getUri().equals("/live/resource")) {
-                return newFixedLengthResponse(NanoHTTPD.Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "Not found");
+            if (uri.endsWith("/resource") || uri.contains("resource")) {
+                return proxyResource(q.get("url"), q.get("referer"));
             }
-            return proxyResource(q.get("url"), q.get("referer"));
+            return newFixedLengthResponse(NanoHTTPD.Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "Not found: " + uri);
         } catch (Exception error) {
-            Log.e(TAG, "Proxy failure", error);
+            Log.e(TAG, "Proxy failure for " + session.getUri(), error);
             return newFixedLengthResponse(NanoHTTPD.Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT, error.getMessage());
         }
     }

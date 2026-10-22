@@ -186,9 +186,19 @@ class MainActivity : Activity() {
                 }
 
                 setOnKeyListener { _, code, event ->
-                    if (event.action == KeyEvent.ACTION_DOWN && code == KeyEvent.KEYCODE_DPAD_RIGHT) {
-                        groupsList.focusRow(0)
-                        true
+                    if (event.action == KeyEvent.ACTION_DOWN) {
+                        when (code) {
+                            KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                                val curIdx = Repo.groups().indexOfFirst { it.id == prefs.lastGroup }.coerceAtLeast(0)
+                                groupsList.focusRow(curIdx)
+                                true
+                            }
+                            KeyEvent.KEYCODE_BACK -> {
+                                guideView.requestFocus()
+                                true
+                            }
+                            else -> false
+                        }
                     } else false
                 }
             }
@@ -235,6 +245,10 @@ class MainActivity : Activity() {
                         true
                     }
                     KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                        guideView.requestFocus()
+                        true
+                    }
+                    KeyEvent.KEYCODE_BACK -> {
                         guideView.requestFocus()
                         true
                     }
@@ -358,7 +372,8 @@ class MainActivity : Activity() {
                 })
             }
             onEdgeLeft = {
-                groupsList.focusRow(0)
+                val curIdx = Repo.groups().indexOfFirst { it.id == prefs.lastGroup }.coerceAtLeast(0)
+                groupsList.focusRow(curIdx)
             }
             onSelection = { item, prog ->
                 updateInfoCard(item, prog)
@@ -623,18 +638,36 @@ class MainActivity : Activity() {
             }
         }
 
-        // Double press back to exit
-        if (code == KeyEvent.KEYCODE_BACK && !isFullscreen && settingsDrawer == null && searchPanel == null) {
-            if (prefs.confirmExit) {
-                val now = System.currentTimeMillis()
-                if (now - lastBackPress < 2500L) {
-                    finish()
-                } else {
-                    lastBackPress = now
-                    Toast.makeText(this, "Press Back again to exit", Toast.LENGTH_SHORT).show()
-                }
+        // Guide Layout navigation hierarchy on BACK
+        if (code == KeyEvent.KEYCODE_BACK && !isFullscreen) {
+            // 1. If in Left Nav Rail -> go to Categories
+            if (leftRail.hasFocus()) {
+                val curIdx = Repo.groups().indexOfFirst { it.id == prefs.lastGroup }.coerceAtLeast(0)
+                groupsList.focusRow(curIdx)
                 return true
             }
+
+            // 2. If in Categories list -> go to Guide View
+            if (groupsList.hasFocus()) {
+                guideView.requestFocus()
+                return true
+            }
+
+            // 3. If in Guide View -> return to FULLSCREEN video if currently playing
+            if (playerEngine.isPlaying || playerEngine.currentItem != null) {
+                enterFullscreen()
+                return true
+            }
+
+            // 4. Otherwise confirm exit
+            val now = System.currentTimeMillis()
+            if (now - lastBackPress < 2500L) {
+                finish()
+            } else {
+                lastBackPress = now
+                Toast.makeText(this, "Press Back again to exit", Toast.LENGTH_SHORT).show()
+            }
+            return true
         }
 
         return super.onKeyDown(code, event)

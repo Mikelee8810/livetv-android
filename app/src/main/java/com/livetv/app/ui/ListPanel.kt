@@ -68,7 +68,7 @@ class ListPanel(ctx: Context) : RecyclerView(ctx) {
         override fun onCreateViewHolder(p: ViewGroup, t: Int) = VH(RowView(context).also { it.layoutParams = LayoutParams(-1, -2) })
         override fun onBindViewHolder(h: VH, i: Int) { h.v.bind(rows[i], textScale, rowHeightDp) { onFocusRow(i, rows[i]) }
             h.v.setOnKeyListener { _, code, e ->
-                e.action == KeyEvent.ACTION_DOWN && (code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT) && onEdge(code) } }
+                e.action == KeyEvent.ACTION_DOWN && (code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT || code == KeyEvent.KEYCODE_BACK) && onEdge(code) } }
     }
 }
 
