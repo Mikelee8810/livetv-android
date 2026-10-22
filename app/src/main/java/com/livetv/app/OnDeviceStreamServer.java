@@ -4,16 +4,22 @@ import android.util.Log;
 import com.bumptech.glide.load.Key;
 import com.google.common.net.HttpHeaders;
 import fi.iki.elonen.NanoHTTPD;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.Inflater;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -33,6 +39,21 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
     private static final Pattern JOINED_VAR = Pattern.compile("(?:var|let|const)\\s+(\\w+)\\s*=\\s*((?:\\w+\\(\\w+\\)\\s*\\+?\\s*)+)");
     private static final Pattern SOURCE_VAR = Pattern.compile("source\\s*:\\s*\\{?\\s*src\\s*:\\s*(\\w+)", 2);
     private static final Pattern CALL_ARG = Pattern.compile("\\w+\\((\\w+)\\)");
+    private static final Pattern EDGE_PAT = Pattern.compile("EDGE\\s*=\\s*[\"']([^\"']+)[\"']");
+    private static final Pattern CHAN_PAT = Pattern.compile("CHANNEL\\s*=\\s*[\"']([^\"']+)[\"']");
+    private static final Pattern SRC_PAT = Pattern.compile("SRC\\s*=\\s*[\"']([^\"']+)[\"']");
+    private static final Pattern TOKEN_PAT = Pattern.compile("\"token\"\\s*:\\s*\"([^\"]+)\"");
+
+    private static final byte[] TRAW = "TIKTIKRAW".getBytes(StandardCharsets.US_ASCII);
+    private static final byte[] TPIX = "TIKTIKPX".getBytes(StandardCharsets.US_ASCII);
+
+    private static final Map<String, CachedResolved> RESOLVE_CACHE = new ConcurrentHashMap<>();
+
+    private static final class CachedResolved {
+        final Resolved resolved;
+        final long expiresAt;
+        CachedResolved(Resolved r, long exp) { this.resolved = r; this.expiresAt = exp; }
+    }
 
     public OnDeviceStreamServer() {
         super("127.0.0.1", 48913);
@@ -86,8 +107,20 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
         if (sources.length == 0) {
             throw new Exception("No external feeds");
         }
-        int selected = (preferred < 0 || preferred >= sources.length) ? 0 : preferred;
-        String pageUrl = sources[selected];
+        Exception lastError = null;
+        for (int i = 0; i < sources.length; i++) {
+            int selected = (preferred + i) % sources.length;
+            try {
+                return resolveSingleExternal(sources[selected], selected);
+            } catch (Exception e) {
+                lastError = e;
+                Log.w(TAG, "External route " + selected + " failed: " + e.getMessage());
+            }
+        }
+        throw (lastError != null ? lastError : new Exception("All external routes failed"));
+    }
+
+    private Resolved resolveSingleExternal(String pageUrl, int selected) throws Exception {
         if (pageUrl.startsWith("legacy:")) {
             String[] legacy = pageUrl.split(":");
             if (legacy.length == 3) {
@@ -212,17 +245,33 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
     }
 
     private Resolved resolve(String id, int preferred) throws Exception {
-        String watch;
         if (id == null || !id.matches("\\d+")) {
             throw new IllegalArgumentException("Invalid channel");
         }
-        int player = (preferred < 0 || preferred >= ROUTES.length) ? 0 : preferred;
-        String embed = playerPageUrl(id, player);
-        if (player == 0) {
-            watch = "https://ntvs.cx/channel/phoenix/" + id;
-        } else {
-            watch = "https://dlstreams.st/watch.php?id=" + id;
+        String cacheKey = id + ":" + preferred;
+        CachedResolved cached = RESOLVE_CACHE.get(cacheKey);
+        if (cached != null && System.currentTimeMillis() < cached.expiresAt) {
+            return cached.resolved;
         }
+
+        Exception lastError = null;
+        for (int i = 0; i < ROUTES.length; i++) {
+            int player = (preferred + i) % ROUTES.length;
+            try {
+                Resolved res = resolveSingle(id, player);
+                RESOLVE_CACHE.put(cacheKey, new CachedResolved(res, System.currentTimeMillis() + 50000L));
+                return res;
+            } catch (Exception e) {
+                lastError = e;
+                Log.w(TAG, "Route " + ROUTES[player] + " failed for channel " + id + ": " + e.getMessage());
+            }
+        }
+        throw (lastError != null ? lastError : new Exception("All routes failed for " + id));
+    }
+
+    private Resolved resolveSingle(String id, int player) throws Exception {
+        String embed = playerPageUrl(id, player);
+        String watch = (player == 0) ? "https://ntvs.cx/channel/phoenix/" + id : "https://dlstreams.st/watch.php?id=" + id;
         String embedHtml = getText(embed, watch);
         Matcher frame = IFRAME.matcher(embedHtml);
         if (!frame.find()) {
@@ -230,6 +279,30 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
         }
         String playerUrl = new URL(new URL(embed), frame.group(1)).toString();
         String playerHtml = getText(playerUrl, embed);
+
+        Matcher edgeM = EDGE_PAT.matcher(playerHtml);
+        Matcher chanM = CHAN_PAT.matcher(playerHtml);
+        Matcher srcM = SRC_PAT.matcher(playerHtml);
+        if (edgeM.find() && chanM.find() && srcM.find()) {
+            String edge = edgeM.group(1);
+            String chan = chanM.group(1);
+            String src = srcM.group(1);
+            String tokenUrl = edge + "/api/playlist-token?slug=" + URLEncoder.encode(chan, StandardCharsets.UTF_8.name());
+            okhttp3.Request tokenReq = request(tokenUrl, playerUrl).build();
+            try (okhttp3.Response tokResp = this.client.newCall(tokenReq).execute()) {
+                if (tokResp.isSuccessful() && tokResp.body() != null) {
+                    String tokJson = tokResp.body().string();
+                    Matcher tokM = TOKEN_PAT.matcher(tokJson);
+                    if (tokM.find()) {
+                        String token = tokM.group(1);
+                        String manifestUrl = src + (src.contains("?") ? "&" : "?") + "t=" + token;
+                        Log.i(TAG, "resolved token channelId=" + id + " route=" + ROUTES[player]);
+                        return new Resolved(manifestUrl, playerUrl, origin(playerUrl));
+                    }
+                }
+            }
+        }
+
         Matcher source = SOURCE.matcher(playerHtml);
         if (!source.find()) {
             throw new Exception("stream token unavailable on " + ROUTES[player]);
@@ -240,7 +313,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             throw new Exception("invalid stream URL");
         }
         Log.i(TAG, "resolved channelId=" + id + " route=" + ROUTES[player]);
-        return new Resolved(url, playerUrl, URI.create(playerUrl).getScheme() + "://" + URI.create(playerUrl).getHost());
+        return new Resolved(url, playerUrl, origin(playerUrl));
     }
 
     private NanoHTTPD.Response proxyManifest(String id, int player, String upstream, Resolved resolved) throws Exception {
@@ -270,19 +343,236 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
     }
 
     private NanoHTTPD.Response proxyResource(String url, String referer) throws Exception {
-        okhttp3.Response upstream = this.client.newCall(request(url, referer).build()).execute();
-        ResponseBody body = upstream.body();
-        if (!upstream.isSuccessful() || body == null) {
-            int code = upstream.code();
-            upstream.close();
-            throw new Exception("Resource HTTP " + code);
+        okhttp3.Request request = request(url, referer).build();
+        try (okhttp3.Response upstream = this.client.newCall(request).execute()) {
+            ResponseBody body = upstream.body();
+            if (!upstream.isSuccessful() || body == null) {
+                int code = upstream.code();
+                throw new Exception("Resource HTTP " + code);
+            }
+            byte[] rawBytes = body.bytes();
+            byte[] unwrapped = unwrapPayload(rawBytes);
+            return newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "video/mp2t", new ByteArrayInputStream(unwrapped), unwrapped.length);
         }
-        String type = body.contentType() == null ? "video/mp2t" : body.contentType().toString();
-        long length = body.contentLength();
-        if (length >= 0) {
-            return newFixedLengthResponse(NanoHTTPD.Response.Status.OK, type, body.byteStream(), length);
+    }
+
+    private static byte[] unwrapPayload(byte[] bytes) {
+        if (bytes == null || bytes.length < 16) {
+            return bytes;
         }
-        return newChunkedResponse(NanoHTTPD.Response.Status.OK, type, body.byteStream());
+        if (bytes[0] == 0x47 && (bytes.length <= 188 || bytes[188] == 0x47)) {
+            return bytes;
+        }
+
+        // 1. TIKTIKRAW check
+        for (int i = 0; i + TRAW.length < bytes.length; i++) {
+            boolean match = true;
+            for (int j = 0; j < TRAW.length; j++) {
+                if (bytes[i + j] != TRAW[j]) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match) {
+                int off = i + TRAW.length;
+                if (off < bytes.length && bytes[off] == 0x47) {
+                    byte[] out = new byte[bytes.length - off];
+                    System.arraycopy(bytes, off, out, 0, out.length);
+                    return out;
+                }
+            }
+        }
+
+        // 2. WebP EXIF check
+        if (bytes.length >= 16 && bytes[0] == 'R' && bytes[1] == 'I' && bytes[2] == 'F' && bytes[3] == 'F' &&
+                bytes[8] == 'W' && bytes[9] == 'E' && bytes[10] == 'B' && bytes[11] == 'P') {
+            int off = 12;
+            while (off + 8 <= bytes.length) {
+                String tag = new String(bytes, off, 4, StandardCharsets.US_ASCII);
+                int len = ((bytes[off + 4] & 0xFF)) | ((bytes[off + 5] & 0xFF) << 8) |
+                        ((bytes[off + 6] & 0xFF) << 16) | ((bytes[off + 7] & 0xFF) << 24);
+                off += 8;
+                if (len < 0 || off + len > bytes.length) break;
+                if ("EXIF".equals(tag)) {
+                    if (len >= 188 && bytes[off] == 0x47 && bytes[off + 188] == 0x47) {
+                        byte[] out = new byte[len];
+                        System.arraycopy(bytes, off, out, 0, len);
+                        return out;
+                    }
+                    break;
+                }
+                off += len + (len & 1);
+            }
+        }
+
+        // 3. PNG check (IDAT / IEND / TIKTIKPX)
+        if ((bytes[0] & 0xFF) == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) {
+            try {
+                int off = 8;
+                int w = 0, h = 0, depth = 0, ctype = 0, interlace = 0;
+                List<byte[]> idats = new ArrayList<>();
+                int totalIdatLen = 0;
+
+                while (off + 8 <= bytes.length) {
+                    int chunkLen = ((bytes[off] & 0xFF) << 24) | ((bytes[off + 1] & 0xFF) << 16) |
+                            ((bytes[off + 2] & 0xFF) << 8) | (bytes[off + 3] & 0xFF);
+                    if (chunkLen < 0 || chunkLen > bytes.length - off - 12) break;
+                    String type = new String(bytes, off + 4, 4, StandardCharsets.US_ASCII);
+                    int dataOff = off + 8;
+                    if ("IHDR".equals(type) && chunkLen >= 13) {
+                        w = ((bytes[dataOff] & 0xFF) << 24) | ((bytes[dataOff + 1] & 0xFF) << 16) |
+                                ((bytes[dataOff + 2] & 0xFF) << 8) | (bytes[dataOff + 3] & 0xFF);
+                        h = ((bytes[dataOff + 4] & 0xFF) << 24) | ((bytes[dataOff + 5] & 0xFF) << 16) |
+                                ((bytes[dataOff + 6] & 0xFF) << 8) | (bytes[dataOff + 7] & 0xFF);
+                        depth = bytes[dataOff + 8] & 0xFF;
+                        ctype = bytes[dataOff + 9] & 0xFF;
+                        interlace = bytes[dataOff + 12] & 0xFF;
+                    } else if ("IDAT".equals(type)) {
+                        byte[] idat = new byte[chunkLen];
+                        System.arraycopy(bytes, dataOff, idat, 0, chunkLen);
+                        idats.add(idat);
+                        totalIdatLen += chunkLen;
+                    } else if ("IEND".equals(type)) {
+                        int remOff = off + 12;
+                        if (remOff < bytes.length && bytes[remOff] == 0x47 &&
+                                (remOff + 188 >= bytes.length || bytes[remOff + 188] == 0x47)) {
+                            byte[] out = new byte[bytes.length - remOff];
+                            System.arraycopy(bytes, remOff, out, 0, out.length);
+                            return out;
+                        }
+                        break;
+                    }
+                    off += 12 + chunkLen;
+                }
+
+                if (w > 0 && h > 0 && depth == 8 && interlace == 0 && (ctype == 2 || ctype == 6) && totalIdatLen > 0) {
+                    byte[] zbuf = new byte[totalIdatLen];
+                    int zoff = 0;
+                    for (byte[] p : idats) {
+                        System.arraycopy(p, 0, zbuf, zoff, p.length);
+                        zoff += p.length;
+                    }
+                    byte[] raw = inflateZlib(zbuf);
+                    int bpp = ctype == 6 ? 4 : 3;
+                    int stride = w * bpp;
+                    byte[] rgb = new byte[w * h * 3];
+                    int src = 0, dst = 0;
+                    byte[] prev = new byte[stride];
+
+                    for (int y = 0; y < h; y++) {
+                        if (src + 1 + stride > raw.length) break;
+                        int filter = raw[src++] & 0xFF;
+                        byte[] row = new byte[stride];
+                        System.arraycopy(raw, src, row, 0, stride);
+                        src += stride;
+
+                        if (filter == 0) {
+                            if (ctype == 2) {
+                                System.arraycopy(row, 0, rgb, dst, stride);
+                                dst += stride;
+                            } else {
+                                for (int i = 0; i < stride; i += 4) {
+                                    rgb[dst++] = row[i];
+                                    rgb[dst++] = row[i + 1];
+                                    rgb[dst++] = row[i + 2];
+                                }
+                            }
+                            prev = row;
+                            continue;
+                        }
+
+                        byte[] recon = new byte[stride];
+                        for (int i = 0; i < stride; i++) {
+                            int a = i >= bpp ? (recon[i - bpp] & 0xFF) : 0;
+                            int b = prev[i] & 0xFF;
+                            int c = i >= bpp ? (prev[i - bpp] & 0xFF) : 0;
+                            int v = row[i] & 0xFF;
+                            if (filter == 1) v += a;
+                            else if (filter == 2) v += b;
+                            else if (filter == 3) v += (a + b) >> 1;
+                            else if (filter == 4) v += paeth(a, b, c);
+                            recon[i] = (byte) (v & 0xFF);
+                        }
+
+                        if (ctype == 2) {
+                            System.arraycopy(recon, 0, rgb, dst, stride);
+                            dst += stride;
+                        } else {
+                            for (int i = 0; i < stride; i += 4) {
+                                rgb[dst++] = recon[i];
+                                rgb[dst++] = recon[i + 1];
+                                rgb[dst++] = recon[i + 2];
+                            }
+                        }
+                        prev = recon;
+                    }
+
+                    if (rgb.length >= 12) {
+                        boolean tpixMatch = true;
+                        for (int k = 0; k < 8; k++) {
+                            if (rgb[k] != TPIX[k]) {
+                                tpixMatch = false;
+                                break;
+                            }
+                        }
+                        if (tpixMatch) {
+                            int n = ((rgb[8] & 0xFF) << 24) | ((rgb[9] & 0xFF) << 16) |
+                                    ((rgb[10] & 0xFF) << 8) | (rgb[11] & 0xFF);
+                            if (n > 0 && 12 + n <= rgb.length) {
+                                byte[] gz = new byte[n];
+                                System.arraycopy(rgb, 12, gz, 0, n);
+                                byte[] ts = gunzip(gz);
+                                if (ts != null && ts.length > 0 && ts[0] == 0x47) {
+                                    return ts;
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Unwrap payload error: " + e.getMessage());
+            }
+        }
+
+        return bytes;
+    }
+
+    private static int paeth(int a, int b, int c) {
+        int p = a + b - c;
+        int pa = Math.abs(p - a);
+        int pb = Math.abs(p - b);
+        int pc = Math.abs(p - c);
+        if (pa <= pb && pa <= pc) return a;
+        if (pb <= pc) return b;
+        return c;
+    }
+
+    private static byte[] inflateZlib(byte[] data) throws Exception {
+        Inflater inflater = new Inflater();
+        inflater.setInput(data);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        byte[] buffer = new byte[32768];
+        while (!inflater.finished()) {
+            int count = inflater.inflate(buffer);
+            if (count <= 0 && inflater.needsInput()) break;
+            baos.write(buffer, 0, count);
+        }
+        inflater.end();
+        return baos.toByteArray();
+    }
+
+    private static byte[] gunzip(byte[] data) {
+        try (GZIPInputStream gis = new GZIPInputStream(new ByteArrayInputStream(data));
+             ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            byte[] buf = new byte[32768];
+            int n;
+            while ((n = gis.read(buf)) > 0) {
+                baos.write(buf, 0, n);
+            }
+            return baos.toByteArray();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private Request.Builder request(String url, String referer) {

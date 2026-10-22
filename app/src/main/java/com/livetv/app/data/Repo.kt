@@ -114,7 +114,21 @@ object Repo {
         val counts = linkedMapOf<String, Int>()
         vis.forEach { it.groups.forEach { g -> counts[g] = (counts[g] ?: 0) + 1 } }
         val hidden = prefs.hiddenGroups
-        val order = prefs.groupOrder
+        val defaultGroupPriority = listOf(
+            "USA Entertainment",
+            "Movies & Cinema",
+            "Kids & Animation",
+            "Sports",
+            "News",
+            "Documentary & Nature",
+            "UK Channels",
+            "Canada Channels",
+            "Lifestyle",
+            "Music",
+            "General 24/7",
+            "International"
+        )
+        val order = if (prefs.groupOrder.isNotEmpty()) prefs.groupOrder else defaultGroupPriority
         val named = counts.keys.filter { it !in hidden }.sortedWith(compareBy({ order.indexOf(it).let { i -> if (i < 0) Int.MAX_VALUE else i } }, { it.lowercase() }))
         return buildList {
             add(GroupInfo(FAVS, FAVS, vis.count { it.key in prefs.favorites }, true))

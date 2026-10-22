@@ -37,8 +37,10 @@ public final class ChannelClassifier {
         Collections.sort(visible, new Comparator<Channel>() { // from class: com.livetv.app.catalog.ChannelClassifier.1
             @Override // java.util.Comparator
             public int compare(Channel first, Channel second) {
-                if (first.languageRank != second.languageRank) {
-                    return first.languageRank < second.languageRank ? -1 : 1;
+                int g1 = groupPriority(first.group);
+                int g2 = groupPriority(second.group);
+                if (g1 != g2) {
+                    return Integer.compare(g1, g2);
                 }
                 int groupComparison = String.CASE_INSENSITIVE_ORDER.compare(first.group, second.group);
                 if (groupComparison != 0) {
@@ -48,6 +50,25 @@ public final class ChannelClassifier {
             }
         });
         return new Result(visible, new CatalogReport(parsed.size(), adult, duplicates, visible.size(), countMissingLogos(visible), countMissingEpgIds(visible)));
+    }
+
+    private static int groupPriority(String group) {
+        if (group == null) return 50;
+        String g = group.toLowerCase(Locale.ROOT);
+        if (g.contains("usa entertainment")) return 1;
+        if (g.contains("movies") || g.contains("cinema")) return 2;
+        if (g.contains("kids") || g.contains("animation")) return 3;
+        if (g.contains("sports")) return 4;
+        if (g.contains("news")) return 5;
+        if (g.contains("documentary") || g.contains("nature")) return 6;
+        if (g.contains("uk")) return 7;
+        if (g.contains("canada")) return 8;
+        if (g.contains("lifestyle")) return 9;
+        if (g.contains("music")) return 10;
+        if (g.contains("24/7") || g.contains("general")) return 11;
+        if (g.contains("entertainment")) return 12;
+        if (g.contains("international")) return 99;
+        return 50;
     }
 
     private static boolean isAdult(Channel channel) {
