@@ -604,12 +604,13 @@ class PlayerOverlay(
         when (code) {
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                 when (prefs.playerOk) {
+                    "Channel list" -> showQuickList()
                     "Pause" -> {
                         if (playerEngine.isPlaying) playerEngine.pause() else playerEngine.resume()
                         showBottomBar()
                     }
-                    "Info banner" -> toggleBottomBar()
-                    else -> onExitFullscreen() // Default TiviMate action: opens TV Guide with preview
+                    "TV Guide" -> onExitFullscreen()
+                    else -> toggleBottomBar()
                 }
                 return true
             }

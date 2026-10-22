@@ -158,6 +158,12 @@ class MainActivity : Activity() {
                 cornerRadius = dp(8f)
             }
             clipToOutline = true
+            isClickable = true
+            setOnClickListener {
+                if (playerEngine.currentItem != null) {
+                    enterFullscreen()
+                }
+            }
         }
 
         previewTexture = TextureView(this).apply {
@@ -251,13 +257,6 @@ class MainActivity : Activity() {
             onOpenCategories = {
                 openCategoriesDrawer()
             }
-            onBackToFullscreen = {
-                if (playerEngine.currentItem != null) {
-                    enterFullscreen()
-                } else {
-                    confirmAppExit()
-                }
-            }
             onSelection = { item, prog ->
                 updateInfoCard(item, prog)
             }
@@ -298,11 +297,11 @@ class MainActivity : Activity() {
             }
             onEdge = { code ->
                 when (code) {
-                    KeyEvent.KEYCODE_DPAD_LEFT -> {
+                    KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_BACK -> {
                         openMainMenuDrawer()
                         true
                     }
-                    KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_BACK -> {
+                    KeyEvent.KEYCODE_DPAD_RIGHT -> {
                         closeCategoriesDrawer(focusGuide = true)
                         true
                     }
@@ -401,8 +400,12 @@ class MainActivity : Activity() {
                 setOnKeyListener { _, keyCode, event ->
                     if (event.action == KeyEvent.ACTION_DOWN) {
                         when (keyCode) {
-                            KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_BACK -> {
+                            KeyEvent.KEYCODE_DPAD_RIGHT -> {
                                 closeMainMenuDrawer(focusCategories = true)
+                                true
+                            }
+                            KeyEvent.KEYCODE_BACK -> {
+                                confirmAppExit()
                                 true
                             }
                             else -> false
@@ -761,21 +764,23 @@ class MainActivity : Activity() {
             }
         }
 
-        // Guide Layout navigation hierarchy on BACK (TiviMate 1:1 order: Main Menu -> Categories -> TV Guide -> Fullscreen TV)
+        // Guide Layout navigation hierarchy on BACK (TiviMate 1:1 order: Fullscreen -> Guide -> Categories -> Main Menu -> Exit)
         if (code == KeyEvent.KEYCODE_BACK && !isFullscreen) {
             if (isMainMenuDrawerOpen) {
-                closeMainMenuDrawer(focusCategories = true)
+                confirmAppExit()
                 return true
             }
             if (isCategoriesDrawerOpen) {
-                closeCategoriesDrawer(focusGuide = true)
+                openMainMenuDrawer()
                 return true
             }
-            if (playerEngine.currentItem != null) {
-                enterFullscreen()
+            // If in Guide:
+            val now = System.currentTimeMillis()
+            if (guideView.focusCol == GuideView.GuideFocus.PROGRAM && (guideView.selectedProgram()?.start?.toEpochMilli() ?: 0L) > now + 60_000L) {
+                guideView.resetToNow()
                 return true
             }
-            confirmAppExit()
+            openCategoriesDrawer()
             return true
         }
 

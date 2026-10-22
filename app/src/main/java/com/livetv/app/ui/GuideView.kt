@@ -33,7 +33,6 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
     var onProgram: (Item, Program) -> Unit = { _, _ -> }
     var onEdgeLeft: () -> Unit = {}
     var onOpenCategories: () -> Unit = {}
-    var onBackToFullscreen: () -> Unit = {}
     var onSelection: (Item?, Program?) -> Unit = { _, _ -> }
 
     var selRow = 0; private set
@@ -349,8 +348,17 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
                 onMenu(cur, selectedProgram())
                 return true
             }
+            KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
+                onFullscreen(cur)
+                return true
+            }
             KeyEvent.KEYCODE_BACK -> {
-                onBackToFullscreen()
+                val now = System.currentTimeMillis()
+                if (focusCol == GuideFocus.PROGRAM && selTime > now + 60_000L) {
+                    resetToNow()
+                    return true
+                }
+                onOpenCategories()
                 return true
             }
         }
