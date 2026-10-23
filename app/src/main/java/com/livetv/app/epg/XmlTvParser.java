@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.xml.parsers.SAXParserFactory;
 import org.xml.sax.Attributes;
 import org.xml.sax.helpers.DefaultHandler;
@@ -17,13 +18,17 @@ public final class XmlTvParser {
     private static final DateTimeFormatter XMLTV_TIME = DateTimeFormatter.ofPattern("yyyyMMddHHmmss Z");
 
     public List<Program> parse(InputStream xml, Instant windowStart, Instant windowEnd) throws Exception {
+        return parse(xml, windowStart, windowEnd, null);
+    }
+
+    public List<Program> parse(InputStream xml, Instant windowStart, Instant windowEnd, Set<String> targetChannels) throws Exception {
         if (xml == null || windowStart == null || windowEnd == null) {
             throw new IllegalArgumentException("xml and window bounds are required");
         }
         if (windowEnd.toEpochMilli() <= windowStart.toEpochMilli()) {
             throw new IllegalArgumentException("window end must be after start");
         }
-        ProgramHandler handler = new ProgramHandler(windowStart, windowEnd);
+        ProgramHandler handler = new ProgramHandler(windowStart, windowEnd, targetChannels);
         SAXParserFactory.newInstance().newSAXParser().parse(xml, handler);
         return handler.programs;
     }
@@ -53,18 +58,27 @@ public final class XmlTvParser {
         private String title;
         private final Instant windowEnd;
         private final Instant windowStart;
+        private final Set<String> targetChannels;
         private final List<Program> programs = new ArrayList();
         private final Map<String, String> channelDisplayNames = new HashMap();
 
-        ProgramHandler(Instant windowStart, Instant windowEnd) {
+        ProgramHandler(Instant windowStart, Instant windowEnd, Set<String> targetChannels) {
             this.windowStart = windowStart;
             this.windowEnd = windowEnd;
+            this.targetChannels = targetChannels;
         }
 
         @Override // org.xml.sax.helpers.DefaultHandler, org.xml.sax.ContentHandler
         public void startElement(String uri, String localName, String qualifiedName, Attributes attributes) {
             if ("programme".equals(qualifiedName)) {
-                this.channelId = attributes.getValue("channel");
+                String ch = attributes.getValue("channel");
+                if (this.targetChannels != null && !this.targetChannels.isEmpty()) {
+                    if (ch == null || (!this.targetChannels.contains(ch) && !this.targetChannels.contains(ch.toLowerCase(java.util.Locale.ROOT)))) {
+                        this.channelId = null;
+                        return;
+                    }
+                }
+                this.channelId = ch;
                 this.start = attributes.getValue("start");
                 this.stop = attributes.getValue("stop");
                 this.title = null;
@@ -100,7 +114,7 @@ public final class XmlTvParser {
 
         @Override // org.xml.sax.helpers.DefaultHandler, org.xml.sax.ContentHandler
         public void characters(char[] characters, int start, int length) {
-            if (this.text != null) {
+            if (this.text != null && (this.channelId != null || this.sourceChannelId != null)) {
                 this.text.append(characters, start, length);
             }
         }
@@ -108,8 +122,10 @@ public final class XmlTvParser {
         @Override // org.xml.sax.helpers.DefaultHandler, org.xml.sax.ContentHandler
         public void endElement(String uri, String localName, String qualifiedName) {
             if ("programme".equals(qualifiedName)) {
-                addProgram();
-                this.channelId = null;
+                if (this.channelId != null) {
+                    addProgram();
+                    this.channelId = null;
+                }
                 return;
             }
             if ("channel".equals(qualifiedName)) {

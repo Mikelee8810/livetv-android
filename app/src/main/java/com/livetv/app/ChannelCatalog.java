@@ -103,7 +103,7 @@ public final class ChannelCatalog {
                     }
                 } else {
                     reader.close();
-                    ChannelClassifier.Result classified = new ChannelClassifier().classify(expandYoutubeVariants(parsed));
+                    ChannelClassifier.Result classified = new ChannelClassifier().classify(parsed);
                     return new LoadResult(classified.channels, classified.report, epgSources);
                 }
             } catch (Throwable th) {

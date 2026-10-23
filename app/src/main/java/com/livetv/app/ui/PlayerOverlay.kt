@@ -587,6 +587,7 @@ class PlayerOverlay(
         if (isBottomBarVisible) {
             if (code == KeyEvent.KEYCODE_BACK) {
                 hideBottomBar()
+                onExitFullscreen()
                 return true
             }
             if (code == KeyEvent.KEYCODE_DPAD_DOWN) {

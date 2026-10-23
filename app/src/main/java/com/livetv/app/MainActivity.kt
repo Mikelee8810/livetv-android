@@ -3,6 +3,7 @@ package com.livetv.app
 import android.app.Activity
 import android.app.PictureInPictureParams
 import android.graphics.Color
+import android.graphics.Outline
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
@@ -14,6 +15,7 @@ import android.view.KeyEvent
 import android.view.SurfaceView
 import android.view.TextureView
 import android.view.View
+import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -51,7 +53,7 @@ class MainActivity : Activity() {
 
     // Preview / Info header in Guide
     private lateinit var previewContainer: FrameLayout
-    private lateinit var previewTexture: TextureView
+    private lateinit var mainVideoView: SurfaceView
     private lateinit var infoContainer: LinearLayout
     private lateinit var infoTitle: TextView
     private lateinit var infoSub: TextView
@@ -60,7 +62,6 @@ class MainActivity : Activity() {
 
     // Fullscreen elements
     private lateinit var fullscreenContainer: FrameLayout
-    private lateinit var fullscreenSurface: SurfaceView
     private lateinit var playerOverlay: PlayerOverlay
 
     // Overlay panels
@@ -88,12 +89,16 @@ class MainActivity : Activity() {
 
         // Initial Data Load
         Repo.reload {
-            val lastKey = prefs.lastChannel
-            var startItem = Repo.visibleItems().firstOrNull { it.key == lastKey }
-            if (startItem == null || startItem.groups.contains("International") || startItem.name.contains("(India)")) {
-                startItem = Repo.visibleItems().firstOrNull { !it.groups.contains("International") } ?: Repo.visibleItems().firstOrNull()
+            val curGroup = prefs.lastGroup.ifBlank { "All channels" }
+            val groupItems = Repo.inGroup(curGroup).filter { !it.groups.contains("International") }
+            val candidateList = if (groupItems.isNotEmpty()) groupItems else Repo.visibleItems().filter { !it.groups.contains("International") }
+
+            var startItem = candidateList.firstOrNull { it.key == prefs.lastChannel }
+            if (startItem == null) {
+                startItem = candidateList.firstOrNull()
             }
             if (startItem != null) {
+                prefs.lastChannel = startItem.key
                 if (prefs.resumeLast) {
                     playChannel(startItem)
                 }
@@ -111,7 +116,26 @@ class MainActivity : Activity() {
         setupGuideLayout()
         rootContainer.addView(guideLayout, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
 
-        // 2. Fullscreen Container
+        // 2. Single Video View for both Preview & Fullscreen
+        mainVideoView = SurfaceView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(dpi(380f), dpi(214f)).apply {
+                leftMargin = dpi(24f)
+                topMargin = dpi(16f)
+            }
+            if (Build.VERSION.SDK_INT >= 34) {
+                setSurfaceLifecycle(SurfaceView.SURFACE_LIFECYCLE_FOLLOWS_ATTACHMENT)
+            }
+            setZOrderMediaOverlay(false)
+            setOnClickListener {
+                if (playerEngine.currentItem != null) {
+                    enterFullscreen()
+                }
+            }
+        }
+        rootContainer.addView(mainVideoView)
+        playerEngine.attachSurface(mainVideoView)
+
+        // 3. Fullscreen Overlay Container
         setupFullscreenLayout()
         rootContainer.addView(fullscreenContainer, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
 
@@ -150,14 +174,9 @@ class MainActivity : Activity() {
             setPadding(dpi(24f), dpi(16f), dpi(24f), dpi(8f))
         }
 
-        // Preview Video Container
+        // Preview Video Placeholder & Click Target
         previewContainer = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(dpi(380f), dpi(214f))
-            background = GradientDrawable().apply {
-                setColor(Color.BLACK)
-                cornerRadius = dp(8f)
-            }
-            clipToOutline = true
             isClickable = true
             setOnClickListener {
                 if (playerEngine.currentItem != null) {
@@ -165,14 +184,7 @@ class MainActivity : Activity() {
                 }
             }
         }
-
-        previewTexture = TextureView(this).apply {
-            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
-        }
-        previewContainer.addView(previewTexture)
         topArea.addView(previewContainer)
-
-        playerEngine.attachTextureView(previewTexture)
 
         // Program Info Container
         infoContainer = LinearLayout(this).apply {
@@ -405,7 +417,7 @@ class MainActivity : Activity() {
                                 true
                             }
                             KeyEvent.KEYCODE_BACK -> {
-                                confirmAppExit()
+                                finish()
                                 true
                             }
                             else -> false
@@ -448,14 +460,11 @@ class MainActivity : Activity() {
 
     private fun setupFullscreenLayout() {
         fullscreenContainer = FrameLayout(this).apply {
-            setBackgroundColor(Color.BLACK)
+            setBackgroundColor(Color.TRANSPARENT)
             visibility = View.GONE
+            isFocusable = true
+            isFocusableInTouchMode = true
         }
-
-        fullscreenSurface = SurfaceView(this).apply {
-            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
-        }
-        fullscreenContainer.addView(fullscreenSurface)
 
         playerOverlay = PlayerOverlay(
             activity = this,
@@ -669,13 +678,9 @@ class MainActivity : Activity() {
     }
 
     fun playChannel(item: Item) {
+        android.util.Log.i("MainActivity", "playChannel: " + item.name + ", key=" + item.key + ", url=" + item.url)
         prefs.lastChannel = item.key
         guideView.playingKey = item.key
-        if (isFullscreen) {
-            playerEngine.attachSurface(fullscreenSurface)
-        } else {
-            playerEngine.attachTextureView(previewTexture)
-        }
         playerEngine.play(item)
         Repo.touchRecent(item)
 
@@ -688,8 +693,11 @@ class MainActivity : Activity() {
         if (isFullscreen) return
         isFullscreen = true
         guideLayout.visibility = View.GONE
+        mainVideoView.layoutParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        )
         fullscreenContainer.visibility = View.VISIBLE
-        playerEngine.attachSurface(fullscreenSurface)
         playerOverlay.showBottomBar()
         fullscreenContainer.requestFocus()
     }
@@ -698,8 +706,11 @@ class MainActivity : Activity() {
         if (!isFullscreen) return
         isFullscreen = false
         fullscreenContainer.visibility = View.GONE
+        mainVideoView.layoutParams = FrameLayout.LayoutParams(dpi(380f), dpi(214f)).apply {
+            leftMargin = dpi(24f)
+            topMargin = dpi(16f)
+        }
         guideLayout.visibility = View.VISIBLE
-        playerEngine.attachTextureView(previewTexture)
         playerEngine.currentItem?.let { playing ->
             guideView.select(playing.key)
         }
@@ -709,11 +720,6 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        if (isFullscreen) {
-            playerEngine.attachSurface(fullscreenSurface)
-        } else {
-            playerEngine.attachTextureView(previewTexture)
-        }
         playerEngine.resume()
     }
 
@@ -746,6 +752,10 @@ class MainActivity : Activity() {
         // Fullscreen handles its own keys
         if (isFullscreen) {
             if (playerOverlay.onKey(code, event)) return true
+            if (code == KeyEvent.KEYCODE_BACK) {
+                exitFullscreen()
+                return true
+            }
         }
 
         // Settings drawer open
@@ -767,7 +777,7 @@ class MainActivity : Activity() {
         // Guide Layout navigation hierarchy on BACK (TiviMate 1:1 order: Fullscreen -> Guide -> Categories -> Main Menu -> Exit)
         if (code == KeyEvent.KEYCODE_BACK && !isFullscreen) {
             if (isMainMenuDrawerOpen) {
-                confirmAppExit()
+                finish()
                 return true
             }
             if (isCategoriesDrawerOpen) {

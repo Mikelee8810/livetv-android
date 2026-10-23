@@ -61,9 +61,22 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
 
     private fun floor30(t: Long) = t - (t % (30 * 60_000L)) - TimeZone.getDefault().getOffset(t).let { 0 }
 
-    fun selected(): Item? = rows.getOrNull(selRow)
+    fun selected(): Item? = rows.getOrNull(selRow.coerceIn(0, (rows.size - 1).coerceAtLeast(0)))
     fun selectedProgram(): Program? = selected()?.let { cellAt(it, selTime)?.program }
-    fun select(key: String?) { val i = rows.indexOfFirst { it.key == key }; if (i >= 0) { selRow = i; scrollTo(selRow, false); invalidate(); notifySel() } }
+    fun select(key: String?) {
+        val i = rows.indexOfFirst { it.key == key }
+        if (i >= 0) {
+            selRow = i
+            scrollTo(selRow, false)
+            invalidate()
+            notifySel()
+        } else if (rows.isNotEmpty()) {
+            selRow = 0
+            scrollTo(0, false)
+            invalidate()
+            notifySel()
+        }
+    }
     fun resetToNow() { selTime = System.currentTimeMillis(); viewStart = floor30(selTime).toFloat(); invalidate(); notifySel() }
     private fun notifySel() = onSelection(selected(), selectedProgram())
 

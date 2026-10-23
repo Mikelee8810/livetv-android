@@ -29,6 +29,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutorCompletionService;
@@ -92,10 +94,38 @@ public final class EpgRepository {
         if (!cacheDirectory.exists() && !cacheDirectory.mkdirs()) {
             Log.w(TAG, "Unable to create XMLTV cache directory");
         }
-        ExecutorService workers = Executors.newFixedThreadPool(Math.min(6, Math.max(1, this.sources.size())));
+        final Set<String> targetChannels = new HashSet<>();
+        for (Channel ch : channels) {
+            if (ch != null) {
+                if (ch.tvgId != null && !ch.tvgId.isEmpty()) {
+                    targetChannels.add(ch.tvgId);
+                    targetChannels.add(ch.tvgId.toLowerCase(Locale.ROOT));
+                }
+                if (ch.name != null && !ch.name.isEmpty()) {
+                    targetChannels.add(ch.name);
+                    targetChannels.add(ch.name.toLowerCase(Locale.ROOT));
+                }
+                if (ch.id != null && !ch.id.isEmpty()) {
+                    targetChannels.add(ch.id);
+                }
+            }
+        }
+        for (Map.Entry<String, String> alias : defaultAliases().entrySet()) {
+            targetChannels.add(alias.getKey());
+            targetChannels.add(alias.getValue());
+        }
+
+        ExecutorService workers = Executors.newFixedThreadPool(1, r -> {
+            Thread t = new Thread(r, "epg-worker");
+            t.setPriority(Thread.MIN_PRIORITY);
+            return t;
+        });
         CompletionService<SourceLoad> completed = new ExecutorCompletionService<>(workers);
         for (final String source : this.sources) {
-            completed.submit(() -> loadOne(source, channels, cacheDirectory, start, end, now));
+            completed.submit(() -> {
+                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
+                return loadOne(source, channels, targetChannels, cacheDirectory, start, end, now);
+            });
         }
         LoadOutcome result = outcome(channels, merge.snapshot(), now, 0, 0, 0, 0, 0);
         int done = 0;
@@ -136,7 +166,7 @@ public final class EpgRepository {
         return result;
     }
 
-    private SourceLoad loadOne(String source, List channels, File cacheDirectory, Instant start, Instant end, Instant now) throws Exception {
+    private SourceLoad loadOne(String source, List channels, Set<String> targetChannels, File cacheDirectory, Instant start, Instant end, Instant now) throws Exception {
         TitanTvSource.Result titan;
         try {
             if (TitanTvSource.supports(source)) {
@@ -151,7 +181,7 @@ public final class EpgRepository {
                 CdnLiveEpgSource.Result cdn = CdnLiveEpgSource.load(channels);
                 return new SourceLoad(source, new SourceOutcome(cdn.programs, cdn.bytes, false), null);
             }
-            return new SourceLoad(source, loadSource(cacheDirectory, source, start, end, now), null);
+            return new SourceLoad(source, loadSource(cacheDirectory, source, start, end, now, targetChannels), null);
         } catch (Exception error) {
             return new SourceLoad(source, null, error);
         }
@@ -176,10 +206,10 @@ public final class EpgRepository {
         }
     }
 
-    private SourceOutcome loadSource(File cacheDirectory, String source, Instant start, Instant end, Instant now) throws Exception {
+    private SourceOutcome loadSource(File cacheDirectory, String source, Instant start, Instant end, Instant now, Set<String> targetChannels) throws Exception {
         File cache = cacheFile(cacheDirectory, source);
         if (cache.isFile() && !isStale(cache.lastModified(), now)) {
-            return new SourceOutcome(parse(cache, source, start, end), 0L, true);
+            return new SourceOutcome(parse(cache, source, start, end, targetChannels), 0L, true);
         }
         File temporary = new File(cacheDirectory, cache.getName() + ".download");
         if (temporary.exists() && !temporary.delete()) {
@@ -187,7 +217,7 @@ public final class EpgRepository {
         }
         try {
             long bytes = download(source, temporary);
-            List<Program> programs = parse(temporary, source, start, end);
+            List<Program> programs = parse(temporary, source, start, end, targetChannels);
             promote(temporary, cache);
             return new SourceOutcome(programs, bytes, false);
         } catch (Exception downloadFailure) {
@@ -196,7 +226,7 @@ public final class EpgRepository {
             }
             if (cache.isFile()) {
                 try {
-                    return new SourceOutcome(parse(cache, source, start, end), 0L, true);
+                    return new SourceOutcome(parse(cache, source, start, end, targetChannels), 0L, true);
                 } catch (Exception cacheFailure) {
                     downloadFailure.addSuppressed(cacheFailure);
                     throw downloadFailure;
@@ -284,12 +314,12 @@ public final class EpgRepository {
         }
     }
 
-    private static List<Program> parse(File file, String source, Instant start, Instant end) throws Exception {
+    private static List<Program> parse(File file, String source, Instant start, Instant end, Set<String> targetChannels) throws Exception {
         InputStream raw = new BufferedInputStream(new FileInputStream(file), 65536);
         try {
             InputStream input = source.toLowerCase(Locale.ROOT).endsWith(".gz") ? new GZIPInputStream(raw, 65536) : raw;
             try {
-                List<Program> list = new XmlTvParser().parse(input, start, end);
+                List<Program> list = new XmlTvParser().parse(input, start, end, targetChannels);
                 input.close();
                 raw.close();
                 return list;

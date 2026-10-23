@@ -61,12 +61,14 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
 
         val loadControl = DefaultLoadControl.Builder().apply {
             val (minBuffer, maxBuffer) = when (prefs.buffer) {
-                "Small" -> Pair(5000, 15000)
-                "Large" -> Pair(25000, 50000)
-                "Very large" -> Pair(40000, 80000)
-                else -> Pair(15000, 30000) // Medium / default
+                "Small" -> Pair(25000, 25000)
+                "Large" -> Pair(50000, 50000)
+                "Very large" -> Pair(80000, 80000)
+                else -> Pair(50000, 50000) // TiviMate standard: 50s live buffer
             }
-            setBufferDurationsMs(minBuffer, maxBuffer, 1500, 3000)
+            setBufferDurationsMs(minBuffer, maxBuffer, 1000, 2000)
+            setPrioritizeTimeOverSizeThresholds(true)
+            setBackBuffer(0, false)
         }.build()
 
         val renderersFactory = DefaultRenderersFactory(context).apply {
@@ -76,6 +78,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                 DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON
             setExtensionRendererMode(audioExtension)
             setEnableDecoderFallback(true)
+            setAllowedVideoJoiningTimeMs(10000)
         }
 
         val trackSelector = DefaultTrackSelector(context).apply {
@@ -97,6 +100,23 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                 true
             )
             .build()
+
+        player.addAnalyticsListener(androidx.media3.exoplayer.util.EventLogger())
+        player.addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
+            override fun onDroppedVideoFrames(
+                eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+                droppedFrames: Int,
+                elapsedMs: Long
+            ) {
+                Log.w(TAG, "DROPPED VIDEO FRAMES: $droppedFrames frames in ${elapsedMs}ms")
+            }
+            override fun onVideoCodecError(
+                eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+                videoCodecError: Exception
+            ) {
+                Log.e(TAG, "VIDEO CODEC ERROR: ", videoCodecError)
+            }
+        })
 
         if (attachedTextureView != null) {
             player.setVideoTextureView(attachedTextureView)
@@ -151,12 +171,14 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     }
 
     fun attachSurface(surfaceView: SurfaceView?) {
+        if (attachedSurfaceView == surfaceView && attachedTextureView == null) return
         attachedSurfaceView = surfaceView
         attachedTextureView = null
         exoPlayer?.setVideoSurfaceView(surfaceView)
     }
 
     fun attachTextureView(textureView: TextureView?) {
+        if (attachedTextureView == textureView && attachedSurfaceView == null) return
         attachedTextureView = textureView
         attachedSurfaceView = null
         exoPlayer?.setVideoTextureView(textureView)
@@ -182,7 +204,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         val uri = Uri.parse(streamUrl)
         val mediaSource = if (streamUrl.contains(".m3u8", ignoreCase = true) || streamUrl.contains("manifest", ignoreCase = true)) {
             HlsMediaSource.Factory(dataSourceFactory)
-                .setAllowChunklessPreparation(true)
+                .setAllowChunklessPreparation(false)
                 .createMediaSource(MediaItem.fromUri(uri))
         } else {
             androidx.media3.exoplayer.source.DefaultMediaSourceFactory(dataSourceFactory)

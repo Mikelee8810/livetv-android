@@ -1,4 +1,4 @@
-#EXTM3U url-tvg="titantv://directv-national,titantv://spectrum-manhattan,titantv://sling-national,cdnlive://sports,https://epgshare01.online/epgshare01/epg_ripper_US2.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_US_LOCALS2.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_US_SPORTS1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_CA2.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_UK1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_AU1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_CZ1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_IT1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_FR1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_ES1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_RS1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_PT1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_PL1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_DK1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_DE1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_BG1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_SK1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_GR1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_AE1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_CY1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_NL1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_HR1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_MY1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_IN1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_TR1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_IL1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_UY1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_MX1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_AT1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_PK1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_CO1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_FANDUEL1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_AUDACY1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_CH1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_HU1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_IE1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_LU1.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Argentina/argentina1.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Argentina/argentina4.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Bosnia/bosnia1.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Brazil/brazil1.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Brazil/brazil2.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Bulgaria/bulgaria2.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Canada/canada2.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Croatia/croatia5.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Czech/czech1.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Denmark/denmark4.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/France/france1.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Germany/germany1.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Germany/germany2.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Ireland/ireland1.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Israel/israel1.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Italy/italy1.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Mexico/mexico1.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Mexico/mexico2.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Netherlands/netherlands1.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Norway/norway2.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Poland/poland1.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Portugal/portugal1.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Qatar/qatar1.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Qatar/qatar2.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Serbia/serbia1.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Serbia/serbia2.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Sweden/sweden4.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Turkey/turkey1.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Turkey/turkey2.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Unitedkingdom/unitedkingdom1.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Unitedkingdom/unitedkingdom2.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Unitedkingdom/unitedkingdom3.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Unitedkingdom/unitedkingdom4.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_US_LOCALS1.xml.gz,https://raw.githubusercontent.com/globetvapp/epg/main/Brazil/brazil3.xml.gz"
+#EXTM3U url-tvg="titantv://directv-national,titantv://spectrum-manhattan,titantv://sling-national,cdnlive://sports,https://epgshare01.online/epgshare01/epg_ripper_US2.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_US_LOCALS2.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_US_SPORTS1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_CA2.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_UK1.xml.gz"
 #EXTINF:-1 tvg-id="abcusa.us" tvg-name="ABC USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/abc-us.png" group-title="USA Entertainment",ABC USA
 /api/proxy/daddylive/manifest.m3u8?id=51
 #EXTINF:-1 tvg-id="ahcamericanheroeschannel.us" tvg-name="AHC (American Heroes Channel)" tvg-logo="https://dlstreams.st/logos/ahc_american_heroes_channel.png" group-title="Documentary & Nature",AHC (American Heroes Channel)
@@ -42,15 +42,15 @@
 #EXTINF:-1 tvg-id="abudhabisports2premium.us" tvg-name="Abu Dhabi Sports 2 Premium" tvg-logo="https://dlstreams.st/logos/abu_dhabi_sports_2_premium.png" group-title="Sports",Abu Dhabi Sports 2 Premium
 /api/proxy/daddylive/manifest.m3u8?id=610
 #EXTINF:-1 feed-count="8" tvg-id="Astro.Cricket.my" tvg-name="Astro Cricket" tvg-logo="https://i.imgur.com/miyMp5p.png" group-title="Sports",Astro Cricket
-http://127.0.0.1:48913/live/manifest.m3u8?id=370&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DAstro%2520Cricket%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A370%3A0%7Clegacy%3A370%3A1%7Clegacy%3A370%3A2%7Clegacy%3A370%3A3%7Clegacy%3A370%3A4%7Clegacy%3A370%3A5%7Clegacy%3A370%3A6
+/api/proxy/daddylive/manifest.m3u8?id=370
 #EXTINF:-1 feed-count="8" tvg-id="ACC.Network.us2" tvg-name="ACC Network USA" tvg-logo="https://dlstreams.st/logos/acc_network_usa.png" group-title="Sports",ACC Network USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=664&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DACC%2520Network%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A664%3A0%7Clegacy%3A664%3A1%7Clegacy%3A664%3A2%7Clegacy%3A664%3A3%7Clegacy%3A664%3A4%7Clegacy%3A664%3A5%7Clegacy%3A664%3A6
+/api/proxy/daddylive/manifest.m3u8?id=664
 #EXTINF:-1 tvg-id="adultswim.us" tvg-name="Adult Swim" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/adult-swim-us.png" group-title="Kids & Animation",Adult Swim
 /api/proxy/daddylive/manifest.m3u8?id=295
 #EXTINF:-1 feed-count="8" tvg-id="AXS.TV.us2" tvg-name="AXS TV USA" tvg-logo="https://dlstreams.st/logos/axs_tv_usa.png" group-title="Music",AXS TV USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=742&sources=https%3A%2F%2Ftvsen3.aynaott.com%2FP2fJzfsg%2Findex.m3u8%7Clegacy%3A742%3A0%7Clegacy%3A742%3A1%7Clegacy%3A742%3A2%7Clegacy%3A742%3A3%7Clegacy%3A742%3A4%7Clegacy%3A742%3A5%7Clegacy%3A742%3A6
+/api/proxy/daddylive/manifest.m3u8?id=742
 #EXTINF:-1 feed-count="8" tvg-id="WABC-DT.us_locals1" tvg-name="ABC NY USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/abc-us.png" group-title="USA Entertainment",ABC NY USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=766&sources=https%3A%2F%2Fwww.youtube-nocookie.com%2Fembed%2FO6Vk-6HSxdg%7Clegacy%3A766%3A0%7Clegacy%3A766%3A1%7Clegacy%3A766%3A2%7Clegacy%3A766%3A3%7Clegacy%3A766%3A4%7Clegacy%3A766%3A5%7Clegacy%3A766%3A6
+/api/proxy/daddylive/manifest.m3u8?id=766
 #EXTINF:-1 tvg-id="Azteca 7.mx" tvg-name="Azteca 7 MX" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/mexico/azteca-7-mx.png" group-title="Canada Channels",Azteca 7 MX
 /api/proxy/daddylive/manifest.m3u8?id=844
 #EXTINF:-1 tvg-id="Altitude.Sports.us2" tvg-name="Altitude Sports" tvg-logo="https://i.imgur.com/TzWflKZ.png" group-title="Sports",Altitude Sports
@@ -82,7 +82,7 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=766&sources=https%3A%2F%2Fwww.youtu
 #EXTINF:-1 tvg-id="beIN SPORTS.qa" tvg-name="BeIN Sports HD Qatar" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/bein-sports-us.png" group-title="Sports",BeIN Sports HD Qatar
 /api/proxy/daddylive/manifest.m3u8?id=578
 #EXTINF:-1 feed-count="8" tvg-id="beIN.Sports.USA.HD.us2" tvg-name="BeIN SPORTS USA" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/BeIN_Sports_logo_%28horizontal_version%29.svg/960px-BeIN_Sports_logo_%28horizontal_version%29.svg.png" group-title="Sports",BeIN SPORTS USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=425&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DbeIN%2520SPORTS%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A425%3A0%7Clegacy%3A425%3A1%7Clegacy%3A425%3A2%7Clegacy%3A425%3A3%7Clegacy%3A425%3A4%7Clegacy%3A425%3A5%7Clegacy%3A425%3A6
+/api/proxy/daddylive/manifest.m3u8?id=425
 #EXTINF:-1 tvg-id="beIN.Sports.En.Español.HD.us2" tvg-name="beIN SPORTS en Espa単ol" tvg-logo="https://i.imgur.com/J5aurrb.png" group-title="Sports",beIN SPORTS en Espa単ol
 /api/proxy/daddylive/manifest.m3u8?id=372
 #EXTINF:-1 tvg-id="beINSports1.au" tvg-name="beIN SPORTS Australia 1" tvg-logo="https://dlstreams.st/logos/bein_sports_australia_1.png" group-title="Sports",beIN SPORTS Australia 1
@@ -94,7 +94,7 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=425&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="Benfica.TV.fr" tvg-name="Benfica TV PT" tvg-logo="https://dlstreams.st/logos/benfica_tv_pt.png" group-title="Canada Channels",Benfica TV PT
 /api/proxy/daddylive/manifest.m3u8?id=380
 #EXTINF:-1 feed-count="8" tvg-id="Boomerang.F.ch" tvg-name="Boomerang" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/boomerang-us.png" group-title="Kids & Animation",Boomerang
-http://127.0.0.1:48913/live/manifest.m3u8?id=648&sources=https%3A%2F%2Fwww.youtube-nocookie.com%2Fembed%2F90kaC8Kbw0k%7Clegacy%3A648%3A0%7Clegacy%3A648%3A1%7Clegacy%3A648%3A2%7Clegacy%3A648%3A3%7Clegacy%3A648%3A4%7Clegacy%3A648%3A5%7Clegacy%3A648%3A6
+/api/proxy/daddylive/manifest.m3u8?id=648
 #EXTINF:-1 tvg-id="bbcamericabbca.us" tvg-name="BBC America (BBCA)" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/8/86/BBC_America_logo_2021.svg" group-title="News",BBC America (BBCA)
 /api/proxy/daddylive/manifest.m3u8?id=305
 #EXTINF:-1 tvg-id="BET.HD.us2" tvg-name="BET USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/bet-us.png" group-title="USA Entertainment",BET USA
@@ -104,13 +104,13 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=648&sources=https%3A%2F%2Fwww.youtu
 #EXTINF:-1 tvg-id="bbcnewschannelhd.us" tvg-name="BBC News Channel HD" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/bbc-news-uk.png" group-title="News",BBC News Channel HD
 /api/proxy/daddylive/manifest.m3u8?id=349
 #EXTINF:-1 tvg-id="bbconeuk.us" tvg-name="BBC One UK" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/BBC_One_logo_2021.svg/960px-BBC_One_logo_2021.svg.png" feed-count="9" group-title="UK Channels",BBC One UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=356&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DBBC%2520One%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Chttps%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DBBC%2520One%26code%3Dgb%26user%3Dntvstream%26plan%3Dfree%7Clegacy%3A356%3A0%7Clegacy%3A356%3A1%7Clegacy%3A356%3A2%7Clegacy%3A356%3A3%7Clegacy%3A356%3A4%7Clegacy%3A356%3A5%7Clegacy%3A356%3A6
+/api/proxy/daddylive/manifest.m3u8?id=356
 #EXTINF:-1 tvg-id="BBC.Two.HD.uk" tvg-name="BBC Two UK" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/BBC_Two_logo_2021.svg/960px-BBC_Two_logo_2021.svg.png" feed-count="9" group-title="UK Channels",BBC Two UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=357&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DBBC%2520Two%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Chttps%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DBBC%2520Two%26code%3Dgb%26user%3Dntvstream%26plan%3Dfree%7Clegacy%3A357%3A0%7Clegacy%3A357%3A1%7Clegacy%3A357%3A2%7Clegacy%3A357%3A3%7Clegacy%3A357%3A4%7Clegacy%3A357%3A5%7Clegacy%3A357%3A6
+/api/proxy/daddylive/manifest.m3u8?id=357
 #EXTINF:-1 tvg-id="BBC.Three.HD.uk" tvg-name="BBC Three UK" tvg-logo="https://dlstreams.st/logos/bbc_three_uk.png" feed-count="9" group-title="UK Channels",BBC Three UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=358&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DBBC%2520Three%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Chttps%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DBBC%2520Three%26code%3Dgb%26user%3Dntvstream%26plan%3Dfree%7Clegacy%3A358%3A0%7Clegacy%3A358%3A1%7Clegacy%3A358%3A2%7Clegacy%3A358%3A3%7Clegacy%3A358%3A4%7Clegacy%3A358%3A5%7Clegacy%3A358%3A6
+/api/proxy/daddylive/manifest.m3u8?id=358
 #EXTINF:-1 tvg-id="BBC.Four.HD.uk" tvg-name="BBC Four UK" tvg-logo="https://dlstreams.st/logos/bbc_four_uk.png" feed-count="9" group-title="Documentary & Nature",BBC Four UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=359&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DBBC%2520Four%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Chttps%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DBBC%2520Four%26code%3Dgb%26user%3Dntvstream%26plan%3Dfree%7Clegacy%3A359%3A0%7Clegacy%3A359%3A1%7Clegacy%3A359%3A2%7Clegacy%3A359%3A3%7Clegacy%3A359%3A4%7Clegacy%3A359%3A5%7Clegacy%3A359%3A6
+/api/proxy/daddylive/manifest.m3u8?id=359
 #EXTINF:-1 tvg-id="bigtennetworkbtnusa.us" tvg-name="BIG TEN Network (BTN USA)" tvg-logo="https://dlstreams.st/logos/big_ten_network_btn_usa.png" group-title="USA Entertainment",BIG TEN Network (BTN USA)
 /api/proxy/daddylive/manifest.m3u8?id=397
 #EXTINF:-1 tvg-id="canalformula1.us" tvg-name="Canal+ Formula 1" tvg-logo="https://i.imgur.com/wVCBBYM.png" group-title="Sports",Canal+ Formula 1
@@ -120,23 +120,23 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=359&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="cbsusa.us" tvg-name="CBS USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/cbs-us.png" group-title="USA Entertainment",CBS USA
 /api/proxy/daddylive/manifest.m3u8?id=52
 #EXTINF:-1 tvg-id="Court.TV.us2" tvg-name="Court TV USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/court-tv-us.png" feed-count="10" group-title="USA Entertainment",Court TV USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=281&sources=https%3A%2F%2Fcontent.uplynk.com%2Fchannel%2F6c0bd0f94b1d4526a98676e9699a10ef.m3u8%7Chttps%3A%2F%2Faegis-cloudfront-1.tubi.video%2F661c498b-4af0-4ba9-ae1c-4081340ee085%2Fplaylist.m3u8%7Chttps%3A%2F%2Fcdn-uw2-prod.tsv2.amagi.tv%2Flinear%2Famg01438-ewscrippscompan-courttv-tablo%2Fplaylist.m3u8%7Clegacy%3A281%3A0%7Clegacy%3A281%3A1%7Clegacy%3A281%3A2%7Clegacy%3A281%3A3%7Clegacy%3A281%3A4%7Clegacy%3A281%3A5%7Clegacy%3A281%3A6
+/api/proxy/daddylive/manifest.m3u8?id=281
 #EXTINF:-1 tvg-id="CW.us2" tvg-name="CW USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/cw-us.png" group-title="USA Entertainment",CW USA
 /api/proxy/daddylive/manifest.m3u8?id=300
 #EXTINF:-1 feed-count="11" tvg-id="CNBC.HD.us2" tvg-name="CNBC USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nbc-us.png" group-title="News",CNBC USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=309&sources=https%3A%2F%2Fwww.youtube-nocookie.com%2Fembed%2F9NyxcX3rhQs%7Chttps%3A%2F%2Famg01079-nbcuuk-amg01079c2-lg-gb-2030.playouts.now.amagi.tv%2Fplaylist.m3u8%7Chttps%3A%2F%2Famg01079-nbcuuk-amg01079c2-samsung-gb-1258.playouts.now.amagi.tv%2Fplaylist.m3u8%7Chttps%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DCNBC%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A309%3A0%7Clegacy%3A309%3A1%7Clegacy%3A309%3A2%7Clegacy%3A309%3A3%7Clegacy%3A309%3A4%7Clegacy%3A309%3A5%7Clegacy%3A309%3A6
+/api/proxy/daddylive/manifest.m3u8?id=309
 #EXTINF:-1 tvg-id="Comedy.Central.F.ch" tvg-name="Comedy Central" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/comedy-central-us.png" group-title="Movies & Cinema",Comedy Central
 /api/proxy/daddylive/manifest.m3u8?id=310
 #EXTINF:-1 feed-count="8" tvg-id="cartoonnetwork.us" tvg-name="Cartoon Network" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/cartoon-network-us.png" group-title="Kids & Animation",Cartoon Network
-http://127.0.0.1:48913/live/manifest.m3u8?id=339&sources=https%3A%2F%2Fwww.youtube-nocookie.com%2Fembed%2F0iFCrhRvk1I%7Clegacy%3A339%3A0%7Clegacy%3A339%3A1%7Clegacy%3A339%3A2%7Clegacy%3A339%3A3%7Clegacy%3A339%3A4%7Clegacy%3A339%3A5%7Clegacy%3A339%3A6
+/api/proxy/daddylive/manifest.m3u8?id=339
 #EXTINF:-1 tvg-id="CNN.HD.us2" tvg-name="CNN USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/cnn-us.png" group-title="News",CNN USA
 /api/proxy/daddylive/manifest.m3u8?id=345
 #EXTINF:-1 feed-count="8" tvg-id="Cinemax.HD.us2" tvg-name="Cinemax USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/cinemax-us.png" group-title="Movies & Cinema",Cinemax USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=374&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DCinemax%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A374%3A0%7Clegacy%3A374%3A1%7Clegacy%3A374%3A2%7Clegacy%3A374%3A3%7Clegacy%3A374%3A4%7Clegacy%3A374%3A5%7Clegacy%3A374%3A6
+/api/proxy/daddylive/manifest.m3u8?id=374
 #EXTINF:-1 tvg-id="Channel.4.HD.uk" tvg-name="Channel 4 UK" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/channel-4-uk.png" feed-count="9" group-title="UK Channels",Channel 4 UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=354&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DChannel%25204%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Chttps%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DChannel%25204%26code%3Dgb%26user%3Dntvstream%26plan%3Dfree%7Clegacy%3A354%3A0%7Clegacy%3A354%3A1%7Clegacy%3A354%3A2%7Clegacy%3A354%3A3%7Clegacy%3A354%3A4%7Clegacy%3A354%3A5%7Clegacy%3A354%3A6
+/api/proxy/daddylive/manifest.m3u8?id=354
 #EXTINF:-1 tvg-id="Channel 5 HD.uk" tvg-name="Channel 5 UK" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/channel-5-uk.png" feed-count="9" group-title="UK Channels",Channel 5 UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=355&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DChannel%25205%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Chttps%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DChannel%25205%26code%3Dgb%26user%3Dntvstream%26plan%3Dfree%7Clegacy%3A355%3A0%7Clegacy%3A355%3A1%7Clegacy%3A355%3A2%7Clegacy%3A355%3A3%7Clegacy%3A355%3A4%7Clegacy%3A355%3A5%7Clegacy%3A355%3A6
+/api/proxy/daddylive/manifest.m3u8?id=355
 #EXTINF:-1 tvg-id="cbssportsnetworkcbssn.us" tvg-name="CBS Sports Network (CBSSN)" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/cbs-us.png" group-title="Sports",CBS Sports Network (CBSSN)
 /api/proxy/daddylive/manifest.m3u8?id=308
 #EXTINF:-1 tvg-id="canalsport360.us" tvg-name="Canal+ Sport360" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/6/64/Canal%2BSport_360.png" group-title="Sports",Canal+ Sport360
@@ -184,7 +184,7 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=355&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="crimeinvestigationusa.us" tvg-name="Crime+ Investigation USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/crime-and-investigation-us.png" group-title="Documentary & Nature",Crime+ Investigation USA
 /api/proxy/daddylive/manifest.m3u8?id=669
 #EXTINF:-1 tvg-id="Comet.us2" tvg-name="Comet USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/comet-us.png" feed-count="8" group-title="USA Entertainment",Comet USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=696&sources=https%3A%2F%2Ffast-channels.sinclairstoryline.com%2FCOMET%2Findex.m3u8%7Clegacy%3A696%3A0%7Clegacy%3A696%3A1%7Clegacy%3A696%3A2%7Clegacy%3A696%3A3%7Clegacy%3A696%3A4%7Clegacy%3A696%3A5%7Clegacy%3A696%3A6
+/api/proxy/daddylive/manifest.m3u8?id=696
 #EXTINF:-1 tvg-id="Cooking.Channel.HD.us2" tvg-name="Cooking Channel USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/cooking-channel-us.png" group-title="USA Entertainment",Cooking Channel USA
 /api/proxy/daddylive/manifest.m3u8?id=697
 #EXTINF:-1 tvg-id="Cleo.TV.HD.us2" tvg-name="Cleo TV" tvg-logo="https://i.imgur.com/US0T6DC.png" group-title="Lifestyle",Cleo TV
@@ -194,7 +194,7 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=696&sources=https%3A%2F%2Ffast-chan
 #EXTINF:-1 tvg-id="WCBS-DT.us_locals1" tvg-name="CBSNY USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/cbs-us.png" group-title="USA Entertainment",CBSNY USA
 /api/proxy/daddylive/manifest.m3u8?id=767
 #EXTINF:-1 feed-count="8" tvg-id="CHSN.Chicago.Sports.Network.us2" tvg-name="Chicago Sports Network" tvg-logo="https://dlstreams.st/logos/chicago_sports_network.png" group-title="Sports",Chicago Sports Network
-http://127.0.0.1:48913/live/manifest.m3u8?id=776&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DChicago%2520Sports%2520Network%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A776%3A0%7Clegacy%3A776%3A1%7Clegacy%3A776%3A2%7Clegacy%3A776%3A3%7Clegacy%3A776%3A4%7Clegacy%3A776%3A5%7Clegacy%3A776%3A6
+/api/proxy/daddylive/manifest.m3u8?id=776
 #EXTINF:-1 tvg-id="CityTv.ca2" tvg-name="Citytv" tvg-logo="https://i.imgur.com/WesWZPk.png" group-title="General 24/7",Citytv
 /api/proxy/daddylive/manifest.m3u8?id=831
 #EXTINF:-1 tvg-id="cbcca.us" tvg-name="CBC CA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/canada/cbc-ca.png" group-title="Canada Channels",CBC CA
@@ -204,9 +204,9 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=776&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="DAJTO.HD.sk" tvg-name="Dajto SK" tvg-logo="https://www.google.com/s2/favicons?domain=dajto.markiza.sk&sz=256" group-title="General 24/7",Dajto SK
 /api/proxy/daddylive/manifest.m3u8?id=1051
 #EXTINF:-1 feed-count="8" tvg-id="CBS.Sports.Golazo.Network.us2" tvg-name="CBS Sports Golazo" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/cbs-us.png" group-title="Sports",CBS Sports Golazo
-http://127.0.0.1:48913/live/manifest.m3u8?id=910&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DCBS%2520Sports%2520Golazo%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A910%3A0%7Clegacy%3A910%3A1%7Clegacy%3A910%3A2%7Clegacy%3A910%3A3%7Clegacy%3A910%3A4%7Clegacy%3A910%3A5%7Clegacy%3A910%3A6
+/api/proxy/daddylive/manifest.m3u8?id=910
 #EXTINF:-1 feed-count="8" tvg-id="dazn1uk.us" tvg-name="DAZN 1 UK" tvg-logo="https://i.imgur.com/2Z2EmZF.png" group-title="Sports",DAZN 1 UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=230&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DDAZN%25201%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A230%3A0%7Clegacy%3A230%3A1%7Clegacy%3A230%3A2%7Clegacy%3A230%3A3%7Clegacy%3A230%3A4%7Clegacy%3A230%3A5%7Clegacy%3A230%3A6
+/api/proxy/daddylive/manifest.m3u8?id=230
 #EXTINF:-1 tvg-id="discoveryvelocityca.us" tvg-name="Discovery Velocity CA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/discovery-channel-us.png" group-title="Documentary & Nature",Discovery Velocity CA
 /api/proxy/daddylive/manifest.m3u8?id=285
 #EXTINF:-1 tvg-id="DAZN.F1.es" tvg-name="DAZN F1 ES" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/spain/dazn-f1-es.png" group-title="Sports",DAZN F1 ES
@@ -224,9 +224,9 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=230&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="discoverylifechannel.us" tvg-name="Discovery Life Channel" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/discovery-channel-us.png" group-title="Documentary & Nature",Discovery Life Channel
 /api/proxy/daddylive/manifest.m3u8?id=311
 #EXTINF:-1 feed-count="8" tvg-id="Disney.Channel.(de).cz" tvg-name="Disney Channel" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/disney-channel-us.png" group-title="Kids & Animation",Disney Channel
-http://127.0.0.1:48913/live/manifest.m3u8?id=312&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DDisney%2520Channel%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A312%3A0%7Clegacy%3A312%3A1%7Clegacy%3A312%3A2%7Clegacy%3A312%3A3%7Clegacy%3A312%3A4%7Clegacy%3A312%3A5%7Clegacy%3A312%3A6
+/api/proxy/daddylive/manifest.m3u8?id=312
 #EXTINF:-1 feed-count="8" tvg-id="discoverychannel.us" tvg-name="Discovery Channel" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/discovery-channel-us.png" group-title="Documentary & Nature",Discovery Channel
-http://127.0.0.1:48913/live/manifest.m3u8?id=313&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DDiscovery%2520Channel%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A313%3A0%7Clegacy%3A313%3A1%7Clegacy%3A313%3A2%7Clegacy%3A313%3A3%7Clegacy%3A313%3A4%7Clegacy%3A313%3A5%7Clegacy%3A313%3A6
+/api/proxy/daddylive/manifest.m3u8?id=313
 #EXTINF:-1 tvg-id="Discovery.Family.Channel.HD.us2" tvg-name="Discovery Family" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/discovery-channel-us.png" group-title="Documentary & Nature",Discovery Family
 /api/proxy/daddylive/manifest.m3u8?id=657
 #EXTINF:-1 tvg-id="Disney.Channel.(de).cz" tvg-name="Disney XD" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/disney-channel-us.png" group-title="Kids & Animation",Disney XD
@@ -238,11 +238,11 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=313&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="dave.us" tvg-name="Dave" tvg-logo="https://dlstreams.st/logos/dave.png" group-title="General 24/7",Dave
 /api/proxy/daddylive/manifest.m3u8?id=348
 #EXTINF:-1 feed-count="8" tvg-id="ESPN.HD.us2" tvg-name="ESPN USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/espn-us.png" group-title="Sports",ESPN USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=44&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DESPN%252B%2520USA%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A44%3A0%7Clegacy%3A44%3A1%7Clegacy%3A44%3A2%7Clegacy%3A44%3A3%7Clegacy%3A44%3A4%7Clegacy%3A44%3A5%7Clegacy%3A44%3A6
+/api/proxy/daddylive/manifest.m3u8?id=44
 #EXTINF:-1 feed-count="8" tvg-id="ESPN2.HD.us2" tvg-name="ESPN2 USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/espn-us.png" group-title="Sports",ESPN2 USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=45&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DESPN%25202%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A45%3A0%7Clegacy%3A45%3A1%7Clegacy%3A45%3A2%7Clegacy%3A45%3A3%7Clegacy%3A45%3A4%7Clegacy%3A45%3A5%7Clegacy%3A45%3A6
+/api/proxy/daddylive/manifest.m3u8?id=45
 #EXTINF:-1 feed-count="8" tvg-id="ESPNU.HD.us2" tvg-name="ESPNU USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/espn-us.png" group-title="Sports",ESPNU USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=316&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DESPN%2520U%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A316%3A0%7Clegacy%3A316%3A1%7Clegacy%3A316%3A2%7Clegacy%3A316%3A3%7Clegacy%3A316%3A4%7Clegacy%3A316%3A5%7Clegacy%3A316%3A6
+/api/proxy/daddylive/manifest.m3u8?id=316
 #EXTINF:-1 tvg-id="Eleven Sports 1 HD.pl" tvg-name="Eleven Sports 1 Poland" tvg-logo="https://i.imgur.com/AOu4FXH.png" group-title="Sports",Eleven Sports 1 Poland
 /api/proxy/daddylive/manifest.m3u8?id=71
 #EXTINF:-1 tvg-id="Eleven Sports 2 HD.pl" tvg-name="Eleven Sports 2 Poland" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/portugal/eleven-sports-2-pt.png" group-title="Sports",Eleven Sports 2 Poland
@@ -254,7 +254,7 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=316&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="Eurosport.2.HD.(RS).rs" tvg-name="Eurosport 2 SW" tvg-logo="https://dlstreams.st/logos/eurosport_2_sw.png" group-title="Sports",Eurosport 2 SW
 /api/proxy/daddylive/manifest.m3u8?id=232
 #EXTINF:-1 feed-count="8" tvg-id="ESPN.Deportes.HD.us2" tvg-name="ESPN Deportes" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/espn-us.png" group-title="Sports",ESPN Deportes
-http://127.0.0.1:48913/live/manifest.m3u8?id=375&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DESPN%2520Deportes%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A375%3A0%7Clegacy%3A375%3A1%7Clegacy%3A375%3A2%7Clegacy%3A375%3A3%7Clegacy%3A375%3A4%7Clegacy%3A375%3A5%7Clegacy%3A375%3A6
+/api/proxy/daddylive/manifest.m3u8?id=375
 #EXTINF:-1 tvg-id="ESPNEWS.HD.us2" tvg-name="ESPNews" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/espn-us.png" group-title="Sports",ESPNews
 /api/proxy/daddylive/manifest.m3u8?id=288
 #EXTINF:-1 tvg-id="E!.Entertainment.(RS).rs" tvg-name="E! Entertainment Television" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/e-us.png" group-title="General 24/7",E! Entertainment Television
@@ -268,33 +268,33 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=375&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="Fuse.HD.us2" tvg-name="FUSE TV USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/fuse-us.png" group-title="USA Entertainment",FUSE TV USA
 /api/proxy/daddylive/manifest.m3u8?id=279
 #EXTINF:-1 feed-count="9" tvg-id="foxsports1usa.us" tvg-name="Fox Sports 1 USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/fox-us.png" group-title="Sports",Fox Sports 1 USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=39&sources=https%3A%2F%2Ftvsen7.aynascope.net%2Ffoxsports1%2Findex.m3u8%7Chttps%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DFOX%2520Sports%25201%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A39%3A0%7Clegacy%3A39%3A1%7Clegacy%3A39%3A2%7Clegacy%3A39%3A3%7Clegacy%3A39%3A4%7Clegacy%3A39%3A5%7Clegacy%3A39%3A6
+/api/proxy/daddylive/manifest.m3u8?id=39
 #EXTINF:-1 feed-count="8" tvg-id="foxsports2usa.us" tvg-name="Fox Sports 2 USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/fox-us.png" group-title="Sports",Fox Sports 2 USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=758&sources=https%3A%2F%2Ftvsen7.aynascope.net%2Ffoxsports2%2Findex.m3u8%7Clegacy%3A758%3A0%7Clegacy%3A758%3A1%7Clegacy%3A758%3A2%7Clegacy%3A758%3A3%7Clegacy%3A758%3A4%7Clegacy%3A758%3A5%7Clegacy%3A758%3A6
+/api/proxy/daddylive/manifest.m3u8?id=758
 #EXTINF:-1 feed-count="8" tvg-id="Fox.Soccer.Plus.HD.us2" tvg-name="FOX Soccer Plus" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/fox-us.png" group-title="Sports",FOX Soccer Plus
-http://127.0.0.1:48913/live/manifest.m3u8?id=756&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DFOX%2520Soccer%2520Plus%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A756%3A0%7Clegacy%3A756%3A1%7Clegacy%3A756%3A2%7Clegacy%3A756%3A3%7Clegacy%3A756%3A4%7Clegacy%3A756%3A5%7Clegacy%3A756%3A6
+/api/proxy/daddylive/manifest.m3u8?id=756
 #EXTINF:-1 tvg-id="FoxCricket.au" tvg-name="Fox Cricket" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/fox-us.png" group-title="Sports",Fox Cricket
 /api/proxy/daddylive/manifest.m3u8?id=369
 #EXTINF:-1 feed-count="9" tvg-id="Fox.Deportes.HD.us2" tvg-name="FOX Deportes USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/fox-us.png" group-title="Sports",FOX Deportes USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=643&sources=https%3A%2F%2Flive-manifest.production-public.tubi.io%2Flive%2Fd906efca-1302-4e29-b0d9-9a1d7a305d69%2Fplaylist.m3u8%7Chttps%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DFOX%2520Deportes%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A643%3A0%7Clegacy%3A643%3A1%7Clegacy%3A643%3A2%7Clegacy%3A643%3A3%7Clegacy%3A643%3A4%7Clegacy%3A643%3A5%7Clegacy%3A643%3A6
+/api/proxy/daddylive/manifest.m3u8?id=643
 #EXTINF:-1 feed-count="8" tvg-id="foxsports502au.us" tvg-name="FOX Sports 502 AU" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/fox-us.png" group-title="Sports",FOX Sports 502 AU
-http://127.0.0.1:48913/live/manifest.m3u8?id=820&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DFox%2520Sports%2520502%26code%3Dau%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A820%3A0%7Clegacy%3A820%3A1%7Clegacy%3A820%3A2%7Clegacy%3A820%3A3%7Clegacy%3A820%3A4%7Clegacy%3A820%3A5%7Clegacy%3A820%3A6
+/api/proxy/daddylive/manifest.m3u8?id=820
 #EXTINF:-1 feed-count="8" tvg-id="foxsports503au.us" tvg-name="FOX Sports 503 AU" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/fox-us.png" group-title="Sports",FOX Sports 503 AU
-http://127.0.0.1:48913/live/manifest.m3u8?id=821&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DFox%2520Sports%2520503%26code%3Dau%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A821%3A0%7Clegacy%3A821%3A1%7Clegacy%3A821%3A2%7Clegacy%3A821%3A3%7Clegacy%3A821%3A4%7Clegacy%3A821%3A5%7Clegacy%3A821%3A6
+/api/proxy/daddylive/manifest.m3u8?id=821
 #EXTINF:-1 tvg-id="foxsports504au.us" tvg-name="FOX Sports 504 AU" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/fox-us.png" group-title="Sports",FOX Sports 504 AU
 /api/proxy/daddylive/manifest.m3u8?id=822
 #EXTINF:-1 feed-count="8" tvg-id="foxsports505au.us" tvg-name="FOX Sports 505 AU" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/fox-us.png" group-title="Sports",FOX Sports 505 AU
-http://127.0.0.1:48913/live/manifest.m3u8?id=823&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DFox%2520Sports%2520505%26code%3Dau%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A823%3A0%7Clegacy%3A823%3A1%7Clegacy%3A823%3A2%7Clegacy%3A823%3A3%7Clegacy%3A823%3A4%7Clegacy%3A823%3A5%7Clegacy%3A823%3A6
+/api/proxy/daddylive/manifest.m3u8?id=823
 #EXTINF:-1 feed-count="8" tvg-id="foxsports506au.us" tvg-name="FOX Sports 506 AU" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/fox-us.png" group-title="Sports",FOX Sports 506 AU
-http://127.0.0.1:48913/live/manifest.m3u8?id=824&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DFox%2520Sports%2520506%26code%3Dau%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A824%3A0%7Clegacy%3A824%3A1%7Clegacy%3A824%3A2%7Clegacy%3A824%3A3%7Clegacy%3A824%3A4%7Clegacy%3A824%3A5%7Clegacy%3A824%3A6
+/api/proxy/daddylive/manifest.m3u8?id=824
 #EXTINF:-1 feed-count="8" tvg-id="foxsports507au.us" tvg-name="FOX Sports 507 AU" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/fox-us.png" group-title="Sports",FOX Sports 507 AU
-http://127.0.0.1:48913/live/manifest.m3u8?id=825&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DFox%2520Sports%2520507%26code%3Dau%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A825%3A0%7Clegacy%3A825%3A1%7Clegacy%3A825%3A2%7Clegacy%3A825%3A3%7Clegacy%3A825%3A4%7Clegacy%3A825%3A5%7Clegacy%3A825%3A6
+/api/proxy/daddylive/manifest.m3u8?id=825
 #EXTINF:-1 tvg-id="FilmBox.Premium.HD.pl" tvg-name="FilmBox Premium Poland" tvg-logo="https://i.imgur.com/RydfsE9.png" group-title="Movies & Cinema",FilmBox Premium Poland
 /api/proxy/daddylive/manifest.m3u8?id=568
 #EXTINF:-1 feed-count="8" tvg-id="fightnetwork.us" tvg-name="Fight Network" tvg-logo="https://i.imgur.com/vlKPZHR.png" group-title="Sports",Fight Network
-http://127.0.0.1:48913/live/manifest.m3u8?id=757&sources=https%3A%2F%2Famg00966-amg00966c10-amgplt0081.playout.now3.amagi.tv%2Fplaylist%2Famg00966-amg00966c10-amgplt0081%2Fplaylist.m3u8%7Clegacy%3A757%3A0%7Clegacy%3A757%3A1%7Clegacy%3A757%3A2%7Clegacy%3A757%3A3%7Clegacy%3A757%3A4%7Clegacy%3A757%3A5%7Clegacy%3A757%3A6
+/api/proxy/daddylive/manifest.m3u8?id=757
 #EXTINF:-1 tvg-id="foxbusiness.us" tvg-name="Fox Business" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/fox-us.png" feed-count="8" group-title="USA Entertainment",Fox Business
-http://127.0.0.1:48913/live/manifest.m3u8?id=297&sources=https%3A%2F%2F247preview.foxbusiness.com%2Fhls%2Flive%2F2020026%2Ffbnv3preview%2Fprimary.m3u8%7Clegacy%3A297%3A0%7Clegacy%3A297%3A1%7Clegacy%3A297%3A2%7Clegacy%3A297%3A3%7Clegacy%3A297%3A4%7Clegacy%3A297%3A5%7Clegacy%3A297%3A6
+/api/proxy/daddylive/manifest.m3u8?id=297
 #EXTINF:-1 tvg-id="foxusa.us" tvg-name="FOX USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/fox-us.png" group-title="USA Entertainment",FOX USA
 /api/proxy/daddylive/manifest.m3u8?id=54
 #EXTINF:-1 tvg-id="FX.HD.us2" tvg-name="FX USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/fx-us.png" group-title="USA Entertainment",FX USA
@@ -304,7 +304,7 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=297&sources=https%3A%2F%2F247previe
 #EXTINF:-1 tvg-id="Freeform.HD.us2" tvg-name="Freeform" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2b/Freeform_2022_pink.svg/1920px-Freeform_2022_pink.svg.png" group-title="General 24/7",Freeform
 /api/proxy/daddylive/manifest.m3u8?id=301
 #EXTINF:-1 feed-count="8" tvg-id="foxnews.us" tvg-name="Fox News" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/fox-us.png" group-title="News",Fox News
-http://127.0.0.1:48913/live/manifest.m3u8?id=347&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DFOX%2520News%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A347%3A0%7Clegacy%3A347%3A1%7Clegacy%3A347%3A2%7Clegacy%3A347%3A3%7Clegacy%3A347%3A4%7Clegacy%3A347%3A5%7Clegacy%3A347%3A6
+/api/proxy/daddylive/manifest.m3u8?id=347
 #EXTINF:-1 tvg-id="FX.Movie.Channel.HD.us2" tvg-name="FX Movie Channel" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/fx-us.png" group-title="Movies & Cinema",FX Movie Channel
 /api/proxy/daddylive/manifest.m3u8?id=381
 #EXTINF:-1 tvg-id="FYI.Channel.HD.us2" tvg-name="FYI" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/FYI%2C_logo.svg/960px-FYI%2C_logo.svg.png" group-title="Lifestyle",FYI
@@ -316,9 +316,9 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=347&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="Family.Entertainment.Television.us2" tvg-name="FETV - Family Entertainment Television" tvg-logo="https://dlstreams.st/logos/fetv_family_entertainment_television.png" group-title="General 24/7",FETV - Family Entertainment Television
 /api/proxy/daddylive/manifest.m3u8?id=751
 #EXTINF:-1 feed-count="8" tvg-id="WNYW-DT.us_locals1" tvg-name="FOXNY USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/fox-us.png" group-title="USA Entertainment",FOXNY USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=768&sources=https%3A%2F%2Fwww.youtube-nocookie.com%2Fembed%2FADXWeM9wsDw%7Clegacy%3A768%3A0%7Clegacy%3A768%3A1%7Clegacy%3A768%3A2%7Clegacy%3A768%3A3%7Clegacy%3A768%3A4%7Clegacy%3A768%3A5%7Clegacy%3A768%3A6
+/api/proxy/daddylive/manifest.m3u8?id=768
 #EXTINF:-1 tvg-id="Fox.Weather.us" tvg-name="Fox Weather Channel" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/fox-us.png" feed-count="9" group-title="News",Fox Weather Channel
-http://127.0.0.1:48913/live/manifest.m3u8?id=775&sources=https%3A%2F%2Fwww.youtube-nocookie.com%2Fembed%2Fwt6SIE7BXS8%7Chttps%3A%2F%2F247wlive.foxweather.com%2Fstream%2Findex.m3u8%7Clegacy%3A775%3A0%7Clegacy%3A775%3A1%7Clegacy%3A775%3A2%7Clegacy%3A775%3A3%7Clegacy%3A775%3A4%7Clegacy%3A775%3A5%7Clegacy%3A775%3A6
+/api/proxy/daddylive/manifest.m3u8?id=775
 #EXTINF:-1 tvg-id="fanduelsportsnetworkarizona.us" tvg-name="FanDuel Sports Network Arizona" tvg-logo="https://dlstreams.st/logos/fanduel_sports_network_arizona.png" group-title="Sports",FanDuel Sports Network Arizona
 /api/proxy/daddylive/manifest.m3u8?id=890
 #EXTINF:-1 tvg-id="bigbrothers28cam1.us" tvg-name="Big Brother S28 CAM 1" tvg-logo="https://commons.wikimedia.org/wiki/Special:Redirect/file/International_Logo_of_Big_Brother.png" group-title="Canada Channels",Big Brother S28 CAM 1
@@ -374,7 +374,7 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=775&sources=https%3A%2F%2Fwww.youtu
 #EXTINF:-1 tvg-id="Global.India.in" tvg-name="Global CA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/canada/global-ca.png" group-title="Canada Channels",Global CA
 /api/proxy/daddylive/manifest.m3u8?id=836
 #EXTINF:-1 tvg-id="Hallmark.Channel.HD.us2" tvg-name="The Hallmark Channel" tvg-logo="https://dlstreams.st/logos/the_hallmark_channel.png" feed-count="8" group-title="Movies & Cinema",The Hallmark Channel
-http://127.0.0.1:48913/live/manifest.m3u8?id=320&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DHallmark%26code%3Dus%26user%3Dntvstream%26plan%3Dfree%7Clegacy%3A320%3A0%7Clegacy%3A320%3A1%7Clegacy%3A320%3A2%7Clegacy%3A320%3A3%7Clegacy%3A320%3A4%7Clegacy%3A320%3A5%7Clegacy%3A320%3A6
+/api/proxy/daddylive/manifest.m3u8?id=320
 #EXTINF:-1 tvg-id="hallmarkmoviesmysterie.us" tvg-name="Hallmark Movies & Mysterie" tvg-logo="https://i.imgur.com/GPRGA9C.png" group-title="Movies & Cinema",Hallmark Movies & Mysterie
 /api/proxy/daddylive/manifest.m3u8?id=296
 #EXTINF:-1 tvg-id="Heroes.and.Icons.Network.SD.us2" tvg-name="Heroes & Icons (H&I) USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/heroes-and-icons-us.png" group-title="USA Entertainment",Heroes & Icons (H&I) USA
@@ -392,19 +392,19 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=320&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="HBO.Zone.HD.us2" tvg-name="HBO Zone USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/hbo-us.png" group-title="Movies & Cinema",HBO Zone USA
 /api/proxy/daddylive/manifest.m3u8?id=694
 #EXTINF:-1 feed-count="8" tvg-id="History.HD.us2" tvg-name="History USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/history-us.png" group-title="Documentary & Nature",History USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=322&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DHistory%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A322%3A0%7Clegacy%3A322%3A1%7Clegacy%3A322%3A2%7Clegacy%3A322%3A3%7Clegacy%3A322%3A4%7Clegacy%3A322%3A5%7Clegacy%3A322%3A6
+/api/proxy/daddylive/manifest.m3u8?id=322
 #EXTINF:-1 tvg-id="Headline.News.in" tvg-name="Headline News" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/hln-us.png" group-title="News",Headline News
 /api/proxy/daddylive/manifest.m3u8?id=323
 #EXTINF:-1 feed-count="8" tvg-id="hgtv.us" tvg-name="HGTV" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/hgtv-us.png" group-title="General 24/7",HGTV
-http://127.0.0.1:48913/live/manifest.m3u8?id=382&sources=https%3A%2F%2Fwww.youtube-nocookie.com%2Fembed%2F4yyo2e9dAxg%7Clegacy%3A382%3A0%7Clegacy%3A382%3A1%7Clegacy%3A382%3A2%7Clegacy%3A382%3A3%7Clegacy%3A382%3A4%7Clegacy%3A382%3A5%7Clegacy%3A382%3A6
+/api/proxy/daddylive/manifest.m3u8?id=382
 #EXTINF:-1 tvg-id="ITV1.HD.uk" tvg-name="ITV 1 UK" tvg-logo="https://i.imgur.com/xwPekCF.png" feed-count="9" group-title="UK Channels",ITV 1 UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=350&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DITV%25201%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Chttps%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DITV%25201%26code%3Dgb%26user%3Dntvstream%26plan%3Dfree%7Clegacy%3A350%3A0%7Clegacy%3A350%3A1%7Clegacy%3A350%3A2%7Clegacy%3A350%3A3%7Clegacy%3A350%3A4%7Clegacy%3A350%3A5%7Clegacy%3A350%3A6
+/api/proxy/daddylive/manifest.m3u8?id=350
 #EXTINF:-1 tvg-id="ITV2.HD.uk" tvg-name="ITV 2 UK" tvg-logo="https://i.imgur.com/2BpUK0W.png" feed-count="9" group-title="UK Channels",ITV 2 UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=351&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DITV%25202%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Chttps%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DITV%25202%26code%3Dgb%26user%3Dntvstream%26plan%3Dfree%7Clegacy%3A351%3A0%7Clegacy%3A351%3A1%7Clegacy%3A351%3A2%7Clegacy%3A351%3A3%7Clegacy%3A351%3A4%7Clegacy%3A351%3A5%7Clegacy%3A351%3A6
+/api/proxy/daddylive/manifest.m3u8?id=351
 #EXTINF:-1 tvg-id="ITV3.HD.uk" tvg-name="ITV 3 UK" tvg-logo="https://i.imgur.com/JuyM2z5.png" feed-count="9" group-title="UK Channels",ITV 3 UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=352&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DITV%25203%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Chttps%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DITV%25203%26code%3Dgb%26user%3Dntvstream%26plan%3Dfree%7Clegacy%3A352%3A0%7Clegacy%3A352%3A1%7Clegacy%3A352%3A2%7Clegacy%3A352%3A3%7Clegacy%3A352%3A4%7Clegacy%3A352%3A5%7Clegacy%3A352%3A6
+/api/proxy/daddylive/manifest.m3u8?id=352
 #EXTINF:-1 tvg-id="ITV4.HD.uk" tvg-name="ITV 4 UK" tvg-logo="https://i.imgur.com/DYI4IA2.png" feed-count="9" group-title="UK Channels",ITV 4 UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=353&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DITV%25204%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Chttps%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DITV%25204%26code%3Dgb%26user%3Dntvstream%26plan%3Dfree%7Clegacy%3A353%3A0%7Clegacy%3A353%3A1%7Clegacy%3A353%3A2%7Clegacy%3A353%3A3%7Clegacy%3A353%3A4%7Clegacy%3A353%3A5%7Clegacy%3A353%3A6
+/api/proxy/daddylive/manifest.m3u8?id=353
 #EXTINF:-1 tvg-id="ITV.Quiz.uk" tvg-name="ITV Quiz" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/The_official_ITV_Quiz_logo.svg/960px-The_official_ITV_Quiz_logo.svg.png" group-title="General 24/7",ITV Quiz
 /api/proxy/daddylive/manifest.m3u8?id=876
 #EXTINF:-1 tvg-id="Investigation.Discovery.HD.us2" tvg-name="Investigation Discovery (ID USA)" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/discovery-channel-us.png" group-title="Documentary & Nature",Investigation Discovery (ID USA)
@@ -416,9 +416,9 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=353&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="kabeleinskabel1de.us" tvg-name="Kabel Eins (Kabel 1) DE" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/germany/kabel-eins-de.png" group-title="General 24/7",Kabel Eins (Kabel 1) DE
 /api/proxy/daddylive/manifest.m3u8?id=731
 #EXTINF:-1 feed-count="8" tvg-id="laligatvuk.us" tvg-name="LaLigaTV UK" tvg-logo="https://i.imgur.com/ilay5Jr.png" group-title="Sports",LaLigaTV UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=276&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DLaLiga%2520TV%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A276%3A0%7Clegacy%3A276%3A1%7Clegacy%3A276%3A2%7Clegacy%3A276%3A3%7Clegacy%3A276%3A4%7Clegacy%3A276%3A5%7Clegacy%3A276%3A6
+/api/proxy/daddylive/manifest.m3u8?id=276
 #EXTINF:-1 tvg-id="Law.and.Crime.us2" tvg-name="Law & Crime Network" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/law-and-crime-network-us.png" feed-count="8" group-title="Documentary & Nature",Law & Crime Network
-http://127.0.0.1:48913/live/manifest.m3u8?id=278&sources=https%3A%2F%2Fcdn.lawandcrime.net%2Frewind%2Fplaylist.m3u8%7Clegacy%3A278%3A0%7Clegacy%3A278%3A1%7Clegacy%3A278%3A2%7Clegacy%3A278%3A3%7Clegacy%3A278%3A4%7Clegacy%3A278%3A5%7Clegacy%3A278%3A6
+/api/proxy/daddylive/manifest.m3u8?id=278
 #EXTINF:-1 tvg-id="laligasmartbanktv.us" tvg-name="LaLiga SmartBank TV" tvg-logo="https://dlstreams.st/logos/laliga_smartbank_tv.png" group-title="Sports",LaLiga SmartBank TV
 /api/proxy/daddylive/manifest.m3u8?id=539
 #EXTINF:-1 tvg-id="liverpooltvlfctv.us" tvg-name="Liverpool TV (LFC TV)" tvg-logo="https://dlstreams.st/logos/liverpool_tv_lfc_tv.png" group-title="General 24/7",Liverpool TV (LFC TV)
@@ -428,7 +428,7 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=278&sources=https%3A%2F%2Fcdn.lawan
 #EXTINF:-1 tvg-id="lasestrellas.us" tvg-name="Las Estrellas" tvg-logo="https://i.imgur.com/g5ShxZ7.png" group-title="General 24/7",Las Estrellas
 /api/proxy/daddylive/manifest.m3u8?id=924
 #EXTINF:-1 tvg-id="lifetimenetwork.us" tvg-name="Lifetime Network" tvg-logo="https://i.imgur.com/AHP3J12.png" feed-count="8" group-title="General 24/7",Lifetime Network
-http://127.0.0.1:48913/live/manifest.m3u8?id=326&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DLifetime%26code%3Dus%26user%3Dntvstream%26plan%3Dfree%7Clegacy%3A326%3A0%7Clegacy%3A326%3A1%7Clegacy%3A326%3A2%7Clegacy%3A326%3A3%7Clegacy%3A326%3A4%7Clegacy%3A326%3A5%7Clegacy%3A326%3A6
+/api/proxy/daddylive/manifest.m3u8?id=326
 #EXTINF:-1 tvg-id="lifetimemoviesnetwork.us" tvg-name="Lifetime Movies Network" tvg-logo="https://i.imgur.com/AHP3J12.png" group-title="Movies & Cinema",Lifetime Movies Network
 /api/proxy/daddylive/manifest.m3u8?id=389
 #EXTINF:-1 tvg-id="russia.us" tvg-name="МАТЧ! БОЕЦ Russia" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Russia-Cultura.svg/960px-Russia-Cultura.svg.png" group-title="USA Entertainment",МАТЧ! БОЕЦ Russia
@@ -454,11 +454,11 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=326&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="RACER.Network.HD.us2" tvg-name="Racer TV USA" tvg-logo="https://www.google.com/s2/favicons?domain=racertv.com&sz=256" group-title="USA Entertainment",Racer TV USA
 /api/proxy/daddylive/manifest.m3u8?id=646
 #EXTINF:-1 feed-count="8" tvg-id="Marquee.Sports.Network.HD.us2" tvg-name="Marquee Sports Network" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/Marquee_Sports_Network_Logo.svg/960px-Marquee_Sports_Network_Logo.svg.png" group-title="Sports",Marquee Sports Network
-http://127.0.0.1:48913/live/manifest.m3u8?id=770&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DMarquee%2520Sports%2520Network%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A770%3A0%7Clegacy%3A770%3A1%7Clegacy%3A770%3A2%7Clegacy%3A770%3A3%7Clegacy%3A770%3A4%7Clegacy%3A770%3A5%7Clegacy%3A770%3A6
+/api/proxy/daddylive/manifest.m3u8?id=770
 #EXTINF:-1 feed-count="8" tvg-id="MLB.Network.HD.us2" tvg-name="MLB Network USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/mlb-network-us.png" group-title="Sports",MLB Network USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=399&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DMLB%2520Network%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A399%3A0%7Clegacy%3A399%3A1%7Clegacy%3A399%3A2%7Clegacy%3A399%3A3%7Clegacy%3A399%3A4%7Clegacy%3A399%3A5%7Clegacy%3A399%3A6
+/api/proxy/daddylive/manifest.m3u8?id=399
 #EXTINF:-1 feed-count="8" tvg-id="masnusa.us" tvg-name="MASN USA" tvg-logo="https://i.imgur.com/ZF5HKKY.png" group-title="Sports",MASN USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=829&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DMASN%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A829%3A0%7Clegacy%3A829%3A1%7Clegacy%3A829%3A2%7Clegacy%3A829%3A3%7Clegacy%3A829%3A4%7Clegacy%3A829%3A5%7Clegacy%3A829%3A6
+/api/proxy/daddylive/manifest.m3u8?id=829
 #EXTINF:-1 tvg-id="WWOR-DT.us_locals1" tvg-name="MY9TV USA" tvg-logo="https://dlstreams.st/logos/my9tv_usa.png" group-title="USA Entertainment",MY9TV USA
 /api/proxy/daddylive/manifest.m3u8?id=654
 #EXTINF:-1 tvg-id="discoveryturbo.us" tvg-name="Discovery Turbo" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/discovery-channel-us.png" group-title="Documentary & Nature",Discovery Turbo
@@ -468,7 +468,7 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=829&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="mdrde.us" tvg-name="MDR DE" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/germany/mdr-de.png" group-title="General 24/7",MDR DE
 /api/proxy/daddylive/manifest.m3u8?id=733
 #EXTINF:-1 feed-count="8" tvg-id="Monumental.Sports.Network.HD.us2" tvg-name="Monumental Sports Network" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/monumental-sports-network-us.png" group-title="Sports",Monumental Sports Network
-http://127.0.0.1:48913/live/manifest.m3u8?id=778&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DMonumental%2520Sports%2520Network%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A778%3A0%7Clegacy%3A778%3A1%7Clegacy%3A778%3A2%7Clegacy%3A778%3A3%7Clegacy%3A778%3A4%7Clegacy%3A778%3A5%7Clegacy%3A778%3A6
+/api/proxy/daddylive/manifest.m3u8?id=778
 #EXTINF:-1 tvg-id="MTV.dk" tvg-name="MTV Denmark" tvg-logo="https://dlstreams.st/logos/mtv_denmark.png" group-title="General 24/7",MTV Denmark
 /api/proxy/daddylive/manifest.m3u8?id=806
 #EXTINF:-1 tvg-id="mgmusaepix.us" tvg-name="MGM+ USA / Epix" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/mgm-plus-us.png" group-title="USA Entertainment",MGM+ USA / Epix
@@ -476,7 +476,7 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=778&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="WCAU-DT.us_locals1" tvg-name="NBC10 Philadelphia" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nbc-us.png" group-title="General 24/7",NBC10 Philadelphia
 /api/proxy/daddylive/manifest.m3u8?id=277
 #EXTINF:-1 feed-count="9" tvg-id="NHL.Network.HD.us2" tvg-name="NHL Network USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nhl-network-us.png" group-title="Sports",NHL Network USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=663&sources=https%3A%2F%2Faegis-cloudfront-1.tubi.video%2F1f4cbb33-cb23-40ab-b54b-2965cc551b32%2Fplaylist.m3u8%7Chttps%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DNHL%2520Network%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A663%3A0%7Clegacy%3A663%3A1%7Clegacy%3A663%3A2%7Clegacy%3A663%3A3%7Clegacy%3A663%3A4%7Clegacy%3A663%3A5%7Clegacy%3A663%3A6
+/api/proxy/daddylive/manifest.m3u8?id=663
 #EXTINF:-1 tvg-id="NFL.RedZone.HD.us2" tvg-name="NFL RedZone" tvg-logo="https://i.imgur.com/5lPqQj5.png" group-title="Sports",NFL RedZone
 /api/proxy/daddylive/manifest.m3u8?id=667
 #EXTINF:-1 tvg-id="Novasports1.gr" tvg-name="Nova Sports 1 Greece" tvg-logo="https://dlstreams.st/logos/nova_sports_1_greece.png" group-title="Sports",Nova Sports 1 Greece
@@ -500,15 +500,15 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=663&sources=https%3A%2F%2Faegis-clo
 #EXTINF:-1 tvg-id="Nick.Music.(RS).rs" tvg-name="Nick Music" tvg-logo="https://dlstreams.st/logos/nick_music.png" group-title="Music",Nick Music
 /api/proxy/daddylive/manifest.m3u8?id=666
 #EXTINF:-1 feed-count="8" tvg-id="nesnusa.us" tvg-name="NESN USA" tvg-logo="https://i.imgur.com/Lv1bUG5.png" group-title="Sports",NESN USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=762&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DNESN%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A762%3A0%7Clegacy%3A762%3A1%7Clegacy%3A762%3A2%7Clegacy%3A762%3A3%7Clegacy%3A762%3A4%7Clegacy%3A762%3A5%7Clegacy%3A762%3A6
+/api/proxy/daddylive/manifest.m3u8?id=762
 #EXTINF:-1 tvg-id="nbcusa.us" tvg-name="NBC USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nbc-us.png" group-title="USA Entertainment",NBC USA
 /api/proxy/daddylive/manifest.m3u8?id=53
 #EXTINF:-1 feed-count="11" tvg-id="NBA.TV.HD.us2" tvg-name="NBA TV USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nba-tv-us.png" group-title="Sports",NBA TV USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=404&sources=https%3A%2F%2Famg00556-amg00556c3-firetv-us-6060.playouts.now.amagi.tv%2Fplaylist.m3u8%7Chttps%3A%2F%2Fpb-5pdyic0cu7tri.akamaized.net%2FNBA.m3u8%7Chttps%3A%2F%2Fcdn1.ayitistream.com%2FNBATV%2Findex.m3u8%7Chttps%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DNBA%2520TV%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A404%3A0%7Clegacy%3A404%3A1%7Clegacy%3A404%3A2%7Clegacy%3A404%3A3%7Clegacy%3A404%3A4%7Clegacy%3A404%3A5%7Clegacy%3A404%3A6
+/api/proxy/daddylive/manifest.m3u8?id=404
 #EXTINF:-1 tvg-id="NBC.Sports.Philadelphia.HD.us2" tvg-name="NBC Sports Philadelphia" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nbc-us.png" group-title="Sports",NBC Sports Philadelphia
 /api/proxy/daddylive/manifest.m3u8?id=777
 #EXTINF:-1 feed-count="8" tvg-id="nflnetwork.us" tvg-name="NFL Network" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nfl-network-us.png" group-title="Sports",NFL Network
-http://127.0.0.1:48913/live/manifest.m3u8?id=405&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DNFL%2520Network%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A405%3A0%7Clegacy%3A405%3A1%7Clegacy%3A405%3A2%7Clegacy%3A405%3A3%7Clegacy%3A405%3A4%7Clegacy%3A405%3A5%7Clegacy%3A405%3A6
+/api/proxy/daddylive/manifest.m3u8?id=405
 #EXTINF:-1 tvg-id="NBC.Sports.Bay.Area.HD.us2" tvg-name="NBC Sports Bay Area" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nbc-us.png" group-title="Sports",NBC Sports Bay Area
 /api/proxy/daddylive/manifest.m3u8?id=753
 #EXTINF:-1 tvg-id="NBC.Sports.Boston.HD.us2" tvg-name="NBC Sports Boston" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nbc-us.png" group-title="Sports",NBC Sports Boston
@@ -520,21 +520,21 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=405&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="NewsNation.us2" tvg-name="NewsNation USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/news-nation-us.png" group-title="News",NewsNation USA
 /api/proxy/daddylive/manifest.m3u8?id=292
 #EXTINF:-1 tvg-id="nationalgeographicngc.us" tvg-name="National Geographic (NGC)" tvg-logo="https://dlstreams.st/logos/national_geographic_ngc.png" feed-count="9" group-title="General 24/7",National Geographic (NGC)
-http://127.0.0.1:48913/live/manifest.m3u8?id=328&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DNational%2520Geographic%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Chttps%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DNational%2520Geographic%26code%3Dus%26user%3Dntvstream%26plan%3Dfree%7Clegacy%3A328%3A0%7Clegacy%3A328%3A1%7Clegacy%3A328%3A2%7Clegacy%3A328%3A3%7Clegacy%3A328%3A4%7Clegacy%3A328%3A5%7Clegacy%3A328%3A6
+/api/proxy/daddylive/manifest.m3u8?id=328
 #EXTINF:-1 tvg-id="nickjr.us" tvg-name="NICK JR" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nick-jr-us.png" group-title="Kids & Animation",NICK JR
 /api/proxy/daddylive/manifest.m3u8?id=329
 #EXTINF:-1 tvg-id="nick.us" tvg-name="NICK" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nick-us.png" group-title="Kids & Animation",NICK
 /api/proxy/daddylive/manifest.m3u8?id=330
 #EXTINF:-1 feed-count="8" tvg-id="Nicktoons.F.ch" tvg-name="Nicktoons" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nick-toons-us.png" group-title="Kids & Animation",Nicktoons
-http://127.0.0.1:48913/live/manifest.m3u8?id=649&sources=https%3A%2F%2Fwww.youtube-nocookie.com%2Fembed%2FaVs7bdB5wiU%7Clegacy%3A649%3A0%7Clegacy%3A649%3A1%7Clegacy%3A649%3A2%7Clegacy%3A649%3A3%7Clegacy%3A649%3A4%7Clegacy%3A649%3A5%7Clegacy%3A649%3A6
+/api/proxy/daddylive/manifest.m3u8?id=649
 #EXTINF:-1 tvg-id="ndrde.us" tvg-name="NDR DE" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/germany/ndr-de.png" group-title="General 24/7",NDR DE
 /api/proxy/daddylive/manifest.m3u8?id=736
 #EXTINF:-1 tvg-id="Newsmax.TV.HD.us2" tvg-name="Newsmax USA" tvg-logo="https://provider-static.plex.tv/epg/cms/production/f3f74374-7cf6-4fdc-8056-7ef9e8eb989b/N2_logo_color.png" feed-count="9" group-title="News",Newsmax USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=613&sources=https%3A%2F%2Fwww.youtube-nocookie.com%2Fembed%2FRNNFrG4KbH0%7Chttps%3A%2F%2Fnmx1ota.akamaized.net%2Fhls%2Flive%2F2107010%2FLive_1%2Findex.m3u8%7Clegacy%3A613%3A0%7Clegacy%3A613%3A1%7Clegacy%3A613%3A2%7Clegacy%3A613%3A3%7Clegacy%3A613%3A4%7Clegacy%3A613%3A5%7Clegacy%3A613%3A6
+/api/proxy/daddylive/manifest.m3u8?id=613
 #EXTINF:-1 tvg-id="natgeowildusa.us" tvg-name="Nat Geo Wild USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/national-geographic-us.png" group-title="Documentary & Nature",Nat Geo Wild USA
 /api/proxy/daddylive/manifest.m3u8?id=745
 #EXTINF:-1 feed-count="8" tvg-id="nbcuniverso.us" tvg-name="NBC Universo" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nbc-us.png" group-title="General 24/7",NBC Universo
-http://127.0.0.1:48913/live/manifest.m3u8?id=845&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DNBC%2520Universo%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A845%3A0%7Clegacy%3A845%3A1%7Clegacy%3A845%3A2%7Clegacy%3A845%3A3%7Clegacy%3A845%3A4%7Clegacy%3A845%3A5%7Clegacy%3A845%3A6
+/api/proxy/daddylive/manifest.m3u8?id=845
 #EXTINF:-1 tvg-id="Nova.Sport.1.cz" tvg-name="Nova Sport 1 CZ" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/czech-republic/nova-sport-1-cz.png" group-title="Sports",Nova Sport 1 CZ
 /api/proxy/daddylive/manifest.m3u8?id=1021
 #EXTINF:-1 tvg-id="Nova.Sport.3.cz" tvg-name="Nova Sport 3 CZ" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/czech-republic/nova-sport-3-cz.png" group-title="Sports",Nova Sport 3 CZ
@@ -550,7 +550,7 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=845&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="Oxygen.True.Crime.HD.us2" tvg-name="Oxygen True Crime" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/oxygen-true-crime-us.png" group-title="Documentary & Nature",Oxygen True Crime
 /api/proxy/daddylive/manifest.m3u8?id=332
 #EXTINF:-1 feed-count="9" tvg-id="Outdoor.Channel.HD.us2" tvg-name="Outdoor Channel USA" tvg-logo="https://i.imgur.com/Kh4MWaY.png" group-title="USA Entertainment",Outdoor Channel USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=848&sources=https%3A%2F%2Famg00718-outdoorchannela-outdoortv-samsungau-uc7mp.amagi.tv%2Fplaylist%2Famg00718-outdoorchannela-outdoortv-samsungau%2Fplaylist.m3u8%7Chttps%3A%2F%2Fcdn-apse1-prod.tsv2.amagi.tv%2Flinear%2Famg00718-outdoorchannela-outdoortvnz-samsungnz%2Fplaylist.m3u8%7Clegacy%3A848%3A0%7Clegacy%3A848%3A1%7Clegacy%3A848%3A2%7Clegacy%3A848%3A3%7Clegacy%3A848%3A4%7Clegacy%3A848%3A5%7Clegacy%3A848%3A6
+/api/proxy/daddylive/manifest.m3u8?id=848
 #EXTINF:-1 tvg-id="prosiebenpro7de.us" tvg-name="ProSieben (PRO7) DE" tvg-logo="https://i.imgur.com/zZOk3nh.png" group-title="General 24/7",ProSieben (PRO7) DE
 /api/proxy/daddylive/manifest.m3u8?id=730
 #EXTINF:-1 tvg-id="Premier Sports 1.ie" tvg-name="Premier Sports Ireland 1" tvg-logo="https://dlstreams.st/logos/premier_sports_ireland_1.png" group-title="Sports",Premier Sports Ireland 1
@@ -578,7 +578,7 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=848&sources=https%3A%2F%2Famg00718-
 #EXTINF:-1 tvg-id="pac12networkusa.us" tvg-name="Pac-12 Network USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/pac-12-network-us.png" group-title="Sports",Pac-12 Network USA
 /api/proxy/daddylive/manifest.m3u8?id=287
 #EXTINF:-1 tvg-id="pbsusa.us" tvg-name="PBS USA" tvg-logo="https://dlstreams.st/logos/pbs_usa.png" feed-count="8" group-title="USA Entertainment",PBS USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=210&sources=https%3A%2F%2Fpbs.lls.cdn.pbs.org%2Fest%2Findex.m3u8%7Clegacy%3A210%3A0%7Clegacy%3A210%3A1%7Clegacy%3A210%3A2%7Clegacy%3A210%3A3%7Clegacy%3A210%3A4%7Clegacy%3A210%3A5%7Clegacy%3A210%3A6
+/api/proxy/daddylive/manifest.m3u8?id=210
 #EXTINF:-1 tvg-id="reelzchannel.us" tvg-name="Reelz Channel" tvg-logo="https://dlstreams.st/logos/reelz_channel.png" group-title="General 24/7",Reelz Channel
 /api/proxy/daddylive/manifest.m3u8?id=293
 #EXTINF:-1 tvg-id="rte1.us" tvg-name="RTE 1" tvg-logo="https://i.imgur.com/8uZSZdS.png" group-title="General 24/7",RTE 1
@@ -588,37 +588,37 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=210&sources=https%3A%2F%2Fpbs.lls.c
 #EXTINF:-1 tvg-id="Racing TV HD.uk" tvg-name="Racing Tv UK" tvg-logo="https://i.imgur.com/eaVrQU4.png" group-title="Sports",Racing Tv UK
 /api/proxy/daddylive/manifest.m3u8?id=555
 #EXTINF:-1 feed-count="8" tvg-id="Really.uk" tvg-name="Rally Tv" tvg-logo="https://i.postimg.cc/WtLq2C7c/logo-Rally-Tv1.png" group-title="Sports",Rally Tv
-http://127.0.0.1:48913/live/manifest.m3u8?id=607&sources=https%3A%2F%2Frally-tv-live.akamaized.net%2Fhls%2Flive%2F2117704%2FRallyTV-Pri%2Fmaster.m3u8%7Clegacy%3A607%3A0%7Clegacy%3A607%3A1%7Clegacy%3A607%3A2%7Clegacy%3A607%3A3%7Clegacy%3A607%3A4%7Clegacy%3A607%3A5%7Clegacy%3A607%3A6
+/api/proxy/daddylive/manifest.m3u8?id=607
 #EXTINF:-1 tvg-id="ROOT.Sports.Northwest.HD.us2" tvg-name="Root Sports Northwest" tvg-logo="https://dlstreams.st/logos/root_sports_northwest.png" group-title="Sports",Root Sports Northwest
 /api/proxy/daddylive/manifest.m3u8?id=920
 #EXTINF:-1 feed-count="8" tvg-id="Sky.Sports.Football.HD.uk" tvg-name="Sky Sports Football UK" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-sports-main-event-uk.png" group-title="Sports",Sky Sports Football UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=35&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DSky%2520Sports%2520Football%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A35%3A0%7Clegacy%3A35%3A1%7Clegacy%3A35%3A2%7Clegacy%3A35%3A3%7Clegacy%3A35%3A4%7Clegacy%3A35%3A5%7Clegacy%3A35%3A6
+/api/proxy/daddylive/manifest.m3u8?id=35
 #EXTINF:-1 tvg-id="skysportsplus.us" tvg-name="Sky Sports+ Plus" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-sports-main-event-uk.png" group-title="Sports",Sky Sports+ Plus
 /api/proxy/daddylive/manifest.m3u8?id=36
 #EXTINF:-1 feed-count="8" tvg-id="SkySp.Action.uk" tvg-name="Sky Sports Action UK" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-sports-main-event-uk.png" group-title="Sports",Sky Sports Action UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=37&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DSky%2520Sports%2520Action%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A37%3A0%7Clegacy%3A37%3A1%7Clegacy%3A37%3A2%7Clegacy%3A37%3A3%7Clegacy%3A37%3A4%7Clegacy%3A37%3A5%7Clegacy%3A37%3A6
+/api/proxy/daddylive/manifest.m3u8?id=37
 #EXTINF:-1 feed-count="8" tvg-id="skysportsmainevent.us" tvg-name="Sky Sports Main Event" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-sports-main-event-uk.png" group-title="Sports",Sky Sports Main Event
-http://127.0.0.1:48913/live/manifest.m3u8?id=38&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DSky%2520Sports%2520Main%2520Event%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A38%3A0%7Clegacy%3A38%3A1%7Clegacy%3A38%3A2%7Clegacy%3A38%3A3%7Clegacy%3A38%3A4%7Clegacy%3A38%3A5%7Clegacy%3A38%3A6
+/api/proxy/daddylive/manifest.m3u8?id=38
 #EXTINF:-1 feed-count="8" tvg-id="SkySp.Tennis.HD.uk" tvg-name="Sky Sports Tennis UK" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-sports-main-event-uk.png" group-title="Sports",Sky Sports Tennis UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=46&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DSky%2520Sports%2520Tennis%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A46%3A0%7Clegacy%3A46%3A1%7Clegacy%3A46%3A2%7Clegacy%3A46%3A3%7Clegacy%3A46%3A4%7Clegacy%3A46%3A5%7Clegacy%3A46%3A6
+/api/proxy/daddylive/manifest.m3u8?id=46
 #EXTINF:-1 feed-count="8" tvg-id="skysportspremierleague.us" tvg-name="Sky sports Premier League" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-sports-main-event-uk.png" group-title="Sports",Sky sports Premier League
-http://127.0.0.1:48913/live/manifest.m3u8?id=130&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DSky%2520Sports%2520Premier%2520League%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A130%3A0%7Clegacy%3A130%3A1%7Clegacy%3A130%3A2%7Clegacy%3A130%3A3%7Clegacy%3A130%3A4%7Clegacy%3A130%3A5%7Clegacy%3A130%3A6
+/api/proxy/daddylive/manifest.m3u8?id=130
 #EXTINF:-1 feed-count="8" tvg-id="Sky Sports F1 HD.uk" tvg-name="Sky Sports F1 UK" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-sports-main-event-uk.png" group-title="Sports",Sky Sports F1 UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=60&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DSky%2520Sports%2520F1%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A60%3A0%7Clegacy%3A60%3A1%7Clegacy%3A60%3A2%7Clegacy%3A60%3A3%7Clegacy%3A60%3A4%7Clegacy%3A60%3A5%7Clegacy%3A60%3A6
+/api/proxy/daddylive/manifest.m3u8?id=60
 #EXTINF:-1 feed-count="8" tvg-id="skysportscricket.us" tvg-name="Sky Sports Cricket" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-sports-main-event-uk.png" group-title="Sports",Sky Sports Cricket
-http://127.0.0.1:48913/live/manifest.m3u8?id=65&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DSky%2520Sports%2520Cricket%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A65%3A0%7Clegacy%3A65%3A1%7Clegacy%3A65%3A2%7Clegacy%3A65%3A3%7Clegacy%3A65%3A4%7Clegacy%3A65%3A5%7Clegacy%3A65%3A6
+/api/proxy/daddylive/manifest.m3u8?id=65
 #EXTINF:-1 feed-count="8" tvg-id="Sky Sports Golf HD.uk" tvg-name="Sky Sports Golf UK" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-sports-main-event-uk.png" group-title="Sports",Sky Sports Golf UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=70&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DSky%2520Sports%2520Golf%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A70%3A0%7Clegacy%3A70%3A1%7Clegacy%3A70%3A2%7Clegacy%3A70%3A3%7Clegacy%3A70%3A4%7Clegacy%3A70%3A5%7Clegacy%3A70%3A6
+/api/proxy/daddylive/manifest.m3u8?id=70
 #EXTINF:-1 tvg-id="Sky Sports News HD.uk" tvg-name="Sky Sports News UK" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-sports-main-event-uk.png" group-title="Sports",Sky Sports News UK
 /api/proxy/daddylive/manifest.m3u8?id=366
 #EXTINF:-1 feed-count="8" tvg-id="Sky Sports Mix HD.uk" tvg-name="Sky Sports MIX UK" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-sports-main-event-uk.png" group-title="Sports",Sky Sports MIX UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=449&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DSky%2520Sports%2520Mix%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A449%3A0%7Clegacy%3A449%3A1%7Clegacy%3A449%3A2%7Clegacy%3A449%3A3%7Clegacy%3A449%3A4%7Clegacy%3A449%3A5%7Clegacy%3A449%3A6
+/api/proxy/daddylive/manifest.m3u8?id=449
 #EXTINF:-1 tvg-id="Sky.Sport.Bundesliga.1.de" tvg-name="Sky Sport Bundesliga 1 HD" tvg-logo="https://dlstreams.st/logos/sky_sport_bundesliga_1_hd.png" group-title="Sports",Sky Sport Bundesliga 1 HD
 /api/proxy/daddylive/manifest.m3u8?id=558
 #EXTINF:-1 feed-count="8" tvg-id="SNY.SportsNet.New.York.HD.us2" tvg-name="SportsNet New York (SNY)" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/SNY_logo.svg/960px-SNY_logo.svg.png" group-title="Sports",SportsNet New York (SNY)
-http://127.0.0.1:48913/live/manifest.m3u8?id=759&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DSportsNet%2520New%2520York%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A759%3A0%7Clegacy%3A759%3A1%7Clegacy%3A759%3A2%7Clegacy%3A759%3A3%7Clegacy%3A759%3A4%7Clegacy%3A759%3A5%7Clegacy%3A759%3A6
+/api/proxy/daddylive/manifest.m3u8?id=759
 #EXTINF:-1 feed-count="8" tvg-id="Sky Sports Racing HD.uk" tvg-name="Sky Sports Racing UK" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-sports-main-event-uk.png" group-title="Sports",Sky Sports Racing UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=554&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DSky%2520Sports%2520Racing%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A554%3A0%7Clegacy%3A554%3A1%7Clegacy%3A554%3A2%7Clegacy%3A554%3A3%7Clegacy%3A554%3A4%7Clegacy%3A554%3A5%7Clegacy%3A554%3A6
+/api/proxy/daddylive/manifest.m3u8?id=554
 #EXTINF:-1 tvg-id="sonyten1.us" tvg-name="SONY TEN 1" tvg-logo="https://dtil.tmsimg.com/assets/s157591_ld_h15_aa.png?lock=720x540" group-title="Sports",SONY TEN 1
 /api/proxy/daddylive/manifest.m3u8?id=885
 #EXTINF:-1 tvg-id="Sony.Ten.2.HD.in" tvg-name="SONY TEN 2" tvg-logo="https://dtil.tmsimg.com/assets/s157592_ld_h15_aa.png?lock=720x540" group-title="Sports",SONY TEN 2
@@ -688,19 +688,19 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=554&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="SPORT.TV4.HD.pt" tvg-name="Sport TV4 Portugal" tvg-logo="https://i.imgur.com/mJlbVfW.png" group-title="Sports",Sport TV4 Portugal
 /api/proxy/daddylive/manifest.m3u8?id=289
 #EXTINF:-1 feed-count="8" tvg-id="SEC.Network.HD.us2" tvg-name="SEC Network USA" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b9/SEC_Network_logo.svg/960px-SEC_Network_logo.svg.png" group-title="USA Entertainment",SEC Network USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=385&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DSEC%2520Network%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A385%3A0%7Clegacy%3A385%3A1%7Clegacy%3A385%3A2%7Clegacy%3A385%3A3%7Clegacy%3A385%3A4%7Clegacy%3A385%3A5%7Clegacy%3A385%3A6
+/api/proxy/daddylive/manifest.m3u8?id=385
 #EXTINF:-1 feed-count="8" tvg-id="Sportsnet.Ontario.HD.ca2" tvg-name="Sportsnet Ontario" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/canada/sportsnet-ontario-ca.png" group-title="Sports",Sportsnet Ontario
-http://127.0.0.1:48913/live/manifest.m3u8?id=406&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DSportsnet%2520Ontario%26code%3Dca%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A406%3A0%7Clegacy%3A406%3A1%7Clegacy%3A406%3A2%7Clegacy%3A406%3A3%7Clegacy%3A406%3A4%7Clegacy%3A406%3A5%7Clegacy%3A406%3A6
+/api/proxy/daddylive/manifest.m3u8?id=406
 #EXTINF:-1 feed-count="8" tvg-id="sportsnetone.us" tvg-name="Sportsnet One" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/canada/sportsnet-west-ca.png" group-title="Sports",Sportsnet One
-http://127.0.0.1:48913/live/manifest.m3u8?id=411&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DSportsnet%2520One%26code%3Dca%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A411%3A0%7Clegacy%3A411%3A1%7Clegacy%3A411%3A2%7Clegacy%3A411%3A3%7Clegacy%3A411%3A4%7Clegacy%3A411%3A5%7Clegacy%3A411%3A6
+/api/proxy/daddylive/manifest.m3u8?id=411
 #EXTINF:-1 feed-count="8" tvg-id="Sportsnet.West.HD.ca2" tvg-name="Sportsnet West" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/canada/sportsnet-west-ca.png" group-title="Sports",Sportsnet West
-http://127.0.0.1:48913/live/manifest.m3u8?id=407&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DSportsnet%2520West%26code%3Dca%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A407%3A0%7Clegacy%3A407%3A1%7Clegacy%3A407%3A2%7Clegacy%3A407%3A3%7Clegacy%3A407%3A4%7Clegacy%3A407%3A5%7Clegacy%3A407%3A6
+/api/proxy/daddylive/manifest.m3u8?id=407
 #EXTINF:-1 feed-count="8" tvg-id="sportsneteast.us" tvg-name="Sportsnet East" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/canada/sportsnet-east-ca.png" group-title="Sports",Sportsnet East
-http://127.0.0.1:48913/live/manifest.m3u8?id=408&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DSportsnet%2520East%26code%3Dca%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A408%3A0%7Clegacy%3A408%3A1%7Clegacy%3A408%3A2%7Clegacy%3A408%3A3%7Clegacy%3A408%3A4%7Clegacy%3A408%3A5%7Clegacy%3A408%3A6
+/api/proxy/daddylive/manifest.m3u8?id=408
 #EXTINF:-1 feed-count="8" tvg-id="Sportsnet.360.HD.ca2" tvg-name="Sportsnet 360" tvg-logo="https://upload.wikimedia.org/wikipedia/en/thumb/b/bb/SN_360_logo.svg/960px-SN_360_logo.svg.png" group-title="Sports",Sportsnet 360
-http://127.0.0.1:48913/live/manifest.m3u8?id=409&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DSportsnet%2520360%26code%3Dca%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A409%3A0%7Clegacy%3A409%3A1%7Clegacy%3A409%3A2%7Clegacy%3A409%3A3%7Clegacy%3A409%3A4%7Clegacy%3A409%3A5%7Clegacy%3A409%3A6
+/api/proxy/daddylive/manifest.m3u8?id=409
 #EXTINF:-1 feed-count="8" tvg-id="sportsnetworld.us" tvg-name="Sportsnet World" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/canada/sportsnet-west-ca.png" group-title="Sports",Sportsnet World
-http://127.0.0.1:48913/live/manifest.m3u8?id=410&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DSportsnet%2520World%26code%3Dca%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A410%3A0%7Clegacy%3A410%3A1%7Clegacy%3A410%3A2%7Clegacy%3A410%3A3%7Clegacy%3A410%3A4%7Clegacy%3A410%3A5%7Clegacy%3A410%3A6
+/api/proxy/daddylive/manifest.m3u8?id=410
 #EXTINF:-1 tvg-id="supersportgrandstand.us" tvg-name="SuperSport Grandstand" tvg-logo="https://i.imgur.com/d1UQXPt.png" group-title="Sports",SuperSport Grandstand
 /api/proxy/daddylive/manifest.m3u8?id=412
 #EXTINF:-1 tvg-id="supersportpsl.us" tvg-name="SuperSport PSL" tvg-logo="https://i.imgur.com/RQfhJMi.png" group-title="Sports",SuperSport PSL
@@ -762,7 +762,7 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=410&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="Sky Cinema Sci Fi and Horror HD.uk" tvg-name="Sky Cinema Sci-Fi Horror UK" tvg-logo="https://i.imgur.com/Plz70jD.png" group-title="Movies & Cinema",Sky Cinema Sci-Fi Horror UK
 /api/proxy/daddylive/manifest.m3u8?id=681
 #EXTINF:-1 feed-count="8" tvg-id="Sky.News.HD.uk" tvg-name="Sky NEWS UK" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-news-uk.png" group-title="News",Sky NEWS UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=695&sources=https%3A%2F%2Fwww.youtube-nocookie.com%2Fembed%2FgQokE9zQM2E%7Clegacy%3A695%3A0%7Clegacy%3A695%3A1%7Clegacy%3A695%3A2%7Clegacy%3A695%3A3%7Clegacy%3A695%3A4%7Clegacy%3A695%3A5%7Clegacy%3A695%3A6
+/api/proxy/daddylive/manifest.m3u8?id=695
 #EXTINF:-1 tvg-id="See.dk" tvg-name="SEE Denmark" tvg-logo="https://www.google.com/s2/favicons?domain=viaplay.dk&sz=256" group-title="General 24/7",SEE Denmark
 /api/proxy/daddylive/manifest.m3u8?id=811
 #EXTINF:-1 tvg-id="Sky.Cinema.Uno.+24.it" tvg-name="Sky Cinema Uno +24 Italy" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/italy/sky-cinema-uno-plus24-it.png" group-title="Movies & Cinema",Sky Cinema Uno +24 Italy
@@ -780,9 +780,9 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=695&sources=https%3A%2F%2Fwww.youtu
 #EXTINF:-1 tvg-id="Sky.Comedy.HD.uk" tvg-name="Sky Comedy UK" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-comedy-uk.png" group-title="Movies & Cinema",Sky Comedy UK
 /api/proxy/daddylive/manifest.m3u8?id=684
 #EXTINF:-1 tvg-id="skycrime.us" tvg-name="Sky Crime" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-crime-uk.png" feed-count="8" group-title="Documentary & Nature",Sky Crime
-http://127.0.0.1:48913/live/manifest.m3u8?id=685&sources=https%3A%2F%2Fhesgoal.team%2Fntvtvplayer.html%3Fid%3DSkyCrimeUK%7Clegacy%3A685%3A0%7Clegacy%3A685%3A1%7Clegacy%3A685%3A2%7Clegacy%3A685%3A3%7Clegacy%3A685%3A4%7Clegacy%3A685%3A5%7Clegacy%3A685%3A6
+/api/proxy/daddylive/manifest.m3u8?id=685
 #EXTINF:-1 tvg-id="Sky.HistoryHD.uk" tvg-name="Sky History" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/history-us.png" feed-count="8" group-title="Documentary & Nature",Sky History
-http://127.0.0.1:48913/live/manifest.m3u8?id=686&sources=https%3A%2F%2Fhesgoal.team%2Fntvtvplayer.html%3Fid%3DSkyHistoryUK%7Clegacy%3A686%3A0%7Clegacy%3A686%3A1%7Clegacy%3A686%3A2%7Clegacy%3A686%3A3%7Clegacy%3A686%3A4%7Clegacy%3A686%3A5%7Clegacy%3A686%3A6
+/api/proxy/daddylive/manifest.m3u8?id=686
 #EXTINF:-1 tvg-id="Sky Max HD.uk" tvg-name="Sky MAX UK" tvg-logo="https://i.imgur.com/yGZnTh7.png" group-title="UK Channels",Sky MAX UK
 /api/proxy/daddylive/manifest.m3u8?id=708
 #EXTINF:-1 tvg-id="sscsport1.us" tvg-name="SSC Sport 1" tvg-logo="https://www.google.com/s2/favicons?domain=ssc.tv&sz=256" group-title="Sports",SSC Sport 1
@@ -802,9 +802,9 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=686&sources=https%3A%2F%2Fhesgoal.t
 #EXTINF:-1 tvg-id="sscsportextra3.us" tvg-name="SSC Sport Extra 3" tvg-logo="https://www.google.com/s2/favicons?domain=ssc.tv&sz=256" group-title="Sports",SSC Sport Extra 3
 /api/proxy/daddylive/manifest.m3u8?id=621
 #EXTINF:-1 feed-count="8" tvg-id="sciencechannel.us" tvg-name="Science Channel" tvg-logo="https://dlstreams.st/logos/science_channel.png" group-title="Documentary & Nature",Science Channel
-http://127.0.0.1:48913/live/manifest.m3u8?id=294&sources=https%3A%2F%2Fwww.youtube-nocookie.com%2Fembed%2FtWWmzVgNCgA%7Clegacy%3A294%3A0%7Clegacy%3A294%3A1%7Clegacy%3A294%3A2%7Clegacy%3A294%3A3%7Clegacy%3A294%3A4%7Clegacy%3A294%3A5%7Clegacy%3A294%3A6
+/api/proxy/daddylive/manifest.m3u8?id=294
 #EXTINF:-1 feed-count="8" tvg-id="showtimeusa.us" tvg-name="Showtime USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/showtime-us.png" group-title="Movies & Cinema",Showtime USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=333&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DShowtime%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A333%3A0%7Clegacy%3A333%3A1%7Clegacy%3A333%3A2%7Clegacy%3A333%3A3%7Clegacy%3A333%3A4%7Clegacy%3A333%3A5%7Clegacy%3A333%3A6
+/api/proxy/daddylive/manifest.m3u8?id=333
 #EXTINF:-1 tvg-id="Starz.HD.us2" tvg-name="Starz" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/starz-us.png" group-title="Movies & Cinema",Starz
 /api/proxy/daddylive/manifest.m3u8?id=335
 #EXTINF:-1 tvg-id="Sky.Witness.HD.uk" tvg-name="Sky Witness HD" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/hd/sky-witness-hd-uk.png" group-title="General 24/7",Sky Witness HD
@@ -838,27 +838,27 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=333&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="Showtime.Women.HD.us2" tvg-name="Showtime Women USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/showtime-us.png" group-title="Movies & Cinema",Showtime Women USA
 /api/proxy/daddylive/manifest.m3u8?id=797
 #EXTINF:-1 feed-count="8" tvg-id="Space.City.Home.Network.HD.us2" tvg-name="Space City Home Network" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/space-city-home-network-us.png" group-title="General 24/7",Space City Home Network
-http://127.0.0.1:48913/live/manifest.m3u8?id=921&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DSpace%2520City%2520Home%2520Network%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A921%3A0%7Clegacy%3A921%3A1%7Clegacy%3A921%3A2%7Clegacy%3A921%3A3%7Clegacy%3A921%3A4%7Clegacy%3A921%3A5%7Clegacy%3A921%3A6
+/api/proxy/daddylive/manifest.m3u8?id=921
 #EXTINF:-1 tvg-id="SportsNet.Pittsburgh.HD.us2" tvg-name="SportsNet Pittsburgh" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/sportsnet-pittsburgh-us.png" group-title="Sports",SportsNet Pittsburgh
 /api/proxy/daddylive/manifest.m3u8?id=922
 #EXTINF:-1 feed-count="8" tvg-id="TNT.Sports.1.HD.uk" tvg-name="TNT Sports 1 UK" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/tnt-us.png" group-title="Sports",TNT Sports 1 UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=31&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DTNT%2520Sports%25201%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A31%3A0%7Clegacy%3A31%3A1%7Clegacy%3A31%3A2%7Clegacy%3A31%3A3%7Clegacy%3A31%3A4%7Clegacy%3A31%3A5%7Clegacy%3A31%3A6
+/api/proxy/daddylive/manifest.m3u8?id=31
 #EXTINF:-1 feed-count="8" tvg-id="TNT.Sports.2.HD.uk" tvg-name="TNT Sports 2 UK" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/tnt-us.png" group-title="Sports",TNT Sports 2 UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=32&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DTNT%2520Sports%25202%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A32%3A0%7Clegacy%3A32%3A1%7Clegacy%3A32%3A2%7Clegacy%3A32%3A3%7Clegacy%3A32%3A4%7Clegacy%3A32%3A5%7Clegacy%3A32%3A6
+/api/proxy/daddylive/manifest.m3u8?id=32
 #EXTINF:-1 feed-count="8" tvg-id="TNT.Sports.3.HD.uk" tvg-name="TNT Sports 3 UK" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/tnt-us.png" group-title="Sports",TNT Sports 3 UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=33&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DTNT%2520Sports%25203%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A33%3A0%7Clegacy%3A33%3A1%7Clegacy%3A33%3A2%7Clegacy%3A33%3A3%7Clegacy%3A33%3A4%7Clegacy%3A33%3A5%7Clegacy%3A33%3A6
+/api/proxy/daddylive/manifest.m3u8?id=33
 #EXTINF:-1 feed-count="8" tvg-id="TNT.Sports.4.HD.uk" tvg-name="TNT Sports 4 UK" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/tnt-us.png" group-title="Sports",TNT Sports 4 UK
-http://127.0.0.1:48913/live/manifest.m3u8?id=34&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DTNT%2520Sports%25204%26code%3Dgb%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A34%3A0%7Clegacy%3A34%3A1%7Clegacy%3A34%3A2%7Clegacy%3A34%3A3%7Clegacy%3A34%3A4%7Clegacy%3A34%3A5%7Clegacy%3A34%3A6
+/api/proxy/daddylive/manifest.m3u8?id=34
 #EXTINF:-1 feed-count="8" tvg-id="TSN.1.ca2" tvg-name="TSN1" tvg-logo="https://dlstreams.st/logos/tsn2.png" group-title="General 24/7",TSN1
-http://127.0.0.1:48913/live/manifest.m3u8?id=111&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DTSN%25201%26code%3Dca%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A111%3A0%7Clegacy%3A111%3A1%7Clegacy%3A111%3A2%7Clegacy%3A111%3A3%7Clegacy%3A111%3A4%7Clegacy%3A111%3A5%7Clegacy%3A111%3A6
+/api/proxy/daddylive/manifest.m3u8?id=111
 #EXTINF:-1 feed-count="8" tvg-id="TVSN2.au" tvg-name="TSN2" tvg-logo="https://dlstreams.st/logos/tsn2.png" group-title="General 24/7",TSN2
-http://127.0.0.1:48913/live/manifest.m3u8?id=112&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DTSN%25202%26code%3Dca%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A112%3A0%7Clegacy%3A112%3A1%7Clegacy%3A112%3A2%7Clegacy%3A112%3A3%7Clegacy%3A112%3A4%7Clegacy%3A112%3A5%7Clegacy%3A112%3A6
+/api/proxy/daddylive/manifest.m3u8?id=112
 #EXTINF:-1 feed-count="8" tvg-id="tsn3.us" tvg-name="TSN3" tvg-logo="https://dlstreams.st/logos/tsn3.png" group-title="General 24/7",TSN3
-http://127.0.0.1:48913/live/manifest.m3u8?id=113&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DTSN%25203%26code%3Dca%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A113%3A0%7Clegacy%3A113%3A1%7Clegacy%3A113%3A2%7Clegacy%3A113%3A3%7Clegacy%3A113%3A4%7Clegacy%3A113%3A5%7Clegacy%3A113%3A6
+/api/proxy/daddylive/manifest.m3u8?id=113
 #EXTINF:-1 feed-count="8" tvg-id="TSN.4K.ca2" tvg-name="TSN4" tvg-logo="https://dlstreams.st/logos/tsn4.png" group-title="General 24/7",TSN4
-http://127.0.0.1:48913/live/manifest.m3u8?id=114&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DTSN%25204%26code%3Dca%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A114%3A0%7Clegacy%3A114%3A1%7Clegacy%3A114%3A2%7Clegacy%3A114%3A3%7Clegacy%3A114%3A4%7Clegacy%3A114%3A5%7Clegacy%3A114%3A6
+/api/proxy/daddylive/manifest.m3u8?id=114
 #EXTINF:-1 feed-count="8" tvg-id="tsn5.us" tvg-name="TSN5" tvg-logo="https://dlstreams.st/logos/tsn5.png" group-title="General 24/7",TSN5
-http://127.0.0.1:48913/live/manifest.m3u8?id=115&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DTSN%25205%26code%3Dca%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A115%3A0%7Clegacy%3A115%3A1%7Clegacy%3A115%3A2%7Clegacy%3A115%3A3%7Clegacy%3A115%3A4%7Clegacy%3A115%3A5%7Clegacy%3A115%3A6
+/api/proxy/daddylive/manifest.m3u8?id=115
 #EXTINF:-1 tvg-id="tvela1spain.us" tvg-name="TVE La 1 Spain" tvg-logo="https://dlstreams.st/logos/tve_la_1_spain.png" group-title="General 24/7",TVE La 1 Spain
 /api/proxy/daddylive/manifest.m3u8?id=533
 #EXTINF:-1 tvg-id="tvela2spain.us" tvg-name="TVE La 2 Spain" tvg-logo="https://dlstreams.st/logos/tve_la_2_spain.png" group-title="General 24/7",TVE La 2 Spain
@@ -866,11 +866,11 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=115&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="tntsportshdchile.us" tvg-name="TNT Sports HD Chile" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/tnt-us.png" group-title="Sports",TNT Sports HD Chile
 /api/proxy/daddylive/manifest.m3u8?id=642
 #EXTINF:-1 feed-count="11" tvg-id="Tennis.Channel.HD.us2" tvg-name="Tennis Channel" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/tennis-channel-us.png" group-title="Sports",Tennis Channel
-http://127.0.0.1:48913/live/manifest.m3u8?id=40&sources=https%3A%2F%2Fcdn-uw2-prod.tsv2.amagi.tv%2Flinear%2Famg01444-tennischannelth-tennischnlintl-lggb%2Fplaylist.m3u8%7Chttps%3A%2F%2Fcdn-ue1-prod.tsv2.amagi.tv%2Flinear%2Famg01444-tennischannelth-tennischannelnl-samsungnl%2Fplaylist.m3u8%7Chttps%3A%2F%2Ftennischannelintl-rakuten.amagi.tv%2Fplaylist.m3u8%7Chttps%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DTennis%2520Channel%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A40%3A0%7Clegacy%3A40%3A1%7Clegacy%3A40%3A2%7Clegacy%3A40%3A3%7Clegacy%3A40%3A4%7Clegacy%3A40%3A5%7Clegacy%3A40%3A6
+/api/proxy/daddylive/manifest.m3u8?id=40
 #EXTINF:-1 tvg-id="tensportspk.us" tvg-name="Ten Sports PK" tvg-logo="https://dtil.tmsimg.com/assets/s157592_ld_h15_aa.png?lock=720x540" group-title="Sports",Ten Sports PK
 /api/proxy/daddylive/manifest.m3u8?id=741
 #EXTINF:-1 feed-count="8" tvg-id="telemundo.us" tvg-name="Telemundo" tvg-logo="https://dlstreams.st/logos/telemundo.png" group-title="General 24/7",Telemundo
-http://127.0.0.1:48913/live/manifest.m3u8?id=131&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DTelemundo%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A131%3A0%7Clegacy%3A131%3A1%7Clegacy%3A131%3A2%7Clegacy%3A131%3A3%7Clegacy%3A131%3A4%7Clegacy%3A131%3A5%7Clegacy%3A131%3A6
+/api/proxy/daddylive/manifest.m3u8?id=131
 #EXTINF:-1 tvg-id="TBS.HD.us2" tvg-name="TBS USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/tbs-us.png" group-title="USA Entertainment",TBS USA
 /api/proxy/daddylive/manifest.m3u8?id=336
 #EXTINF:-1 tvg-id="tlc.us" tvg-name="TLC" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/tlc-us.png" group-title="General 24/7",TLC
@@ -878,13 +878,13 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=131&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="TNT.HD.us2" tvg-name="TNT USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/tnt-us.png" group-title="USA Entertainment",TNT USA
 /api/proxy/daddylive/manifest.m3u8?id=338
 #EXTINF:-1 feed-count="8" tvg-id="TVA.Sports.HD.ca2" tvg-name="TVA Sports" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/TVASports.svg/960px-TVASports.svg.png" group-title="Sports",TVA Sports
-http://127.0.0.1:48913/live/manifest.m3u8?id=833&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DTVA%2520Sports%26code%3Dca%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A833%3A0%7Clegacy%3A833%3A1%7Clegacy%3A833%3A2%7Clegacy%3A833%3A3%7Clegacy%3A833%3A4%7Clegacy%3A833%3A5%7Clegacy%3A833%3A6
+/api/proxy/daddylive/manifest.m3u8?id=833
 #EXTINF:-1 tvg-id="TVA.Sports.2.HD.ca2" tvg-name="TVA Sports 2" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/TVASports.svg/960px-TVASports.svg.png" group-title="Sports",TVA Sports 2
 /api/proxy/daddylive/manifest.m3u8?id=834
 #EXTINF:-1 feed-count="8" tvg-id="travelchannel.us" tvg-name="Travel Channel" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/travel-channel-us.png" group-title="General 24/7",Travel Channel
-http://127.0.0.1:48913/live/manifest.m3u8?id=340&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DTravel%2520Channel%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A340%3A0%7Clegacy%3A340%3A1%7Clegacy%3A340%3A2%7Clegacy%3A340%3A3%7Clegacy%3A340%3A4%7Clegacy%3A340%3A5%7Clegacy%3A340%3A6
+/api/proxy/daddylive/manifest.m3u8?id=340
 #EXTINF:-1 feed-count="8" tvg-id="truTV.HD.us2" tvg-name="TruTV USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/tru-tv-us.png" group-title="USA Entertainment",TruTV USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=341&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DtruTV%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A341%3A0%7Clegacy%3A341%3A1%7Clegacy%3A341%3A2%7Clegacy%3A341%3A3%7Clegacy%3A341%3A4%7Clegacy%3A341%3A5%7Clegacy%3A341%3A6
+/api/proxy/daddylive/manifest.m3u8?id=341
 #EXTINF:-1 tvg-id="tvland.us" tvg-name="TVLAND" tvg-logo="https://i.imgur.com/VNNS4mF.png" group-title="General 24/7",TVLAND
 /api/proxy/daddylive/manifest.m3u8?id=342
 #EXTINF:-1 tvg-id="tcmusa.us" tvg-name="TCM USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/tcm-us.png" group-title="Movies & Cinema",TCM USA
@@ -900,7 +900,7 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=341&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="TeenNick.(pl).cz" tvg-name="TeenNick" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/teen-nick-us.png" group-title="Kids & Animation",TeenNick
 /api/proxy/daddylive/manifest.m3u8?id=650
 #EXTINF:-1 feed-count="8" tvg-id="TV.ONE.HD.us2" tvg-name="TV ONE USA" tvg-logo="https://dlstreams.st/logos/tv_one_usa.png" group-title="USA Entertainment",TV ONE USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=660&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DTV%2520ONE%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A660%3A0%7Clegacy%3A660%3A1%7Clegacy%3A660%3A2%7Clegacy%3A660%3A3%7Clegacy%3A660%3A4%7Clegacy%3A660%3A5%7Clegacy%3A660%3A6
+/api/proxy/daddylive/manifest.m3u8?id=660
 #EXTINF:-1 tvg-id="tv2zulu.us" tvg-name="TV2 Zulu" tvg-logo="https://upload.wikimedia.org/wikipedia/en/thumb/4/42/TV_2_Zulu.svg/960px-TV_2_Zulu.svg.png" group-title="General 24/7",TV2 Zulu
 /api/proxy/daddylive/manifest.m3u8?id=818
 #EXTINF:-1 tvg-id="TV3+.dk" tvg-name="TV3+ Denmark" tvg-logo="https://dlstreams.st/logos/tv3_sport_denmark.png" group-title="General 24/7",TV3+ Denmark
@@ -932,9 +932,9 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=660&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="trtsportr.us" tvg-name="TRT Spor TR" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/turkey/trt-spor-tr.png" group-title="General 24/7",TRT Spor TR
 /api/proxy/daddylive/manifest.m3u8?id=889
 #EXTINF:-1 feed-count="8" tvg-id="USA.Network.HD.us2" tvg-name="USA Network" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/usa-network-us.png" group-title="Movies & Cinema",USA Network
-http://127.0.0.1:48913/live/manifest.m3u8?id=343&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DUSA%2520Network%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A343%3A0%7Clegacy%3A343%3A1%7Clegacy%3A343%3A2%7Clegacy%3A343%3A3%7Clegacy%3A343%3A4%7Clegacy%3A343%3A5%7Clegacy%3A343%3A6
+/api/proxy/daddylive/manifest.m3u8?id=343
 #EXTINF:-1 feed-count="8" tvg-id="universalkidsusa.us" tvg-name="Universal Kids USA" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Universal_Kids_2019_Logo.svg/960px-Universal_Kids_2019_Logo.svg.png" group-title="Kids & Animation",Universal Kids USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=668&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DUniversal%2520Kids%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A668%3A0%7Clegacy%3A668%3A1%7Clegacy%3A668%3A2%7Clegacy%3A668%3A3%7Clegacy%3A668%3A4%7Clegacy%3A668%3A5%7Clegacy%3A668%3A6
+/api/proxy/daddylive/manifest.m3u8?id=668
 #EXTINF:-1 tvg-id="[UNI].Univision.Network.uy" tvg-name="Univision" tvg-logo="https://dlstreams.st/logos/univision.png" group-title="General 24/7",Univision
 /api/proxy/daddylive/manifest.m3u8?id=132
 #EXTINF:-1 tvg-id="UniMas.us2" tvg-name="Unimas" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/unimas-us.png" group-title="General 24/7",Unimas
@@ -954,9 +954,9 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=668&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="vtvuruguay.us" tvg-name="VTV+ Uruguay" tvg-logo="https://www.google.com/s2/favicons?domain=vtv.com.uy&sz=256" group-title="General 24/7",VTV+ Uruguay
 /api/proxy/daddylive/manifest.m3u8?id=391
 #EXTINF:-1 feed-count="8" tvg-id="vicetv.us" tvg-name="VICE TV" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/d/dc/Vice_TV_logo.svg/960px-Vice_TV_logo.svg.png" group-title="General 24/7",VICE TV
-http://127.0.0.1:48913/live/manifest.m3u8?id=659&sources=https%3A%2F%2Fd1ocru52bkg5e9.cloudfront.net%2FVICE.m3u8%7Clegacy%3A659%3A0%7Clegacy%3A659%3A1%7Clegacy%3A659%3A2%7Clegacy%3A659%3A3%7Clegacy%3A659%3A4%7Clegacy%3A659%3A5%7Clegacy%3A659%3A6
+/api/proxy/daddylive/manifest.m3u8?id=659
 #EXTINF:-1 feed-count="8" tvg-id="Willow.Cricket.HD.us2" tvg-name="Willow Cricket" tvg-logo="https://dlstreams.st/logos/willow_cricket.png" group-title="Sports",Willow Cricket
-http://127.0.0.1:48913/live/manifest.m3u8?id=346&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DWillow%2520Cricket%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A346%3A0%7Clegacy%3A346%3A1%7Clegacy%3A346%3A2%7Clegacy%3A346%3A3%7Clegacy%3A346%3A4%7Clegacy%3A346%3A5%7Clegacy%3A346%3A6
+/api/proxy/daddylive/manifest.m3u8?id=346
 #EXTINF:-1 tvg-id="willow2cricket.us" tvg-name="Willow 2 Cricket" tvg-logo="https://dlstreams.st/logos/willow_cricket.png" group-title="Sports",Willow 2 Cricket
 /api/proxy/daddylive/manifest.m3u8?id=598
 #EXTINF:-1 tvg-id="wwenetwork.us" tvg-name="WWE Network" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/wwe-network-us.png" group-title="Sports",WWE Network
@@ -970,7 +970,7 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=346&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="ytvca.us" tvg-name="YTV CA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/canada/ytv-ca.png" group-title="Canada Channels",YTV CA
 /api/proxy/daddylive/manifest.m3u8?id=286
 #EXTINF:-1 feed-count="8" tvg-id="Yes.Network.us2" tvg-name="YES Network USA" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/b/be/YES_Network_logo.svg/960px-YES_Network_logo.svg.png" group-title="USA Entertainment",YES Network USA
-http://127.0.0.1:48913/live/manifest.m3u8?id=763&sources=https%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DYes%2520Network%26code%3Dus%26user%3Dcdnlivetv%26plan%3Dfree%7Clegacy%3A763%3A0%7Clegacy%3A763%3A1%7Clegacy%3A763%3A2%7Clegacy%3A763%3A3%7Clegacy%3A763%3A4%7Clegacy%3A763%3A5%7Clegacy%3A763%3A6
+/api/proxy/daddylive/manifest.m3u8?id=763
 #EXTINF:-1 tvg-id="YES Network HD.ca" tvg-name="Yes TV CA" tvg-logo="https://dlstreams.st/logos/yes_tv_ca.png" group-title="Canada Channels",Yes TV CA
 /api/proxy/daddylive/manifest.m3u8?id=837
 #EXTINF:-1 tvg-id="5usa.us" tvg-name="5 USA" tvg-logo="https://i.imgur.com/Pi7so2l.png" group-title="USA Entertainment",5 USA
@@ -1016,4 +1016,4 @@ http://127.0.0.1:48913/live/manifest.m3u8?id=763&sources=https%3A%2F%2Fcdnlivetv
 #EXTINF:-1 tvg-id="18player20.us" tvg-name="18+ (Player-20)" tvg-logo="" group-title="General 24/7",18+ (Player-20)
 /api/proxy/daddylive/manifest.m3u8?id=520
 #EXTINF:-1 tvg-id="Nickelodeon.us" tvg-name="Nickelodeon" tvg-logo="https://i.imgur.com/E84jnP8.png" feed-count="2" group-title="Kids & Animation",Nickelodeon
-http://127.0.0.1:48913/live/manifest.m3u8?id=cdnlive-84600d5492a32d456f1a730e6df20106&sources=https%3A%2F%2Ftvsen7.aynascope.net%2Fnicklodean%2Findex.m3u8%7Chttps%3A%2F%2Fcdnlivetv.tv%2Fapi%2Fv1%2Fchannels%2Fplayer%2F%3Fname%3DNickelodeon%2520TV%26code%3Dus%26user%3Dntvstream%26plan%3Dfree
+/api/proxy/daddylive/manifest.m3u8?id=330
