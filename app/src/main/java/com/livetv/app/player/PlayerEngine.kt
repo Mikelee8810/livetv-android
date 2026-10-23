@@ -54,26 +54,63 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     var onError: ((String) -> Unit)? = null
     var onTracksChanged: (() -> Unit)? = null
 
-    // Health watchdog: detect video freeze while audio advances
+    // Health watchdog: detect video freeze, stall, or timeline desync while audio advances
     private var lastObservedPosition = -1L
     private var stallCheckCount = 0
+    private var lastRenderedFrameTimeMs = 0L
     private val healthCheckRunnable = object : Runnable {
         override fun run() {
             val p = exoPlayer
             if (p != null && p.isPlaying && !isBuffering) {
+                val now = android.os.SystemClock.uptimeMillis()
                 val currentPos = p.currentPosition
-                if (currentPos == lastObservedPosition && currentPos > 0) {
+
+                // 1. Detect timeline desync (negative position or drifting > 25s behind live edge)
+                if (currentPos < 0L || (p.isCurrentMediaItemLive && p.currentLiveOffset > 25000L)) {
+                    Log.w(TAG, "Timeline desync detected (pos=$currentPos, offset=${p.currentLiveOffset})! Re-syncing to live edge...")
+                    stallCheckCount = 0
+                    lastObservedPosition = -1L
+                    lastRenderedFrameTimeMs = now
+                    p.seekToDefaultPosition()
+                    mainHandler.postDelayed(this, 1000L)
+                    return
+                }
+
+                // 2. Detect video frozen while audio plays:
+                // If stream has video track, but no video frame has been rendered for >= 3.5s
+                if (p.videoFormat != null && lastRenderedFrameTimeMs > 0L && (now - lastRenderedFrameTimeMs) > 3500L) {
                     stallCheckCount++
-                    if (stallCheckCount >= 4) { // 4 seconds without media position advancement
-                        Log.w(TAG, "Video freeze/stall detected at position $currentPos! Re-syncing to live edge...")
+                    Log.w(TAG, "Video freeze detected while audio playing (no frame for ${now - lastRenderedFrameTimeMs}ms, count=$stallCheckCount)! Recovering...")
+                    lastRenderedFrameTimeMs = now
+                    lastObservedPosition = -1L
+                    if (stallCheckCount >= 2) {
                         stallCheckCount = 0
+                        // Hard recovery: reload current media item
+                        currentItem?.let { play(it, false) }
+                    } else {
+                        // Soft recovery: seek to live edge
+                        p.seekToDefaultPosition()
+                    }
+                    mainHandler.postDelayed(this, 1000L)
+                    return
+                }
+
+                // 3. Detect total playback stall (neither audio nor video advancing)
+                if (lastObservedPosition != -1L && Math.abs(currentPos - lastObservedPosition) < 250L) {
+                    stallCheckCount++
+                    if (stallCheckCount >= 3) {
+                        Log.w(TAG, "Video stall detected at position $currentPos! Re-syncing to live edge...")
+                        stallCheckCount = 0
+                        lastObservedPosition = -1L
+                        lastRenderedFrameTimeMs = now
                         p.seekToDefaultPosition()
                     }
                 } else {
                     stallCheckCount = 0
-                    lastObservedPosition = currentPos
                 }
+                lastObservedPosition = currentPos
             } else {
+                lastRenderedFrameTimeMs = android.os.SystemClock.uptimeMillis()
                 stallCheckCount = 0
             }
             mainHandler.postDelayed(this, 1000L)
@@ -184,6 +221,10 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             }
         })
 
+        player.setVideoFrameMetadataListener { _, _, _, _ ->
+            lastRenderedFrameTimeMs = android.os.SystemClock.uptimeMillis()
+        }
+
         if (attachedTextureView != null) {
             player.setVideoTextureView(attachedTextureView)
         } else if (attachedSurfaceView != null) {
@@ -209,11 +250,17 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                Log.w(TAG, "Playback error: ${error.errorCodeName} - ${error.message}")
+                Log.w(TAG, "Playback error: ${error.errorCodeName} (${error.errorCode}) - ${error.message}")
                 if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
                     Log.i(TAG, "Behind live window! Re-syncing to live edge...")
                     player.seekToDefaultPosition()
                     player.prepare()
+                    return
+                }
+                if (error.errorCode == PlaybackException.ERROR_CODE_DECODING_FAILED ||
+                    error.errorCode == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED) {
+                    Log.w(TAG, "Decoder failure! Reinitializing stream...")
+                    currentItem?.let { play(it, false) }
                     return
                 }
                 if (prefs.autoRetry && retryCount < maxRetries) {
@@ -260,6 +307,9 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     fun play(item: Item, resetRetry: Boolean = true) {
         if (resetRetry) retryCount = 0
         currentItem = item
+        stallCheckCount = 0
+        lastObservedPosition = -1L
+        lastRenderedFrameTimeMs = android.os.SystemClock.uptimeMillis()
         val player = exoPlayer ?: initPlayer()
 
         var streamUrl = item.url
@@ -448,6 +498,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         isBuffering = false
         stallCheckCount = 0
         lastObservedPosition = -1L
+        lastRenderedFrameTimeMs = 0L
     }
 
     data class TrackInfo(

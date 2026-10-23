@@ -370,7 +370,7 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
     }
 
     override fun onKeyLongPress(code: Int, e: KeyEvent): Boolean {
-        if (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) {
+        if (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER || code == KeyEvent.KEYCODE_NUMPAD_ENTER) {
             selected()?.let { onMenu(it, selectedProgram()) }
             return true
         }
@@ -378,7 +378,7 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
     }
 
     override fun onKeyUp(code: Int, e: KeyEvent): Boolean {
-        if ((code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) && e.isTracking && !e.isCanceled) {
+        if ((code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER || code == KeyEvent.KEYCODE_NUMPAD_ENTER) && e.isTracking && !e.isCanceled) {
             val it = selected() ?: return true
             if (focusCol == GuideFocus.CHANNEL) {
                 if (prefs.guideOkAction.startsWith("Fullscreen") || it.key == playingKey) {

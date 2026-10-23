@@ -386,6 +386,7 @@ class PlayerOverlay(
                 override fun onAnimationEnd(animation: Animator) {
                     bottomBar.visibility = View.GONE
                     isBottomBarVisible = false
+                    requestFocus()
                 }
             }).start()
         }
@@ -585,9 +586,19 @@ class PlayerOverlay(
 
         // If bottom bar is open
         if (isBottomBarVisible) {
+            if (actionsBar.hasFocus()) {
+                if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_DPAD_UP) {
+                    hideBottomBar()
+                    return true
+                }
+                // Let DPAD_LEFT, DPAD_RIGHT, DPAD_CENTER / ENTER be handled by the focused action button!
+                if (code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT ||
+                    code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER || code == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+                    return false
+                }
+            }
             if (code == KeyEvent.KEYCODE_BACK) {
                 hideBottomBar()
-                onExitFullscreen()
                 return true
             }
             if (code == KeyEvent.KEYCODE_DPAD_DOWN) {
@@ -603,7 +614,7 @@ class PlayerOverlay(
 
         // Normal Fullscreen controls based on Remote Settings
         when (code) {
-            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
                 when (prefs.playerOk) {
                     "Channel list" -> showQuickList()
                     "Pause" -> {
@@ -632,11 +643,19 @@ class PlayerOverlay(
                 return true
             }
             KeyEvent.KEYCODE_DPAD_LEFT -> {
-                showQuickList()
+                when (prefs.playerLeft) {
+                    "TV Guide" -> onExitFullscreen()
+                    "Program info" -> showBottomBar()
+                    else -> showQuickList()
+                }
                 return true
             }
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                showBottomBar()
+                when (prefs.playerRight) {
+                    "TV Guide" -> onExitFullscreen()
+                    "Channel list" -> showQuickList()
+                    else -> showBottomBar()
+                }
                 return true
             }
             KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {

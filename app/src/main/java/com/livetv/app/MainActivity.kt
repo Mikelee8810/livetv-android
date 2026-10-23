@@ -437,7 +437,7 @@ class MainActivity : Activity() {
                                 true
                             }
                             KeyEvent.KEYCODE_BACK -> {
-                                finish()
+                                confirmAppExit()
                                 true
                             }
                             else -> false
@@ -827,6 +827,26 @@ class MainActivity : Activity() {
                 }
             }
 
+            // DPAD navigation across drawers
+            if (code == KeyEvent.KEYCODE_DPAD_RIGHT && !isFullscreen) {
+                if (isMainMenuDrawerOpen) {
+                    closeMainMenuDrawer(focusCategories = true)
+                    return true
+                }
+                if (isCategoriesDrawerOpen) {
+                    selectCurrentCategoryAndClose()
+                    return true
+                }
+            }
+
+            if (code == KeyEvent.KEYCODE_DPAD_LEFT && !isFullscreen) {
+                if (isCategoriesDrawerOpen && !isMainMenuDrawerOpen) {
+                    guideView.rows = Repo.inGroup(prefs.lastGroup)
+                    openMainMenuDrawer()
+                    return true
+                }
+            }
+
             // Guide Layout navigation hierarchy on BACK (TiviMate 1:1 order: Fullscreen -> Guide -> Categories -> Main Menu -> Exit)
             if (code == KeyEvent.KEYCODE_BACK && !isFullscreen) {
                 if (isMainMenuDrawerOpen) {
@@ -837,12 +857,14 @@ class MainActivity : Activity() {
                     openMainMenuDrawer()
                     return true
                 }
-                // If in Guide:
-                val now = System.currentTimeMillis()
-                if (guideView.focusCol == GuideView.GuideFocus.PROGRAM && (guideView.selectedProgram()?.start?.toEpochMilli() ?: 0L) > now + 60_000L) {
+                // If in Guide in Program column: move back to Channel column first!
+                if (guideView.focusCol == GuideView.GuideFocus.PROGRAM) {
+                    guideView.focusCol = GuideView.GuideFocus.CHANNEL
                     guideView.resetToNow()
+                    guideView.invalidate()
                     return true
                 }
+                // If in Guide in Channel column: open Categories drawer!
                 openCategoriesDrawer()
                 return true
             }

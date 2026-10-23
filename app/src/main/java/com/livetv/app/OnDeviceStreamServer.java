@@ -454,6 +454,9 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             StringBuilder output = new StringBuilder();
             for (String raw : response.body().string().split("\\r?\\n")) {
                 String line = raw.trim();
+                if (line.startsWith("#EXT-X-PROGRAM-DATE-TIME")) {
+                    continue; // Strip to prevent upstream wallclock drift from desyncing ExoPlayer's live timeline
+                }
                 if (line.contains("URI=\"")) {
                     Matcher key = uriAttr.matcher(line);
                     if (key.find()) {
