@@ -465,7 +465,11 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                 }
                 output.append(line).append('\n');
             }
-            return newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "application/vnd.apple.mpegurl", output.toString());
+            NanoHTTPD.Response manifestResp = newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "application/vnd.apple.mpegurl", output.toString());
+            manifestResp.addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+            manifestResp.addHeader("Pragma", "no-cache");
+            manifestResp.addHeader("Expires", "0");
+            return manifestResp;
         } finally {
             if (response != null) {
                 try { response.close(); } catch (Exception ignored) {}

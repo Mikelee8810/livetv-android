@@ -45,7 +45,7 @@ class ListPanel(ctx: Context) : RecyclerView(ctx) {
         adapter = A()
         itemAnimator = null
         clipToPadding = false
-        isFocusable = false
+        isFocusable = true
         descendantFocusability = FOCUS_AFTER_DESCENDANTS
         overScrollMode = OVER_SCROLL_NEVER
     }
@@ -58,7 +58,23 @@ class ListPanel(ctx: Context) : RecyclerView(ctx) {
     fun focusRow(i: Int) {
         if (i !in rows.indices) return
         scrollToPosition(i)
-        post { (layoutManager as LinearLayoutManager).findViewByPosition(i)?.requestFocus() ?: postDelayed({ (layoutManager as LinearLayoutManager).findViewByPosition(i)?.requestFocus() }, 60) }
+        val doFocus = Runnable {
+            val lm = layoutManager as? LinearLayoutManager
+            val child = lm?.findViewByPosition(i)
+            if (child != null) {
+                child.requestFocus()
+            } else {
+                postDelayed({
+                    val delayed = (layoutManager as? LinearLayoutManager)?.findViewByPosition(i)
+                    if (delayed != null) {
+                        delayed.requestFocus()
+                    } else {
+                        requestFocus()
+                    }
+                }, 80)
+            }
+        }
+        post(doFocus)
     }
     fun focusedIndex(): Int = (0 until childCount).map { getChildAt(it) }.firstOrNull { it.hasFocus() }?.let { getChildAdapterPosition(it) } ?: -1
 

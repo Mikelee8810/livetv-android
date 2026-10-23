@@ -15,6 +15,7 @@ import android.view.KeyEvent
 import android.view.SurfaceView
 import android.view.TextureView
 import android.view.View
+import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -90,12 +91,23 @@ class MainActivity : Activity() {
         // Initial Data Load
         Repo.reload {
             val curGroup = prefs.lastGroup.ifBlank { "All channels" }
-            val groupItems = Repo.inGroup(curGroup).filter { !it.groups.contains("International") }
-            val candidateList = if (groupItems.isNotEmpty()) groupItems else Repo.visibleItems().filter { !it.groups.contains("International") }
+            var candidateList = Repo.inGroup(curGroup).filter { !it.groups.contains("International") }
+            if (candidateList.isEmpty()) {
+                candidateList = Repo.visibleItems().filter { !it.groups.contains("International") }
+                prefs.lastGroup = "All channels"
+            }
 
             var startItem = candidateList.firstOrNull { it.key == prefs.lastChannel }
             if (startItem == null) {
-                startItem = candidateList.firstOrNull()
+                val savedItem = if (prefs.lastChannel.isNotBlank()) Repo.byKey(prefs.lastChannel) else null
+                if (savedItem != null && !savedItem.groups.contains("International")) {
+                    val targetGroup = savedItem.groups.firstOrNull() ?: "All channels"
+                    prefs.lastGroup = targetGroup
+                    guideView.rows = Repo.inGroup(targetGroup)
+                    startItem = savedItem
+                } else {
+                    startItem = candidateList.firstOrNull()
+                }
             }
             if (startItem != null) {
                 prefs.lastChannel = startItem.key
@@ -104,6 +116,8 @@ class MainActivity : Activity() {
                 }
                 guideView.select(startItem.key)
             }
+            guideView.focusCol = GuideView.GuideFocus.CHANNEL
+            guideView.requestFocus()
         }
     }
 
@@ -112,14 +126,15 @@ class MainActivity : Activity() {
             setBackgroundColor(Pal.bg)
         }
 
-        // 1. Guide Layout (Left Rail + Groups Panel + Guide Content)
+        // 1. Guide Layout (Base: top info + preview placeholder, bottom guide grid)
         setupGuideLayout()
         rootContainer.addView(guideLayout, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
 
-        // 2. Single Video View for both Preview & Fullscreen
+        // 2. Single Video View for both Preview & Fullscreen (Top-Right preview in Guide mode)
         mainVideoView = SurfaceView(this).apply {
-            layoutParams = FrameLayout.LayoutParams(dpi(380f), dpi(214f)).apply {
-                leftMargin = dpi(24f)
+            isFocusable = false
+            layoutParams = FrameLayout.LayoutParams(dpi(380f), dpi(214f), Gravity.TOP or Gravity.END).apply {
+                rightMargin = dpi(24f)
                 topMargin = dpi(16f)
             }
             if (Build.VERSION.SDK_INT >= 34) {
@@ -135,7 +150,15 @@ class MainActivity : Activity() {
         rootContainer.addView(mainVideoView)
         playerEngine.attachSurface(mainVideoView)
 
-        // 3. Fullscreen Overlay Container
+        // 3. Sliding Categories Drawer Overlay (slides in over the guide on Left)
+        setupCategoriesDrawer()
+        rootContainer.addView(categoriesDrawer)
+
+        // 4. Sliding Main Menu Drawer Overlay (slides in over the categories drawer on Left)
+        setupMainMenuDrawer()
+        rootContainer.addView(mainMenuDrawer)
+
+        // 5. Fullscreen Overlay Container
         setupFullscreenLayout()
         rootContainer.addView(fullscreenContainer, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
 
@@ -147,17 +170,9 @@ class MainActivity : Activity() {
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
         }
 
-        // 1. Base: Full-Width TV Guide (Live Preview & Program Details Header on top, GuideView on bottom)
+        // Base: Full-Width TV Guide (Live Preview & Program Details Header on top, GuideView on bottom)
         setupGuideContent()
         guideLayout.addView(guideContainer, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
-
-        // 2. Sliding Categories Drawer Overlay (slides in over the guide on Left)
-        setupCategoriesDrawer()
-        guideLayout.addView(categoriesDrawer)
-
-        // 3. Sliding Main Menu Drawer Overlay (slides in over the categories drawer on Left)
-        setupMainMenuDrawer()
-        guideLayout.addView(mainMenuDrawer)
     }
 
     private fun setupGuideContent() {
@@ -167,30 +182,18 @@ class MainActivity : Activity() {
             setBackgroundColor(Pal.bg)
         }
 
-        // Top Area: Preview Video (Left) + Selected Program Info (Right)
+        // Top Area: Selected Program Info (Left) + Preview Video (Right)
         val topArea = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dpi(230f))
             setPadding(dpi(24f), dpi(16f), dpi(24f), dpi(8f))
         }
 
-        // Preview Video Placeholder & Click Target
-        previewContainer = FrameLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(dpi(380f), dpi(214f))
-            isClickable = true
-            setOnClickListener {
-                if (playerEngine.currentItem != null) {
-                    enterFullscreen()
-                }
-            }
-        }
-        topArea.addView(previewContainer)
-
-        // Program Info Container
+        // Program Info Container (Left, fills remaining width)
         infoContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).also {
-                it.leftMargin = dpi(28f)
+                it.rightMargin = dpi(28f)
             }
             gravity = Gravity.CENTER_VERTICAL
         }
@@ -240,6 +243,20 @@ class MainActivity : Activity() {
         infoContainer.addView(infoDesc)
 
         topArea.addView(infoContainer)
+
+        // Preview Video Placeholder & Click Target (Right)
+        previewContainer = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dpi(380f), dpi(214f))
+            isClickable = true
+            isFocusable = false
+            setOnClickListener {
+                if (playerEngine.currentItem != null) {
+                    enterFullscreen()
+                }
+            }
+        }
+        topArea.addView(previewContainer)
+
         guideContainer.addView(topArea)
 
         // Bottom Area: Guide View (Full-width grid)
@@ -285,6 +302,7 @@ class MainActivity : Activity() {
             elevation = dp(16f)
             visibility = View.GONE
             translationX = -dpi(360f).toFloat()
+            descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         }
 
         val title = TextView(this).apply {
@@ -298,23 +316,25 @@ class MainActivity : Activity() {
 
         groupsList = ListPanel(this).apply {
             rowHeightDp = 44f
+            isFocusable = true
+            descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
             onFocusRow = { index, _ ->
                 val groups = Repo.groups()
                 val group = groups.getOrNull(index)
-                if (group != null && prefs.lastGroup != group.id) {
-                    prefs.lastGroup = group.id
-                    updateGuideRows()
+                if (group != null) {
+                    guideView.rows = Repo.inGroup(group.id)
                 }
             }
             onEdge = { code ->
                 when (code) {
                     KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_BACK -> {
+                        guideView.rows = Repo.inGroup(prefs.lastGroup)
                         openMainMenuDrawer()
                         true
                     }
                     KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                        closeCategoriesDrawer(focusGuide = true)
+                        selectCurrentCategoryAndClose()
                         true
                     }
                     else -> false
@@ -487,25 +507,42 @@ class MainActivity : Activity() {
     fun openCategoriesDrawer() {
         if (isCategoriesDrawerOpen) return
         isCategoriesDrawerOpen = true
+        guideView.isFocusable = false
+        categoriesDrawer.bringToFront()
         categoriesDrawer.visibility = View.VISIBLE
+        val curIdx = Repo.groups().indexOfFirst { it.id == prefs.lastGroup }.coerceAtLeast(0)
         categoriesDrawer.animate()
             .translationX(0f)
             .setDuration(220)
             .withEndAction {
-                val curIdx = Repo.groups().indexOfFirst { it.id == prefs.lastGroup }.coerceAtLeast(0)
                 groupsList.focusRow(curIdx)
             }
             .start()
+        groupsList.focusRow(curIdx)
+    }
+
+    private fun selectCurrentCategoryAndClose() {
+        val groups = Repo.groups()
+        val curIdx = groupsList.focusedIndex().takeIf { it >= 0 } ?: groups.indexOfFirst { it.id == prefs.lastGroup }.coerceAtLeast(0)
+        val group = groups.getOrNull(curIdx)
+        if (group != null) {
+            prefs.lastGroup = group.id
+            updateGroups()
+            updateGuideRows()
+        }
+        closeCategoriesDrawer(focusGuide = true)
     }
 
     fun closeCategoriesDrawer(focusGuide: Boolean = true) {
         if (!isCategoriesDrawerOpen) {
             if (focusGuide) {
+                guideView.isFocusable = true
                 guideView.focusCol = GuideView.GuideFocus.CHANNEL
                 guideView.requestFocus()
             }
             return
         }
+        guideView.rows = Repo.inGroup(prefs.lastGroup)
         isCategoriesDrawerOpen = false
         categoriesDrawer.animate()
             .translationX(-dpi(360f).toFloat())
@@ -513,16 +550,24 @@ class MainActivity : Activity() {
             .withEndAction {
                 categoriesDrawer.visibility = View.GONE
                 if (focusGuide) {
+                    guideView.isFocusable = true
                     guideView.focusCol = GuideView.GuideFocus.CHANNEL
                     guideView.requestFocus()
                 }
             }
             .start()
+        if (focusGuide) {
+            guideView.isFocusable = true
+            guideView.focusCol = GuideView.GuideFocus.CHANNEL
+            guideView.requestFocus()
+        }
     }
 
     fun openMainMenuDrawer() {
         if (isMainMenuDrawerOpen) return
         isMainMenuDrawerOpen = true
+        guideView.isFocusable = false
+        mainMenuDrawer.bringToFront()
         mainMenuDrawer.visibility = View.VISIBLE
         categoriesDrawer.animate()
             .translationX(dpi(300f).toFloat())
@@ -535,6 +580,7 @@ class MainActivity : Activity() {
                 mainMenuDrawer.getChildAt(2)?.requestFocus() ?: mainMenuDrawer.getChildAt(1)?.requestFocus()
             }
             .start()
+        mainMenuDrawer.getChildAt(2)?.requestFocus() ?: mainMenuDrawer.getChildAt(1)?.requestFocus()
     }
 
     fun closeMainMenuDrawer(focusCategories: Boolean = true) {
@@ -563,6 +609,10 @@ class MainActivity : Activity() {
                 }
             }
             .start()
+        if (focusCategories) {
+            val curIdx = Repo.groups().indexOfFirst { it.id == prefs.lastGroup }.coerceAtLeast(0)
+            groupsList.focusRow(curIdx)
+        }
     }
 
     private fun showSettings() {
@@ -692,6 +742,7 @@ class MainActivity : Activity() {
     fun enterFullscreen() {
         if (isFullscreen) return
         isFullscreen = true
+        removeOverlays()
         guideLayout.visibility = View.GONE
         mainVideoView.layoutParams = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
@@ -706,8 +757,8 @@ class MainActivity : Activity() {
         if (!isFullscreen) return
         isFullscreen = false
         fullscreenContainer.visibility = View.GONE
-        mainVideoView.layoutParams = FrameLayout.LayoutParams(dpi(380f), dpi(214f)).apply {
-            leftMargin = dpi(24f)
+        mainVideoView.layoutParams = FrameLayout.LayoutParams(dpi(380f), dpi(214f), Gravity.TOP or Gravity.END).apply {
+            rightMargin = dpi(24f)
             topMargin = dpi(16f)
         }
         guideLayout.visibility = View.VISIBLE
@@ -748,53 +799,56 @@ class MainActivity : Activity() {
         }
     }
 
-    override fun onKeyDown(code: Int, event: KeyEvent): Boolean {
-        // Fullscreen handles its own keys
-        if (isFullscreen) {
-            if (playerOverlay.onKey(code, event)) return true
-            if (code == KeyEvent.KEYCODE_BACK) {
-                exitFullscreen()
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val code = event.keyCode
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            // Fullscreen handles its own keys
+            if (isFullscreen) {
+                if (playerOverlay.onKey(code, event)) return true
+                if (code == KeyEvent.KEYCODE_BACK) {
+                    exitFullscreen()
+                    return true
+                }
+            }
+
+            // Settings drawer open
+            if (settingsDrawer != null) {
+                if (code == KeyEvent.KEYCODE_BACK) {
+                    settingsDrawer?.handleBack()
+                    return true
+                }
+            }
+
+            // Search panel open
+            if (searchPanel != null) {
+                if (code == KeyEvent.KEYCODE_BACK) {
+                    closeSearch()
+                    return true
+                }
+            }
+
+            // Guide Layout navigation hierarchy on BACK (TiviMate 1:1 order: Fullscreen -> Guide -> Categories -> Main Menu -> Exit)
+            if (code == KeyEvent.KEYCODE_BACK && !isFullscreen) {
+                if (isMainMenuDrawerOpen) {
+                    confirmAppExit()
+                    return true
+                }
+                if (isCategoriesDrawerOpen) {
+                    openMainMenuDrawer()
+                    return true
+                }
+                // If in Guide:
+                val now = System.currentTimeMillis()
+                if (guideView.focusCol == GuideView.GuideFocus.PROGRAM && (guideView.selectedProgram()?.start?.toEpochMilli() ?: 0L) > now + 60_000L) {
+                    guideView.resetToNow()
+                    return true
+                }
+                openCategoriesDrawer()
                 return true
             }
         }
 
-        // Settings drawer open
-        if (settingsDrawer != null) {
-            if (code == KeyEvent.KEYCODE_BACK) {
-                settingsDrawer?.handleBack()
-                return true
-            }
-        }
-
-        // Search panel open
-        if (searchPanel != null) {
-            if (code == KeyEvent.KEYCODE_BACK) {
-                closeSearch()
-                return true
-            }
-        }
-
-        // Guide Layout navigation hierarchy on BACK (TiviMate 1:1 order: Fullscreen -> Guide -> Categories -> Main Menu -> Exit)
-        if (code == KeyEvent.KEYCODE_BACK && !isFullscreen) {
-            if (isMainMenuDrawerOpen) {
-                finish()
-                return true
-            }
-            if (isCategoriesDrawerOpen) {
-                openMainMenuDrawer()
-                return true
-            }
-            // If in Guide:
-            val now = System.currentTimeMillis()
-            if (guideView.focusCol == GuideView.GuideFocus.PROGRAM && (guideView.selectedProgram()?.start?.toEpochMilli() ?: 0L) > now + 60_000L) {
-                guideView.resetToNow()
-                return true
-            }
-            openCategoriesDrawer()
-            return true
-        }
-
-        return super.onKeyDown(code, event)
+        return super.dispatchKeyEvent(event)
     }
 
     private fun confirmAppExit() {

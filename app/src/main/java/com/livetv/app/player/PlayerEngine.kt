@@ -2,6 +2,7 @@ package com.livetv.app.player
 
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -17,12 +18,17 @@ import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.DefaultLivePlaybackSpeedControl
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.hls.DefaultHlsExtractorFactory
 import androidx.media3.exoplayer.hls.HlsMediaSource
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
+import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
-import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import com.livetv.app.OnDeviceStreamServer
 import com.livetv.app.data.Item
 import com.livetv.app.data.Prefs
@@ -48,6 +54,32 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     var onError: ((String) -> Unit)? = null
     var onTracksChanged: (() -> Unit)? = null
 
+    // Health watchdog: detect video freeze while audio advances
+    private var lastObservedPosition = -1L
+    private var stallCheckCount = 0
+    private val healthCheckRunnable = object : Runnable {
+        override fun run() {
+            val p = exoPlayer
+            if (p != null && p.isPlaying && !isBuffering) {
+                val currentPos = p.currentPosition
+                if (currentPos == lastObservedPosition && currentPos > 0) {
+                    stallCheckCount++
+                    if (stallCheckCount >= 4) { // 4 seconds without media position advancement
+                        Log.w(TAG, "Video freeze/stall detected at position $currentPos! Re-syncing to live edge...")
+                        stallCheckCount = 0
+                        p.seekToDefaultPosition()
+                    }
+                } else {
+                    stallCheckCount = 0
+                    lastObservedPosition = currentPos
+                }
+            } else {
+                stallCheckCount = 0
+            }
+            mainHandler.postDelayed(this, 1000L)
+        }
+    }
+
     init {
         try {
             OnDeviceStreamServer.ensureStarted()
@@ -59,14 +91,22 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     fun initPlayer(surfaceView: SurfaceView? = null): ExoPlayer {
         release()
 
+        // Live HLS buffer sizing: DaddyLive playlists have ~30s windows (5 chunks x 6s).
+        // Buffer must fit within the sliding window to prevent behind-live-window stalls.
         val loadControl = DefaultLoadControl.Builder().apply {
             val (minBuffer, maxBuffer) = when (prefs.buffer) {
-                "Small" -> Pair(25000, 25000)
-                "Large" -> Pair(50000, 50000)
-                "Very large" -> Pair(80000, 80000)
-                else -> Pair(50000, 50000) // TiviMate standard: 50s live buffer
+                "Small" -> Pair(5000, 10000)
+                "Normal" -> Pair(10000, 20000)
+                "Large" -> Pair(15000, 25000)
+                "Very large" -> Pair(20000, 30000)
+                else -> Pair(10000, 20000)
             }
-            setBufferDurationsMs(minBuffer, maxBuffer, 1000, 2000)
+            setBufferDurationsMs(
+                minBuffer,
+                maxBuffer,
+                1500, // bufferForPlaybackMs
+                2500  // bufferForPlaybackAfterRebufferMs
+            )
             setPrioritizeTimeOverSizeThresholds(true)
             setBackBuffer(0, false)
         }.build()
@@ -79,6 +119,26 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             setExtensionRendererMode(audioExtension)
             setEnableDecoderFallback(true)
             setAllowedVideoJoiningTimeMs(10000)
+
+            // Fix for Google TV Streamer / MT8696 video freeze:
+            // MediaTek hardware AVC decoder (c2.mtk.avc.decoder) stalls on non-IDR live TS packets.
+            // When Software mode is chosen (default on MTK), prefer Google's c2.android.avc.decoder.
+            setMediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
+                val decoders = MediaCodecUtil.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
+                if (mimeType.startsWith("video/")) {
+                    val isGoogleTvStreamer = Build.MODEL.contains("Google TV Streamer", ignoreCase = true) ||
+                                             Build.HARDWARE.contains("mt8696", ignoreCase = true) ||
+                                             Build.HARDWARE.contains("mt", ignoreCase = true)
+                    val preferSoftware = prefs.videoDecoder == "Software" || (isGoogleTvStreamer && prefs.videoDecoder != "Hardware")
+                    if (preferSoftware) {
+                        val swDecoders = decoders.filter { it.softwareOnly || it.name.startsWith("c2.android.") || it.name.startsWith("OMX.google.") }
+                        val hwDecoders = decoders.filter { !it.softwareOnly && !it.name.startsWith("c2.android.") && !it.name.startsWith("OMX.google.") }
+                        Log.d(TAG, "MediaCodecSelector: preferSoftware=$preferSoftware for $mimeType (${swDecoders.firstOrNull()?.name})")
+                        return@setMediaCodecSelector (swDecoders + hwDecoders).toMutableList()
+                    }
+                }
+                decoders
+            }
         }
 
         val trackSelector = DefaultTrackSelector(context).apply {
@@ -89,9 +149,15 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             )
         }
 
+        val livePlaybackSpeedControl = DefaultLivePlaybackSpeedControl.Builder()
+            .setFallbackMinPlaybackSpeed(0.98f)
+            .setFallbackMaxPlaybackSpeed(1.02f)
+            .build()
+
         val player = ExoPlayer.Builder(context, renderersFactory)
             .setTrackSelector(trackSelector)
             .setLoadControl(loadControl)
+            .setLivePlaybackSpeedControl(livePlaybackSpeedControl)
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
@@ -144,6 +210,12 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
 
             override fun onPlayerError(error: PlaybackException) {
                 Log.w(TAG, "Playback error: ${error.errorCodeName} - ${error.message}")
+                if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
+                    Log.i(TAG, "Behind live window! Re-syncing to live edge...")
+                    player.seekToDefaultPosition()
+                    player.prepare()
+                    return
+                }
                 if (prefs.autoRetry && retryCount < maxRetries) {
                     retryCount++
                     Log.i(TAG, "Auto-retrying stream (attempt $retryCount of $maxRetries)...")
@@ -166,6 +238,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             }
         })
 
+        mainHandler.postDelayed(healthCheckRunnable, 2000L)
         exoPlayer = player
         return player
     }
@@ -202,13 +275,33 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             .setAllowCrossProtocolRedirects(true)
 
         val uri = Uri.parse(streamUrl)
+        val liveConfig = MediaItem.LiveConfiguration.Builder()
+            .setTargetOffsetMs(8000L) // 8 seconds target offset
+            .setMinOffsetMs(4000L)
+            .setMaxOffsetMs(18000L)
+            .setMinPlaybackSpeed(0.98f)
+            .setMaxPlaybackSpeed(1.02f)
+            .build()
+
+        val mediaItem = MediaItem.Builder()
+            .setUri(uri)
+            .setLiveConfiguration(liveConfig)
+            .build()
+
         val mediaSource = if (streamUrl.contains(".m3u8", ignoreCase = true) || streamUrl.contains("manifest", ignoreCase = true)) {
+            val hlsExtractorFactory = DefaultHlsExtractorFactory(
+                DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
+                DefaultTsPayloadReaderFactory.FLAG_IGNORE_SPLICE_INFO_STREAM or
+                DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS,
+                true
+            )
             HlsMediaSource.Factory(dataSourceFactory)
                 .setAllowChunklessPreparation(false)
-                .createMediaSource(MediaItem.fromUri(uri))
+                .setExtractorFactory(hlsExtractorFactory)
+                .createMediaSource(mediaItem)
         } else {
             androidx.media3.exoplayer.source.DefaultMediaSourceFactory(dataSourceFactory)
-                .createMediaSource(MediaItem.fromUri(uri))
+                .createMediaSource(mediaItem)
         }
 
         player.setMediaSource(mediaSource)
@@ -353,6 +446,8 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         exoPlayer = null
         isPlaying = false
         isBuffering = false
+        stallCheckCount = 0
+        lastObservedPosition = -1L
     }
 
     data class TrackInfo(

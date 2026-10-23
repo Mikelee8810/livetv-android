@@ -365,15 +365,6 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
                 onFullscreen(cur)
                 return true
             }
-            KeyEvent.KEYCODE_BACK -> {
-                val now = System.currentTimeMillis()
-                if (focusCol == GuideFocus.PROGRAM && selTime > now + 60_000L) {
-                    resetToNow()
-                    return true
-                }
-                onOpenCategories()
-                return true
-            }
         }
         return super.onKeyDown(code, e)
     }
@@ -390,7 +381,11 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
         if ((code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) && e.isTracking && !e.isCanceled) {
             val it = selected() ?: return true
             if (focusCol == GuideFocus.CHANNEL) {
-                onFullscreen(it)
+                if (prefs.guideOkAction.startsWith("Fullscreen") || it.key == playingKey) {
+                    onFullscreen(it)
+                } else {
+                    onPlay(it)
+                }
                 return true
             }
             val pr = selectedProgram()

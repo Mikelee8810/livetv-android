@@ -34,6 +34,10 @@ public final class ChannelClassifier {
             }
         }
         List<Channel> visible = new ArrayList<>(unique.values());
+        final java.util.Map<String, Integer> originalOrder = new java.util.HashMap<>();
+        for (int i = 0; i < parsed.size(); i++) {
+            originalOrder.put(parsed.get(i).id, i);
+        }
         Collections.sort(visible, new Comparator<Channel>() { // from class: com.livetv.app.catalog.ChannelClassifier.1
             @Override // java.util.Comparator
             public int compare(Channel first, Channel second) {
@@ -46,7 +50,9 @@ public final class ChannelClassifier {
                 if (groupComparison != 0) {
                     return groupComparison;
                 }
-                return String.CASE_INSENSITIVE_ORDER.compare(first.name, second.name);
+                int o1 = originalOrder.getOrDefault(first.id, 0);
+                int o2 = originalOrder.getOrDefault(second.id, 0);
+                return Integer.compare(o1, o2);
             }
         });
         return new Result(visible, new CatalogReport(parsed.size(), adult, duplicates, visible.size(), countMissingLogos(visible), countMissingEpgIds(visible)));
