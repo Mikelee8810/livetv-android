@@ -62,6 +62,10 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - **Stronger stream resolver.** Extraction fallbacks ported from [dlhd-cli](https://github.com/Lunatic16/dlhd-cli): direct `.m3u8` scan, generic `atob()` scan, `file:` configs, plus 3 tries with exponential backoff on 5xx. Resolved URLs are cached 5 minutes instead of 30, because the streams are tokenized and time-limited. Non-playlist responses are rejected instead of stalling the player, and a segment level 403 now force-refreshes the playlist token and retries, like the manifest path always did.
 - **Route failover.** Player retries used to replay the same dead URL. They now step through the resolver's 8 routes (including the `hub` player borrowed from [dlhd-web](https://github.com/Lunatic16/dlhd-web)), and the route that works for a channel is remembered and tried first next time.
 - **A real DaddyLive EPG source.** The guide now also pulls [Mikoshi-nyudo/dlhd](https://github.com/Mikoshi-nyudo/dlhd)'s DaddyLive XMLTV, regenerated every 12 hours, so guide data no longer depends only on the reverse-engineered TitanTV guest flow.
+## What's new in 4.2.4
+
+- **Hardware decoding actually engages now.** The first 4.2.3 build asked for the hardware decoder but returned the platform's decoder list unordered - and on the Google TV Streamer that list starts with the software codec, so nothing changed on device (verified in its logs, still 400+ dropped-frame bursts). The selector now orders the list explicitly in both directions. The 4.2.3 notes below describe the rest of this speed pass, all still included.
+
 ## What's new in 4.2.3
 
 Speed and smoothness, driven by on-device measurements:

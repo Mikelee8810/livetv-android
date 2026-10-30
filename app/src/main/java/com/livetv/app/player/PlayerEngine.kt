@@ -221,12 +221,14 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                         isGoogleTvStreamer -> decoderEscalation % 2 == 1
                         else -> false
                     }
-                    if (preferSoftware) {
-                        val swDecoders = decoders.filter { it.softwareOnly || it.name.startsWith("c2.android.") || it.name.startsWith("OMX.google.") }
-                        val hwDecoders = decoders.filter { !it.softwareOnly && !it.name.startsWith("c2.android.") && !it.name.startsWith("OMX.google.") }
-                        Log.d(TAG, "MediaCodecSelector: preferSoftware=$preferSoftware for $mimeType (${swDecoders.firstOrNull()?.name})")
-                        return@setMediaCodecSelector (swDecoders + hwDecoders).toMutableList()
-                    }
+                    // Always order the list explicitly. Returning the platform
+                    // order when hardware was wanted silently kept the software
+                    // decoder on the Streamer (its default order lists
+                    // c2.android.avc.decoder first), v4.2.3 first build.
+                    val swDecoders = decoders.filter { it.softwareOnly || it.name.startsWith("c2.android.") || it.name.startsWith("OMX.google.") }
+                    val hwDecoders = decoders.filter { !it.softwareOnly && !it.name.startsWith("c2.android.") && !it.name.startsWith("OMX.google.") }
+                    Log.d(TAG, "MediaCodecSelector: preferSoftware=$preferSoftware for $mimeType (hw=${hwDecoders.firstOrNull()?.name}, sw=${swDecoders.firstOrNull()?.name})")
+                    return@setMediaCodecSelector (if (preferSoftware) (swDecoders + hwDecoders) else (hwDecoders + swDecoders)).toMutableList()
                 }
                 decoders
             }
