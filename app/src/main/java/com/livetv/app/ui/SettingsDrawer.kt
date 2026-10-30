@@ -568,6 +568,6 @@ class SettingsDrawer(
             renderCurrent()
         }),
         Row("ABOUT", kind = Kind.HEADER),
-        Row("Live TV for Android TV", sub = "Version 4.2.0", value = "Up to date")
+        Row("Live TV for Android TV", sub = "Version 4.2.1", value = "Up to date")
     )
 }
