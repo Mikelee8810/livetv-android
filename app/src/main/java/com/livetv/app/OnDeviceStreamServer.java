@@ -105,7 +105,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             try {
                 String tokenUrl = session.edge + "/api/playlist-token?slug=" + URLEncoder.encode(session.chan, StandardCharsets.UTF_8.name());
                 okhttp3.Request req = request(tokenUrl, session.playerUrl).build();
-                try (okhttp3.Response resp = this.client.newCall(req).execute()) {
+                try (okhttp3.Response resp = this.segmentClient.newCall(req).execute()) {
                     if (resp.isSuccessful() && resp.body() != null) {
                         String body = resp.body().string();
                         Matcher m = TOKEN_PAT.matcher(body);
@@ -483,7 +483,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
         Request request = request(effectiveUrl, resolved.referer).build();
         okhttp3.Response response = null;
         try {
-            response = executeWithRetry(request);
+            response = executeOnce(request);
             if (response.code() == 403 && session != null) {
                 response.close();
                 Log.w(TAG, "Upstream returned 403 for channel " + id + ", forcing token refresh and retry...");
@@ -492,7 +492,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                     effectiveUrl = cleanPlaylistUrl(upstream);
                     effectiveUrl += (effectiveUrl.contains("?") ? "&" : "?") + "t=" + URLEncoder.encode(freshToken, StandardCharsets.UTF_8.name()) + "&_=" + System.currentTimeMillis();
                     request = request(effectiveUrl, resolved.referer).build();
-                    response = executeWithRetry(request);
+                    response = executeOnce(request);
                 }
             }
 
@@ -565,76 +565,106 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
         }
     }
 
-    // -- Segment prefetch ---------------------------------------------------
-    // Measured on device (2026-10-30): the disguised-image CDN delivers a
-    // ~6 s segment in 4-7 s per connection - at or below real time. A
-    // just-in-time player pulling segments one at a time therefore
-    // starves progressively: fine for minutes, then pinned at the live
-    // window's tail with the picture frozen solid while the loader
-    // grinds. The proxy knows the whole segment list at every manifest
-    // serve, so it fetches and unwraps the tail segments CONCURRENTLY,
-    // ahead of the player; the player then pulls finished TS bytes from
-    // localhost at full speed, and the parallel fetches aggregate
-    // several times the per-connection rate.
-    private static final int PREFETCH_AHEAD = 4;
-    private static final Map<String, java.util.concurrent.CompletableFuture<byte[]>> SEGMENT_PREFETCH = new ConcurrentHashMap<>();
-    private static final Map<String, Long> SEGMENT_PREFETCH_AT = new ConcurrentHashMap<>();
-    private static final java.util.concurrent.ExecutorService PREFETCH_POOL = java.util.concurrent.Executors.newFixedThreadPool(4, r -> {
-        Thread t = new Thread(r, "seg-prefetch");
-        t.setDaemon(true);
-        return t;
-    });
+    // -- Segment prefetch (bounded, player-first) --------------------------
+    // Why bounded: the first prefetch build (4.2.9) queued tail segments
+    // at every manifest serve with no cap, and the player blocked up to
+    // 30 s on futures queued behind stale work - under the slow image
+    // CDN the queue collapsed within a minute (SocketTimeout at the
+    // proxy, 150 MB of cached segment bytes, picture frozen solid).
+    // The discipline here: at most PREFETCH_AHEAD segments are ever
+    // warmed, only the ones at the live edge of the latest manifest;
+    // queued warming for segments the window has passed is dropped from
+    // the queue at the next manifest serve; finished segments live in a
+    // small LRU; and a segment the player asks for is fetched INLINE on
+    // the player's own request thread whenever it is not already in
+    // flight - the player never queues behind warming work.
+    private static final int PREFETCH_AHEAD = 3;
+    private static final int SEGMENT_CACHE_MAX = 12;
+    private static final Map<String, byte[]> SEGMENT_CACHE = new java.util.LinkedHashMap<String, byte[]>(16, 0.75f, true) {
+        @Override protected boolean removeEldestEntry(Map.Entry<String, byte[]> eldest) {
+            return size() > SEGMENT_CACHE_MAX;
+        }
+    };
+    private static final Map<String, java.util.concurrent.CompletableFuture<byte[]>> SEGMENT_INFLIGHT = new ConcurrentHashMap<>();
+    private static final java.util.concurrent.LinkedBlockingQueue<Runnable> PREFETCH_QUEUE = new java.util.concurrent.LinkedBlockingQueue<>();
+    private static final java.util.concurrent.ExecutorService PREFETCH_POOL = new java.util.concurrent.ThreadPoolExecutor(
+            3, 3, 0L, TimeUnit.MILLISECONDS, PREFETCH_QUEUE,
+            r -> { Thread t = new Thread(r, "seg-prefetch"); t.setDaemon(true); return t; });
     /** Channel the player is actually consuming segments for right now. */
     private static volatile String activeChannelId = null;
 
-    private void prefetchSegment(String url, String referer, String channelId) {
-        SEGMENT_PREFETCH_AT.put(url, System.currentTimeMillis());
-        SEGMENT_PREFETCH.computeIfAbsent(url, u -> java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+    private static final class PrefetchTask implements Runnable {
+        final OnDeviceStreamServer server;
+        final String url;
+        final String referer;
+        final String channelId;
+        final java.util.concurrent.CompletableFuture<byte[]> future = new java.util.concurrent.CompletableFuture<>();
+        PrefetchTask(OnDeviceStreamServer s, String u, String r, String c) {
+            server = s; url = u; referer = r; channelId = c;
+        }
+        @Override public void run() {
             try {
-                return fetchSegmentBytes(u, referer, channelId);
+                byte[] bytes = server.fetchSegmentBytes(url, referer, channelId);
+                synchronized (SEGMENT_CACHE) { SEGMENT_CACHE.put(url, bytes); }
+                future.complete(bytes);
             } catch (Exception e) {
-                throw new java.util.concurrent.CompletionException(e);
+                future.completeExceptionally(e);
+            } finally {
+                SEGMENT_INFLIGHT.remove(url, future);
             }
-        }, PREFETCH_POOL));
+        }
     }
 
     private void prefetchTail(List<String> segmentUrls, String referer, String channelId) {
-        // Evict entries the live window has moved past.
-        long now = System.currentTimeMillis();
-        java.util.Set<String> live = new java.util.HashSet<>(segmentUrls);
-        for (String key : new ArrayList<>(SEGMENT_PREFETCH.keySet())) {
-            Long at = SEGMENT_PREFETCH_AT.get(key);
-            if (!live.contains(key) && at != null && now - at > 60000L) {
-                SEGMENT_PREFETCH.remove(key);
-                SEGMENT_PREFETCH_AT.remove(key);
-            }
-        }
         int from = Math.max(0, segmentUrls.size() - PREFETCH_AHEAD);
-        for (int i = from; i < segmentUrls.size(); i++) {
-            prefetchSegment(segmentUrls.get(i), referer, channelId);
+        java.util.Set<String> wanted = new java.util.HashSet<>(segmentUrls.subList(from, segmentUrls.size()));
+        // Drop queued warming for segments the live window has passed.
+        PREFETCH_QUEUE.removeIf(t -> t instanceof PrefetchTask && !wanted.contains(((PrefetchTask) t).url));
+        // Cached segments outside the window are dead weight.
+        synchronized (SEGMENT_CACHE) {
+            SEGMENT_CACHE.keySet().removeIf(k -> !segmentUrls.contains(k));
         }
+        for (int i = from; i < segmentUrls.size(); i++) {
+            String u = segmentUrls.get(i);
+            synchronized (SEGMENT_CACHE) { if (SEGMENT_CACHE.containsKey(u)) continue; }
+            if (SEGMENT_INFLIGHT.containsKey(u)) continue;
+            PrefetchTask task = new PrefetchTask(this, u, referer, channelId);
+            SEGMENT_INFLIGHT.put(u, task.future);
+            PREFETCH_POOL.execute(task);
+        }
+    }
+
+    private NanoHTTPD.Response segmentResponse(byte[] bytes) {
+        Response outResp = newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "video/mp2t", new ByteArrayInputStream(bytes), bytes.length);
+        outResp.addHeader("Accept-Ranges", "bytes");
+        return outResp;
     }
 
     private NanoHTTPD.Response proxyResource(String url, String referer, String channelId) throws Exception {
         if (channelId != null && !channelId.isEmpty()) {
             activeChannelId = channelId;
         }
-        byte[] bytes;
-        java.util.concurrent.CompletableFuture<byte[]> pending = SEGMENT_PREFETCH.get(url);
+        byte[] hit;
+        synchronized (SEGMENT_CACHE) { hit = SEGMENT_CACHE.get(url); }
+        if (hit != null) {
+            return segmentResponse(hit);
+        }
+        java.util.concurrent.CompletableFuture<byte[]> pending = SEGMENT_INFLIGHT.get(url);
         if (pending != null) {
             try {
-                bytes = pending.get(30L, TimeUnit.SECONDS);
+                byte[] bytes = pending.get(12L, TimeUnit.SECONDS);
+                if (bytes != null && bytes.length > 0) {
+                    return segmentResponse(bytes);
+                }
             } catch (Exception e) {
-                SEGMENT_PREFETCH.remove(url);
-                SEGMENT_PREFETCH_AT.remove(url);
-                bytes = fetchSegmentBytes(url, referer, channelId);
+                // The warmed copy failed or is too slow; fetch directly.
             }
-        } else {
-            bytes = fetchSegmentBytes(url, referer, channelId);
         }
-        Response outResp = newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "video/mp2t", new ByteArrayInputStream(bytes), bytes.length);
-        outResp.addHeader("Accept-Ranges", "bytes");
-        return outResp;
+        // Player-first: fetch on this request thread, never queued
+        // behind prefetch work.
+        byte[] bytes = fetchSegmentBytes(url, referer, channelId);
+        synchronized (SEGMENT_CACHE) { SEGMENT_CACHE.put(url, bytes); }
+        return segmentResponse(bytes);
     }
 
     private byte[] fetchSegmentBytes(String url, String referer, String channelId) throws Exception {

@@ -62,12 +62,13 @@ object Reminders {
     private fun requestCode(reminder: Reminder): Int =
         (reminder.startMs / 1000L).toInt() xor reminder.channelKey.hashCode()
 
-    private fun pendingIntent(ctx: Context, reminder: Reminder): PendingIntent {
+    private fun pendingIntent(ctx: Context, reminder: Reminder, autoSwitch: Boolean = false): PendingIntent {
         val intent = Intent(ctx, ReminderReceiver::class.java).apply {
             putExtra("title", reminder.title)
             putExtra("channel", reminder.channelName)
             putExtra("channelKey", reminder.channelKey)
-            putExtra("autoSwitch", false)
+            putExtra("reminderId", requestCode(reminder))
+            putExtra("autoSwitch", autoSwitch)
         }
         return PendingIntent.getBroadcast(
             ctx, requestCode(reminder), intent,
@@ -79,7 +80,7 @@ object Reminders {
         val fireAt = reminder.startMs - prefs.remindLeadMinutes * 60_000L
         if (fireAt <= System.currentTimeMillis()) return
         val am = ctx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val pi = pendingIntent(ctx, reminder)
+        val pi = pendingIntent(ctx, reminder, prefs.remindAutoSwitch)
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && am.canScheduleExactAlarms()) {
                 am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAt, pi)
@@ -116,12 +117,16 @@ class ReminderReceiver : BroadcastReceiver() {
                 NotificationChannel("reminders", "Program reminders", NotificationManager.IMPORTANCE_HIGH)
             )
         }
+        // Stable per-reminder id (start + channel), not the title hash:
+        // same-titled programs on different channels used to replace
+        // each other's notification and tap target.
+        val reminderId = intent.getIntExtra("reminderId", title.hashCode())
         val open = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("channelKey", intent.getStringExtra("channelKey"))
         }
         val pi = PendingIntent.getActivity(
-            context, title.hashCode(), open,
+            context, reminderId, open,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val notification = NotificationCompat.Builder(context, "reminders")
@@ -133,7 +138,7 @@ class ReminderReceiver : BroadcastReceiver() {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .build()
         try {
-            nm.notify(title.hashCode(), notification)
+            nm.notify(reminderId, notification)
         } catch (e: SecurityException) {
             // POST_NOTIFICATIONS not granted: the reminder stays listed in the app.
         }

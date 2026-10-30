@@ -40,6 +40,8 @@ public class LiveTvInputService extends TvInputService {
         private MediaPlayer mMediaPlayer;
         private int mRetryCount;
         private String mStreamUrl;
+        private String mReconnectUrl;
+        private Runnable mPrepareWatchdog;
         private Surface mSurface;
 
         public LiveTvSession(Context context, String inputId) {
@@ -52,6 +54,10 @@ public class LiveTvInputService extends TvInputService {
 
         @Override // android.media.tv.TvInputService.Session
         public void onRelease() {
+            // Kill pending reconnects/watchdogs first: a delayed runnable
+            // firing after release used to create a MediaPlayer on a
+            // dead session (zombie playback, native leak).
+            this.mHandler.removeCallbacksAndMessages(null);
             releasePlayer();
         }
 
@@ -118,6 +124,10 @@ public class LiveTvInputService extends TvInputService {
         }
 
         private void playStream(String url) {
+            // A new stream supersedes every pending callback from the
+            // previous one (reconnects and prepare watchdogs alike).
+            this.mHandler.removeCallbacksAndMessages(null);
+            this.mPrepareWatchdog = null;
             releasePlayer();
             try {
                 this.mMediaPlayer = new MediaPlayer();
@@ -141,6 +151,25 @@ public class LiveTvInputService extends TvInputService {
                     }
                 });
                 this.mMediaPlayer.prepareAsync();
+                // Prepare watchdog: prepareAsync against a stalled
+                // localhost proxy can hang forever - neither onPrepared
+                // nor onError ever fires, and without this the session
+                // sits at VIDEO_UNAVAILABLE_BUFFERING indefinitely.
+                final MediaPlayer watched = this.mMediaPlayer;
+                this.mPrepareWatchdog = new Runnable() {
+                    @Override public void run() {
+                        if (mMediaPlayer == watched) {
+                            boolean playing = false;
+                            try { playing = watched.isPlaying(); } catch (Exception ignored) { }
+                            if (!playing) {
+                                Log.w(LiveTvInputService.TAG, "Prepare stalled for 20s; treating as a playback failure");
+                                notifyVideoUnavailable(3);
+                                handleAutoReconnect();
+                            }
+                        }
+                    }
+                };
+                this.mHandler.postDelayed(this.mPrepareWatchdog, 20000L);
             } catch (Exception e) {
                 Log.e(LiveTvInputService.TAG, "Failed to start media player for " + url, e);
                 handleAutoReconnect();
@@ -149,6 +178,14 @@ public class LiveTvInputService extends TvInputService {
 
         /* JADX INFO: Access modifiers changed from: private */
         public /* synthetic */ void lambda$playStream$0(MediaPlayer mp) {
+            if (this.mPrepareWatchdog != null) {
+                this.mHandler.removeCallbacks(this.mPrepareWatchdog);
+                this.mPrepareWatchdog = null;
+            }
+            // A successful prepare earns the reconnect budget back:
+            // without this, five transient errors across hours of
+            // healthy viewing permanently disabled auto-reconnect.
+            this.mRetryCount = 0;
             mp.start();
             notifyVideoAvailable();
         }
@@ -164,6 +201,10 @@ public class LiveTvInputService extends TvInputService {
         private void handleAutoReconnect() {
             if (this.mRetryCount < 5 && this.mStreamUrl != null) {
                 this.mRetryCount++;
+                // Capture the URL now: the runnable used to read the
+                // mutable mStreamUrl when it fired, so a stale reconnect
+                // could restart a NEW channel's player mid-prepare.
+                this.mReconnectUrl = this.mStreamUrl;
                 Log.i(LiveTvInputService.TAG, "Auto-reconnecting stream (attempt #" + this.mRetryCount + ")...");
                 this.mHandler.postDelayed(new Runnable() { // from class: com.livetv.app.tvinput.LiveTvInputService$LiveTvSession$$ExternalSyntheticLambda2
                     @Override // java.lang.Runnable
@@ -178,8 +219,8 @@ public class LiveTvInputService extends TvInputService {
 
         /* JADX INFO: Access modifiers changed from: private */
         public /* synthetic */ void lambda$handleAutoReconnect$2() {
-            if (this.mStreamUrl != null) {
-                playStream(this.mStreamUrl);
+            if (this.mReconnectUrl != null) {
+                playStream(this.mReconnectUrl);
             }
         }
 

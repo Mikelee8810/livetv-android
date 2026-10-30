@@ -84,10 +84,17 @@ object Updater {
      * Check for an update and, if one exists, offer it. Silent when there is
      * nothing to do unless [manual] is true (the Settings button).
      */
+    private val checkInFlight = java.util.concurrent.atomic.AtomicBoolean(false)
+
     fun checkAndPrompt(activity: Activity, manual: Boolean) {
+        // One check at a time: the startup auto-check and a Settings tap
+        // racing each other used to double-prompt and double-download
+        // the same APK file, corrupting it.
+        if (!checkInFlight.compareAndSet(false, true)) return
         thread(name = "update-check") {
             val info = try { fetchLatest() } catch (e: Exception) { null }
             activity.runOnUiThread {
+                checkInFlight.set(false)
                 if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
                 when {
                     info == null -> if (manual) Dialogs.message(
@@ -120,6 +127,8 @@ object Updater {
         }
         thread(name = "update-download") {
             var ok = false
+            var read = 0L
+            var total = -1L
             try {
                 val req = Request.Builder().url(info.apkUrl)
                     .header("User-Agent", "LiveTV-Android/" + BuildConfig.VERSION_NAME)
@@ -127,9 +136,9 @@ object Updater {
                 client.newCall(req).execute().use { resp ->
                     val body = resp.body
                     if (resp.isSuccessful && body != null) {
-                        val total = body.contentLength()
+                        total = body.contentLength()
                         activity.runOnUiThread {
-                            if (total > 0) {
+                            if (!activity.isFinishing && !activity.isDestroyed && total > 0) {
                                 progress.isIndeterminate = false
                                 progress.max = 100
                             }
@@ -137,7 +146,6 @@ object Updater {
                         body.byteStream().use { input ->
                             FileOutputStream(file).use { out ->
                                 val buf = ByteArray(64 * 1024)
-                                var read = 0L
                                 while (true) {
                                     val n = input.read(buf)
                                     if (n < 0) break
@@ -145,20 +153,26 @@ object Updater {
                                     read += n
                                     if (total > 0) {
                                         val pct = (read * 100 / total).toInt()
-                                        activity.runOnUiThread { progress.progress = pct }
+                                        activity.runOnUiThread {
+                                            if (!activity.isFinishing && !activity.isDestroyed) progress.progress = pct
+                                        }
                                     }
                                 }
                             }
                         }
-                        ok = file.length() > 0
+                        // Verify the whole body arrived: a connection
+                        // that ends early yields a clean EOF and, with
+                        // only a length > 0 check, a truncated APK that
+                        // dead-ends at the installer's parse error.
+                        ok = file.length() > 0 && (total <= 0L || read == total)
                     }
                 }
             } catch (e: Exception) {
                 ok = false
             }
             activity.runOnUiThread {
-                progress.dismiss()
                 if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
+                try { progress.dismiss() } catch (e: Exception) { }
                 if (ok) install(activity, file)
                 else Dialogs.message(activity, "Update failed", "The download did not finish. Try again from Settings.")
             }

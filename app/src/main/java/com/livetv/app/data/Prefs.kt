@@ -117,7 +117,11 @@ class Prefs(ctx: Context) {
     var lockedChannels: Set<String> get() = set("lockedChannels"); set(v) = put("lockedChannels", v)
     var groupOrder: List<String> get() = str("groupOrder", "").split("\u001f").filter { it.isNotEmpty() }; set(v) = put("groupOrder", v.joinToString("\u001f"))
     var groupRenames: Map<String, String>
-        get() = JSONObject(str("groupRenames", "{}")).let { o -> o.keys().asSequence().associateWith { o.getString(it) } }
+        // Guarded: a malformed stored value (schema drift across app
+        // versions) must degrade to no renames, never crash the guide.
+        get() = try {
+            JSONObject(str("groupRenames", "{}")).let { o -> o.keys().asSequence().associateWith { o.optString(it) } }
+        } catch (e: Exception) { emptyMap() }
         set(v) = put("groupRenames", JSONObject(v).toString())
     var recents: List<String> get() = str("recents", "").split("\u001f").filter { it.isNotEmpty() }; set(v) = put("recents", v.joinToString("\u001f"))
     var searchTerms: List<String> get() = str("searchTerms", "").split("\u001f").filter { it.isNotEmpty() }; set(v) = put("searchTerms", v.joinToString("\u001f"))
@@ -125,18 +129,28 @@ class Prefs(ctx: Context) {
     // Playlists: [{id,name,url,epg}]. id "builtin" is the bundled catalog.
     var playlistsJson: String get() = str("playlists", "[]"); set(v) = put("playlists", v)
     fun playlists(): List<PlaylistDef> {
-        val arr = JSONArray(playlistsJson)
-        val list = (0 until arr.length()).map { arr.getJSONObject(it) }.map {
-            PlaylistDef(it.getString("id"), it.getString("name"), it.optString("url"), it.optString("epg"), it.optBoolean("enabled", true))
-        }.toMutableList()
-        if (list.none { it.id == "builtin" }) list.add(0, PlaylistDef("builtin", "Live TV", "", "", true))
-        return list
+        // Guarded end to end: this runs on the guide's critical path and
+        // a throw here used to kill the reload thread silently, leaving
+        // an empty guide on every launch. Any malformed entry degrades
+        // to the builtin catalog alone.
+        return try {
+            val arr = JSONArray(playlistsJson)
+            val list = (0 until arr.length()).map { arr.getJSONObject(it) }.map {
+                PlaylistDef(it.optString("id"), it.optString("name"), it.optString("url"), it.optString("epg"), it.optBoolean("enabled", true))
+            }.filter { it.id.isNotEmpty() }.toMutableList()
+            if (list.none { it.id == "builtin" }) list.add(0, PlaylistDef("builtin", "Live TV", "", "", true))
+            list
+        } catch (e: Exception) {
+            mutableListOf(PlaylistDef("builtin", "Live TV", "", "", true))
+        }
     }
     fun savePlaylists(l: List<PlaylistDef>) {
         playlistsJson = JSONArray(l.map { JSONObject().put("id", it.id).put("name", it.name).put("url", it.url).put("epg", it.epg).put("enabled", it.enabled) }).toString()
     }
     var epgSourcesJson: String get() = str("epgSources", "[]"); set(v) = put("epgSources", v)
-    fun epgSources(): List<String> = JSONArray(epgSourcesJson).let { a -> (0 until a.length()).map { a.getString(it) } }
+    fun epgSources(): List<String> = try {
+        JSONArray(epgSourcesJson).let { a -> (0 until a.length()).map { a.optString(it) }.filter { it.isNotEmpty() } }
+    } catch (e: Exception) { emptyList() }
     fun saveEpgSources(l: List<String>) { epgSourcesJson = JSONArray(l).toString() }
 }
 

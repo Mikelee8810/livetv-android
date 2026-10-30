@@ -159,9 +159,19 @@ public final class LiveCatalog {
         for (Map.Entry<String, String> e : live.entrySet()) {
             sb.append(e.getKey()).append('\t').append(e.getValue().replace('\t', ' ')).append('\n');
         }
+        // Write to a temp file and rename: truncating the live cache in
+        // place meant a kill mid-write left a partial channel list with
+        // a FRESH timestamp, treated as valid for the next 12 hours.
         File cache = new File(context.getCacheDir(), CACHE_FILE);
-        try (FileOutputStream out = new FileOutputStream(cache)) {
-            out.write(sb.toString().getBytes(StandardCharsets.UTF_8));
+        File tmp = new File(context.getCacheDir(), CACHE_FILE + ".tmp");
+        byte[] data = sb.toString().getBytes(StandardCharsets.UTF_8);
+        try (FileOutputStream out = new FileOutputStream(tmp)) {
+            out.write(data);
+        }
+        if (!tmp.renameTo(cache)) {
+            try (FileOutputStream out = new FileOutputStream(cache)) {
+                out.write(data);
+            }
         }
     }
 }

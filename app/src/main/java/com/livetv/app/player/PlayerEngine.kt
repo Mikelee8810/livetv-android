@@ -138,6 +138,15 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     private var netWindowStartMs = 0L
     private var netWindowStartPos = -1L
     private var lastNetRecoveryMs = 0L
+    // Since when the player has been continuously in BUFFERING (0 = not
+    // buffering). The 4.2.9 net missed the worst trap because it only
+    // sampled position: a player parked in BUFFERING with its position
+    // plunging negative never satisfied "advanced >= 0" and no other
+    // branch (desync needs !buffering, stall needs READY, freeze needs
+    // position advancing) would touch it. Continuous buffering time is
+    // now a first-class trigger.
+    private var bufferingSinceMs = 0L
+    private var consecutiveNetRecoveries = 0
 
     private fun resetWatchdogTracking(now: Long) {
         lastObservedPosition = -1L
@@ -176,11 +185,25 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             val p = exoPlayer
             val now = android.os.SystemClock.uptimeMillis()
             // Forgive past failures only after 30 s of stable playback.
-            if (p != null && retryCount > 0 && readySinceMs > 0L &&
+            // The working route is also only remembered here, after it
+            // has proven itself for 30 continuous seconds: saving it on
+            // every READY (the old behavior) let a route that rendered
+            // a few frames and then starved become the channel's
+            // permanent starting route.
+            if (p != null && readySinceMs > 0L &&
                 now - readySinceMs > 30_000L &&
                 p.playbackState == Player.STATE_READY
             ) {
                 retryCount = 0
+                consecutiveNetRecoveries = 0
+                currentItem?.let { prefs.put("route_" + it.ch.id, routeAttempt % ROUTE_COUNT) }
+            }
+            if (p != null) {
+                if (p.playbackState == Player.STATE_BUFFERING) {
+                    if (bufferingSinceMs == 0L) bufferingSinceMs = now
+                } else {
+                    bufferingSinceMs = 0L
+                }
             }
 
             if (p != null && p.playWhenReady && p.playbackState != Player.STATE_IDLE) {
@@ -208,28 +231,47 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                     return
                 }
 
-                // 0. Position-advance net: position barely moved over a
-                // full 20 s window while the user wants playback. Whatever
-                // state the player claims, that is a stuck stream; the
-                // sanctioned cure is a re-sync to the live edge.
-                if (now - playbackStartMs > 30000L && now - lastNetRecoveryMs > 90000L) {
+                // 0. The hole-free net. Triggers on ANY of: 20 s of
+                // continuous BUFFERING, or a 20 s window in which the
+                // position moved less than 2 s (a plunging negative
+                // position counts - the 4.2.9 version required the
+                // movement to be positive and so never fired on the
+                // parked-at-the-tail trap it was built for). No branch
+                // of this check cares whether the state is READY or
+                // BUFFERING, which is the point: the trap lives in the
+                // gap between the two.
+                if (now - playbackStartMs > 25000L && now - lastNetRecoveryMs > 60000L) {
+                    var stuck = bufferingSinceMs > 0L && now - bufferingSinceMs > 20000L
                     if (netWindowStartMs == 0L) {
                         netWindowStartMs = now
                         netWindowStartPos = currentPos
                     } else if (now - netWindowStartMs >= 20000L) {
-                        val advanced = currentPos - netWindowStartPos
-                        if (advanced >= 0L && advanced < 2000L) {
-                            Log.w(TAG, "Position advanced only ${advanced}ms in 20s; re-syncing to live edge")
-                            lastNetRecoveryMs = now
-                            netWindowStartMs = 0L
-                            resetWatchdogTracking(now)
-                            p.seekToDefaultPosition()
-                            p.prepare()
-                            mainHandler.postDelayed(this, 1000L)
-                            return
-                        }
+                        if (currentPos - netWindowStartPos < 2000L) stuck = true
                         netWindowStartMs = now
                         netWindowStartPos = currentPos
+                    }
+                    if (stuck) {
+                        consecutiveNetRecoveries++
+                        lastNetRecoveryMs = now
+                        netWindowStartMs = 0L
+                        bufferingSinceMs = 0L
+                        resetWatchdogTracking(now)
+                        if (consecutiveNetRecoveries >= 3 && currentItem != null) {
+                            // Re-syncing is not working: this route is
+                            // bad. Forget it (including the remembered
+                            // one) and replay on the next route.
+                            Log.w(TAG, "Stuck stream; net recovery #$consecutiveNetRecoveries, escalating route and forgetting the saved one")
+                            routeAttempt++
+                            prefs.sp.edit().remove("route_" + currentItem!!.ch.id).apply()
+                            consecutiveNetRecoveries = 0
+                            play(currentItem!!, false)
+                        } else {
+                            Log.w(TAG, "Stuck stream; net recovery #$consecutiveNetRecoveries, re-syncing to live edge")
+                            p.seekToDefaultPosition()
+                            p.prepare()
+                        }
+                        mainHandler.postDelayed(this, 1000L)
+                        return
                     }
                 }
 
@@ -342,10 +384,10 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         val loadControl = DefaultLoadControl.Builder().apply {
             val (minBuffer, maxBuffer) = when (prefs.buffer) {
                 "Small" -> Pair(5000, 10000)
-                "Normal" -> Pair(15000, 30000)
-                "Large" -> Pair(15000, 30000)
-                "Very large" -> Pair(20000, 30000)
-                else -> Pair(15000, 30000)
+                "Normal" -> Pair(20000, 34000)
+                "Large" -> Pair(20000, 34000)
+                "Very large" -> Pair(20000, 34000)
+                else -> Pair(20000, 34000)
             }
             setBufferDurationsMs(
                 minBuffer,
@@ -488,8 +530,8 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                 if (playbackState == Player.STATE_READY) {
                     readySinceMs = android.os.SystemClock.uptimeMillis()
                     decoderRebuildsSinceReady = 0
-                    // Remember the route that worked for this channel.
-                    currentItem?.let { prefs.put("route_" + it.ch.id, routeAttempt % ROUTE_COUNT) }
+                    // The route is remembered later, by the health
+                    // check, only after 30 s of continuous READY.
                 }
                 onStateChanged?.invoke()
             }
@@ -576,6 +618,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         currentItem = item
         freezeRecoveries = 0
         netWindowStartMs = 0L
+        bufferingSinceMs = 0L
         rebufferTimesMs.clear()
         lastPlayState = -1
         playbackStartMs = android.os.SystemClock.uptimeMillis()
@@ -597,7 +640,11 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         val httpFactory = DefaultHttpDataSource.Factory()
             .setUserAgent(userAgent)
             .setConnectTimeoutMs(8000)
-            .setReadTimeoutMs(15000)
+            // 25 s, above the local proxy's own worst case (a fast
+            // manifest attempt plus a token renewal plus one retry can
+            // stack to ~24 s); a timeout below the proxy's answer time
+            // makes the player abandon loads that were about to succeed.
+            .setReadTimeoutMs(25000)
             .setAllowCrossProtocolRedirects(true)
         // No cache in front of live HLS. A CacheDataSource here was the
         // v4.2 stutter bug: playlist reloads were served the first cached
@@ -608,14 +655,16 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
 
         val uri = Uri.parse(streamUrl)
         val liveConfig = MediaItem.LiveConfiguration.Builder()
-            // DaddyLive windows measure ~36 s on device (about 6 segments).
-            // HLS normally plays ~3 target durations back (~18 s); these
-            // values keep roughly three segments of runway ahead of the
-            // playhead instead of the old 10 s target / 22 s ceiling,
-            // which left almost none when an edge slowed.
-            .setTargetOffsetMs(18000L)
-            .setMinOffsetMs(12000L)
-            .setMaxOffsetMs(32000L)
+            // DaddyLive windows measure ~36 s on device (about 6 segments)
+            // and the edge publishes in bursts while delivering segments
+            // at roughly real-time speed per connection. The only safe
+            // seat in that window is its back: a ~28 s target offset keeps
+            // ~5 segments of cushion against publisher stalls and slow
+            // fetches. The 10-18 s targets of earlier builds left 1-3
+            // segments of runway and starved on any hiccup.
+            .setTargetOffsetMs(28000L)
+            .setMinOffsetMs(20000L)
+            .setMaxOffsetMs(34000L)
             .setMinPlaybackSpeed(0.97f)
             .setMaxPlaybackSpeed(1.05f)
             .build()

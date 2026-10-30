@@ -34,8 +34,11 @@ object Repo {
     @Volatile var items: List<Item> = emptyList(); private set
     @Volatile var epg: EpgSnapshot? = null; private set
     val listeners = mutableListOf<() -> Unit>()
-    private var catalogEpg: List<String> = emptyList()
-    private val m3uEpg = mutableMapOf<String, List<String>>()
+    @Volatile private var catalogEpg: List<String> = emptyList()
+    // ConcurrentHashMap: written from reload/addPlaylist threads and
+    // iterated from the main thread in epgSourceList(); a plain HashMap
+    // raced into ConcurrentModificationException crashes.
+    private val m3uEpg = java.util.concurrent.ConcurrentHashMap<String, List<String>>()
     private var epgChannels: List<Channel> = emptyList()
 
     fun init(ctx: Context) { app = ctx.applicationContext; prefs = Prefs(app) }
@@ -50,7 +53,12 @@ object Repo {
             val chans: List<Channel> = try {
                 if (pl.id == "builtin") ChannelCatalog.loadWithReport(app).also { catalogEpg = it.epgSources }.channels
                 else parseM3u(pl.id, fetch(pl.url))
-            } catch (e: Exception) { emptyList() }
+            } catch (e: Exception) {
+                // A playlist that fails this pass keeps its previous
+                // channels: a transient fetch error must not silently
+                // delete them from the guide.
+                items.filter { it.playlistId == pl.id }.map { it.ch }
+            }
             for (c in chans) out.add(Item(c, pl.id, n++, splitGroups(c.group)))
         }
         // A bad reload must never blank the guide: if this pass produced no

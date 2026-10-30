@@ -47,7 +47,13 @@ public final class ChannelCatalog {
                     } else if (line2.startsWith("#EXTINF:")) {
                         Matcher attributes = ATTR.matcher(line2);
                         while (attributes.find()) {
-                            byte b = 1;
+                            // Default must be "assign nothing": this used
+                            // to default to the group selector, so EVERY
+                            // unrecognized attribute (tvg-name on all 509
+                            // bundled lines) wrote its value into group,
+                            // and the catalog was correct only because
+                            // group-title happened to come last.
+                            byte b = -1;
                             String strGroup = attributes.group(1);
                             switch (strGroup.hashCode()) {
                                 case -864412640:
@@ -59,7 +65,8 @@ public final class ChannelCatalog {
                                     }
                                     break;
                                 case -328855158:
-                                    if (!strGroup.equals("group-title")) {
+                                    if (strGroup.equals("group-title")) {
+                                        b = 1;
                                     }
                                     break;
                                 case 647476307:
