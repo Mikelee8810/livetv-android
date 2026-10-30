@@ -610,6 +610,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                     }
                     override fun getMinimumLoadableRetryCount(dataType: Int): Int = 1
                     override fun getFallbackSelectionFor(
+                        fallbackOptions: androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.FallbackOptions,
                         loadErrorInfo: androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo
                     ): androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.FallbackSelection? = null
                 })
