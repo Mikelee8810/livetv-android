@@ -159,7 +159,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                 }
 
                 // Rendered-frame tracking, straight from the decoder counters.
-                val counters = videoCounters
+                val counters = videoCounters ?: p.videoDecoderCounters
                 var rendered = -1
                 if (counters != null) {
                     counters.ensureUpdated()
@@ -349,16 +349,16 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             ) {
                 Log.e(TAG, "VIDEO CODEC ERROR: ", videoCodecError)
             }
-            override fun onVideoDecoderInitialized(
+            override fun onVideoEnabled(
                 eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
-                decoderName: String,
                 decoderCounters: androidx.media3.exoplayer.DecoderCounters
             ) {
                 // The watchdog's heartbeat: this counters object is updated
                 // live by the renderer for every frame actually displayed.
+                // (Media3 1.8 hands counters out here, not on decoder init.)
                 videoCounters = decoderCounters
                 resetWatchdogTracking(android.os.SystemClock.uptimeMillis())
-                Log.i(TAG, "Video decoder counters captured for $decoderName")
+                Log.i(TAG, "Video decoder counters captured")
             }
         })
 
