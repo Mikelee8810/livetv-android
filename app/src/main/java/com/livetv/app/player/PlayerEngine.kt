@@ -114,6 +114,18 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     // frames in, not at frame 3).
     private var playbackStartMs = 0L
 
+    // Starvation-loop detection (v4.2.8). A sick edge does not error, it
+    // just delivers slightly slower than playback: the player cycles
+    // READY/BUFFERING mid-window forever, the picture updating in jumps
+    // while audio plays on - and every other watchdog stays blind because
+    // frames DO advance in bursts and the state keeps leaving READY.
+    // Four rebuffer cycles inside 90 seconds is that trap's signature;
+    // the cure is a different resolver route (a different edge host),
+    // escalated at most once per two minutes.
+    private var lastPlayState = -1
+    private val rebufferTimesMs = mutableListOf<Long>()
+    private var lastStarvationEscalationMs = 0L
+
     private fun resetWatchdogTracking(now: Long) {
         lastObservedPosition = -1L
         stallCheckCount = 0
@@ -162,9 +174,36 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                 val currentPos = p.currentPosition
                 val buffering = p.playbackState == Player.STATE_BUFFERING || isBuffering
 
+                // Starvation-loop tracking: count READY -> BUFFERING falls.
+                if (lastPlayState == Player.STATE_READY && p.playbackState == Player.STATE_BUFFERING) {
+                    rebufferTimesMs.add(now)
+                }
+                lastPlayState = p.playbackState
+                rebufferTimesMs.removeAll { now - it > 90000L }
+                if (rebufferTimesMs.size >= 4 &&
+                    now - playbackStartMs > 30000L &&
+                    now - lastStarvationEscalationMs > 120000L &&
+                    currentItem != null
+                ) {
+                    rebufferTimesMs.clear()
+                    lastStarvationEscalationMs = now
+                    routeAttempt++
+                    Log.w(TAG, "Starvation loop: 4+ rebuffers in 90s; switching to resolver route ${routeAttempt % ROUTE_COUNT}")
+                    resetWatchdogTracking(now)
+                    play(currentItem!!, false)
+                    mainHandler.postDelayed(this, 1000L)
+                    return
+                }
+
                 // 1. Timeline desync: the one seek Media3 itself sanctions
-                // for live playback, and it is paired with prepare().
-                if (!buffering && (currentPos < 0L || (p.isCurrentMediaItemLive && p.currentLiveOffset > 25000L))) {
+                // for live playback, and it is paired with prepare(). The
+                // grace period matters here too: position reads negative
+                // transiently right after a (re)prepare while the timeline
+                // resets, and chasing that reading with another seek +
+                // prepare just churns the recovery (seen on device,
+                // 2026-10-30).
+                if (!buffering && now - playbackStartMs > 12000L &&
+                    (currentPos < 0L || (p.isCurrentMediaItemLive && p.currentLiveOffset > 25000L))) {
                     Log.w(TAG, "Timeline desync (pos=$currentPos, offset=${p.currentLiveOffset}); seek + prepare")
                     resetWatchdogTracking(now)
                     p.seekToDefaultPosition()
@@ -265,16 +304,21 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         val loadControl = DefaultLoadControl.Builder().apply {
             val (minBuffer, maxBuffer) = when (prefs.buffer) {
                 "Small" -> Pair(5000, 10000)
-                "Normal" -> Pair(12000, 25000)
-                "Large" -> Pair(15000, 25000)
+                "Normal" -> Pair(15000, 30000)
+                "Large" -> Pair(15000, 30000)
                 "Very large" -> Pair(20000, 30000)
-                else -> Pair(12000, 25000)
+                else -> Pair(15000, 30000)
             }
             setBufferDurationsMs(
                 minBuffer,
                 maxBuffer,
                 2500, // bufferForPlaybackMs: do not start on a sliver of data
-                5000  // bufferForPlaybackAfterRebufferMs: recover solidly
+                // Resume after a rebuffer at 2 s, not 5: while the player
+                // waits for a 5 s cushion the ~36 s live window slides 5 s
+                // further away, which is how a brief starve turned into a
+                // permanent mid-window trap (2026-10-30). OwnTV's live
+                // load control restarts at 2 s for the same reason.
+                2000
             )
             setPrioritizeTimeOverSizeThresholds(true)
             setBackBuffer(0, false)
@@ -333,8 +377,13 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         }
 
         val livePlaybackSpeedControl = DefaultLivePlaybackSpeedControl.Builder()
-            .setFallbackMinPlaybackSpeed(0.98f)
-            .setFallbackMaxPlaybackSpeed(1.02f)
+            .setFallbackMinPlaybackSpeed(0.97f)
+            .setFallbackMaxPlaybackSpeed(1.05f)
+            // Do not let every rebuffer ratchet the target offset further
+            // back (the +500 ms default): in a ~36 s window the target
+            // migrating on its own makes the trap deeper each cycle. The
+            // offset is set deliberately in the LiveConfiguration instead.
+            .setTargetLiveOffsetIncrementOnRebufferMs(0L)
             .build()
 
         val player = ExoPlayer.Builder(context, renderersFactory)
@@ -488,6 +537,8 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         }
         currentItem = item
         freezeRecoveries = 0
+        rebufferTimesMs.clear()
+        lastPlayState = -1
         playbackStartMs = android.os.SystemClock.uptimeMillis()
         resetWatchdogTracking(playbackStartMs)
         val player = exoPlayer ?: initPlayer()
@@ -518,11 +569,16 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
 
         val uri = Uri.parse(streamUrl)
         val liveConfig = MediaItem.LiveConfiguration.Builder()
-            .setTargetOffsetMs(10000L) // 10 seconds behind live: more cushion, fewer stalls
-            .setMinOffsetMs(4000L)
-            .setMaxOffsetMs(22000L)
-            .setMinPlaybackSpeed(0.98f)
-            .setMaxPlaybackSpeed(1.02f)
+            // DaddyLive windows measure ~36 s on device (about 6 segments).
+            // HLS normally plays ~3 target durations back (~18 s); these
+            // values keep roughly three segments of runway ahead of the
+            // playhead instead of the old 10 s target / 22 s ceiling,
+            // which left almost none when an edge slowed.
+            .setTargetOffsetMs(18000L)
+            .setMinOffsetMs(12000L)
+            .setMaxOffsetMs(32000L)
+            .setMinPlaybackSpeed(0.97f)
+            .setMaxPlaybackSpeed(1.05f)
             .build()
 
         val mediaItem = MediaItem.Builder()
@@ -540,6 +596,20 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             HlsMediaSource.Factory(dataSourceFactory)
                 .setAllowChunklessPreparation(false)
                 .setExtractorFactory(hlsExtractorFactory)
+                // Fail fast on load errors. The default policy's backoff
+                // can hold a single timing-out segment for ~27 s of a
+                // ~36 s window before any error surfaces, which reads on
+                // screen as an endless buffer. Two quick retries, then
+                // the error reaches onPlayerError, where the route and
+                // re-resolve machinery can actually fix it.
+                .setLoadErrorHandlingPolicy(object : androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy {
+                    override fun getRetryDelayMsFor(
+                        loadErrorInfo: androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo
+                    ): Long {
+                        return if (loadErrorInfo.errorCount <= 2) 500L else C.TIME_UNSET
+                    }
+                    override fun getMinimumLoadableRetryCount(dataType: Int): Int = 1
+                })
                 .createMediaSource(mediaItem)
         } else {
             androidx.media3.exoplayer.source.DefaultMediaSourceFactory(dataSourceFactory)

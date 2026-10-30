@@ -567,13 +567,77 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                 }
             }
         }
-        try (okhttp3.Response resp = upstream) {
-            ResponseBody body = resp.body();
-            if (!resp.isSuccessful() || body == null) {
-                int code = resp.code();
-                throw new Exception("Resource HTTP " + code);
+        ResponseBody body = upstream.body();
+        if (!upstream.isSuccessful() || body == null) {
+            int code = upstream.code();
+            upstream.close();
+            throw new Exception("Resource HTTP " + code);
+        }
+        // Streaming fast path. Until 4.2.7 every segment was downloaded in
+        // full and unwrapped in memory before a single byte reached the
+        // player: on a slow edge that store-and-forward latency is the
+        // difference between keeping up with a 36-second live window and
+        // starving in it (the 2026-10-30 Adult Swim trap: position pinned
+        // mid-window, READY/BUFFERING cycling, picture updating in jumps
+        // while audio played on). Plain TS and the TIKTIKRAW prefix format
+        // need no transformation beyond a prefix skip, so they stream:
+        // sniff the head, then pipe the rest straight through. The image
+        // and zlib formats genuinely need the whole body and keep the
+        // buffered unwrap below.
+        java.io.InputStream in = body.byteStream();
+        byte[] head = new byte[8192];
+        int headLen = 0;
+        while (headLen < head.length) {
+            int n = in.read(head, headLen, head.length - headLen);
+            if (n < 0) break;
+            headLen += n;
+        }
+        int streamOffset = -1;
+        if (headLen >= 2 && head[0] == 0x47 && (headLen <= 188 || head[188] == 0x47)) {
+            streamOffset = 0;
+        } else {
+            for (int i = 0; i + TRAW.length < headLen; i++) {
+                boolean match = true;
+                for (int j = 0; j < TRAW.length; j++) {
+                    if (head[i + j] != TRAW[j]) { match = false; break; }
+                }
+                if (match) {
+                    int off = i + TRAW.length;
+                    if (off < headLen && head[off] == 0x47) { streamOffset = off; break; }
+                }
             }
-            byte[] rawBytes = body.bytes();
+        }
+        // Stream only when the exact output length is known (the edge sent
+        // a Content-Length): a chunked response hides the length from the
+        // player and makes load termination depend on the final chunk,
+        // which can hang HLS loads; with a known length the passthrough
+        // cases are exact (plain TS unchanged, TIKTIKRAW minus its
+        // prefix). Unknown length falls through to the buffered path.
+        long upstreamLength = body.contentLength();
+        if (streamOffset >= 0 && upstreamLength > streamOffset) {
+            final okhttp3.Response respToClose = upstream;
+            java.io.InputStream streamBody = new java.io.SequenceInputStream(
+                    new ByteArrayInputStream(head, streamOffset, headLen - streamOffset), in);
+            java.io.InputStream closing = new java.io.FilterInputStream(streamBody) {
+                @Override public void close() throws java.io.IOException {
+                    try { super.close(); } finally { respToClose.close(); }
+                }
+            };
+            Response outResp = newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "video/mp2t", closing, upstreamLength - streamOffset);
+            outResp.addHeader("Accept-Ranges", "bytes");
+            return outResp;
+        }
+        try (okhttp3.Response resp = upstream) {
+            java.io.ByteArrayOutputStream restBuf = new java.io.ByteArrayOutputStream();
+            byte[] chunk = new byte[65536];
+            int n;
+            while ((n = in.read(chunk)) >= 0) {
+                restBuf.write(chunk, 0, n);
+            }
+            byte[] rest = restBuf.toByteArray();
+            byte[] rawBytes = new byte[headLen + rest.length];
+            System.arraycopy(head, 0, rawBytes, 0, headLen);
+            System.arraycopy(rest, 0, rawBytes, headLen, rest.length);
             byte[] unwrapped = unwrapPayload(rawBytes);
             Response outResp = newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "video/mp2t", new ByteArrayInputStream(unwrapped), unwrapped.length);
             outResp.addHeader("Accept-Ranges", "bytes");
