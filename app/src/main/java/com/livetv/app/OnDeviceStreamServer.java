@@ -521,6 +521,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             String base = effectiveUrl.substring(0, effectiveUrl.lastIndexOf('/') + 1);
             Pattern uriAttr = Pattern.compile("URI=\"([^\"]+)\"");
             StringBuilder output = new StringBuilder();
+            List<String> segmentUrls = new ArrayList<>();
             for (String raw : manifestBody.split("\\r?\\n")) {
                 String line = raw.trim();
                 if (line.startsWith("#EXT-X-PROGRAM-DATE-TIME")) {
@@ -533,7 +534,12 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                     }
                 } else if (!line.isEmpty() && !line.startsWith("#")) {
                     String absolute = absolute(base, line);
-                    line = absolute.contains(".m3u8") ? manifestUrl(id, player, absolute, resolved.referer) : resourceUrl(absolute, resolved.referer, id);
+                    if (absolute.contains(".m3u8")) {
+                        line = manifestUrl(id, player, absolute, resolved.referer);
+                    } else {
+                        segmentUrls.add(absolute);
+                        line = resourceUrl(absolute, resolved.referer, id);
+                    }
                 }
                 output.append(line).append('\n');
             }
@@ -541,6 +547,16 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             manifestResp.addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
             manifestResp.addHeader("Pragma", "no-cache");
             manifestResp.addHeader("Expires", "0");
+            // Warm the segment prefetch cache for the channel actually
+            // being watched (see the prefetch block above proxyResource).
+            if (id != null && !segmentUrls.isEmpty()) {
+                if (activeChannelId == null) {
+                    activeChannelId = id;
+                }
+                if (id.equals(activeChannelId)) {
+                    prefetchTail(segmentUrls, resolved.referer, id);
+                }
+            }
             return manifestResp;
         } finally {
             if (response != null) {
@@ -549,7 +565,79 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
         }
     }
 
+    // -- Segment prefetch ---------------------------------------------------
+    // Measured on device (2026-10-30): the disguised-image CDN delivers a
+    // ~6 s segment in 4-7 s per connection - at or below real time. A
+    // just-in-time player pulling segments one at a time therefore
+    // starves progressively: fine for minutes, then pinned at the live
+    // window's tail with the picture frozen solid while the loader
+    // grinds. The proxy knows the whole segment list at every manifest
+    // serve, so it fetches and unwraps the tail segments CONCURRENTLY,
+    // ahead of the player; the player then pulls finished TS bytes from
+    // localhost at full speed, and the parallel fetches aggregate
+    // several times the per-connection rate.
+    private static final int PREFETCH_AHEAD = 4;
+    private static final Map<String, java.util.concurrent.CompletableFuture<byte[]>> SEGMENT_PREFETCH = new ConcurrentHashMap<>();
+    private static final Map<String, Long> SEGMENT_PREFETCH_AT = new ConcurrentHashMap<>();
+    private static final java.util.concurrent.ExecutorService PREFETCH_POOL = java.util.concurrent.Executors.newFixedThreadPool(4, r -> {
+        Thread t = new Thread(r, "seg-prefetch");
+        t.setDaemon(true);
+        return t;
+    });
+    /** Channel the player is actually consuming segments for right now. */
+    private static volatile String activeChannelId = null;
+
+    private void prefetchSegment(String url, String referer, String channelId) {
+        SEGMENT_PREFETCH_AT.put(url, System.currentTimeMillis());
+        SEGMENT_PREFETCH.computeIfAbsent(url, u -> java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+            try {
+                return fetchSegmentBytes(u, referer, channelId);
+            } catch (Exception e) {
+                throw new java.util.concurrent.CompletionException(e);
+            }
+        }, PREFETCH_POOL));
+    }
+
+    private void prefetchTail(List<String> segmentUrls, String referer, String channelId) {
+        // Evict entries the live window has moved past.
+        long now = System.currentTimeMillis();
+        java.util.Set<String> live = new java.util.HashSet<>(segmentUrls);
+        for (String key : new ArrayList<>(SEGMENT_PREFETCH.keySet())) {
+            Long at = SEGMENT_PREFETCH_AT.get(key);
+            if (!live.contains(key) && at != null && now - at > 60000L) {
+                SEGMENT_PREFETCH.remove(key);
+                SEGMENT_PREFETCH_AT.remove(key);
+            }
+        }
+        int from = Math.max(0, segmentUrls.size() - PREFETCH_AHEAD);
+        for (int i = from; i < segmentUrls.size(); i++) {
+            prefetchSegment(segmentUrls.get(i), referer, channelId);
+        }
+    }
+
     private NanoHTTPD.Response proxyResource(String url, String referer, String channelId) throws Exception {
+        if (channelId != null && !channelId.isEmpty()) {
+            activeChannelId = channelId;
+        }
+        byte[] bytes;
+        java.util.concurrent.CompletableFuture<byte[]> pending = SEGMENT_PREFETCH.get(url);
+        if (pending != null) {
+            try {
+                bytes = pending.get(30L, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                SEGMENT_PREFETCH.remove(url);
+                SEGMENT_PREFETCH_AT.remove(url);
+                bytes = fetchSegmentBytes(url, referer, channelId);
+            }
+        } else {
+            bytes = fetchSegmentBytes(url, referer, channelId);
+        }
+        Response outResp = newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "video/mp2t", new ByteArrayInputStream(bytes), bytes.length);
+        outResp.addHeader("Accept-Ranges", "bytes");
+        return outResp;
+    }
+
+    private byte[] fetchSegmentBytes(String url, String referer, String channelId) throws Exception {
         okhttp3.Response upstream = executeOnce(request(url, referer).build());
         // Segments expire with the same token as the manifest. A 403 here used
         // to kill playback mid-stream even though the manifest path already
@@ -573,75 +661,8 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             upstream.close();
             throw new Exception("Resource HTTP " + code);
         }
-        // Streaming fast path. Until 4.2.7 every segment was downloaded in
-        // full and unwrapped in memory before a single byte reached the
-        // player: on a slow edge that store-and-forward latency is the
-        // difference between keeping up with a 36-second live window and
-        // starving in it (the 2026-10-30 Adult Swim trap: position pinned
-        // mid-window, READY/BUFFERING cycling, picture updating in jumps
-        // while audio played on). Plain TS and the TIKTIKRAW prefix format
-        // need no transformation beyond a prefix skip, so they stream:
-        // sniff the head, then pipe the rest straight through. The image
-        // and zlib formats genuinely need the whole body and keep the
-        // buffered unwrap below.
-        java.io.InputStream in = body.byteStream();
-        byte[] head = new byte[8192];
-        int headLen = 0;
-        while (headLen < head.length) {
-            int n = in.read(head, headLen, head.length - headLen);
-            if (n < 0) break;
-            headLen += n;
-        }
-        int streamOffset = -1;
-        if (headLen >= 2 && head[0] == 0x47 && (headLen <= 188 || head[188] == 0x47)) {
-            streamOffset = 0;
-        } else {
-            for (int i = 0; i + TRAW.length < headLen; i++) {
-                boolean match = true;
-                for (int j = 0; j < TRAW.length; j++) {
-                    if (head[i + j] != TRAW[j]) { match = false; break; }
-                }
-                if (match) {
-                    int off = i + TRAW.length;
-                    if (off < headLen && head[off] == 0x47) { streamOffset = off; break; }
-                }
-            }
-        }
-        // Stream only when the exact output length is known (the edge sent
-        // a Content-Length): a chunked response hides the length from the
-        // player and makes load termination depend on the final chunk,
-        // which can hang HLS loads; with a known length the passthrough
-        // cases are exact (plain TS unchanged, TIKTIKRAW minus its
-        // prefix). Unknown length falls through to the buffered path.
-        long upstreamLength = body.contentLength();
-        if (streamOffset >= 0 && upstreamLength > streamOffset) {
-            final okhttp3.Response respToClose = upstream;
-            java.io.InputStream streamBody = new java.io.SequenceInputStream(
-                    new ByteArrayInputStream(head, streamOffset, headLen - streamOffset), in);
-            java.io.InputStream closing = new java.io.FilterInputStream(streamBody) {
-                @Override public void close() throws java.io.IOException {
-                    try { super.close(); } finally { respToClose.close(); }
-                }
-            };
-            Response outResp = newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "video/mp2t", closing, upstreamLength - streamOffset);
-            outResp.addHeader("Accept-Ranges", "bytes");
-            return outResp;
-        }
         try (okhttp3.Response resp = upstream) {
-            java.io.ByteArrayOutputStream restBuf = new java.io.ByteArrayOutputStream();
-            byte[] chunk = new byte[65536];
-            int n;
-            while ((n = in.read(chunk)) >= 0) {
-                restBuf.write(chunk, 0, n);
-            }
-            byte[] rest = restBuf.toByteArray();
-            byte[] rawBytes = new byte[headLen + rest.length];
-            System.arraycopy(head, 0, rawBytes, 0, headLen);
-            System.arraycopy(rest, 0, rawBytes, headLen, rest.length);
-            byte[] unwrapped = unwrapPayload(rawBytes);
-            Response outResp = newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "video/mp2t", new ByteArrayInputStream(unwrapped), unwrapped.length);
-            outResp.addHeader("Accept-Ranges", "bytes");
-            return outResp;
+            return unwrapPayload(resp.body().bytes());
         }
     }
 

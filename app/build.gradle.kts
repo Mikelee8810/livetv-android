@@ -9,8 +9,8 @@ android {
         applicationId = "com.livetv.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 24
-        versionName = "4.2.8"
+        versionCode = 25
+        versionName = "4.2.9"
     }
     buildTypes {
         release {

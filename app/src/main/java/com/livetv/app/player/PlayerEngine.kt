@@ -126,6 +126,19 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     private val rebufferTimesMs = mutableListOf<Long>()
     private var lastStarvationEscalationMs = 0L
 
+    // Position-advance safety net (v4.2.9). Every older watchdog had a
+    // blind spot the tail-pinned trap walked through: the freeze verdict
+    // needed position ADVANCING while frames stuck, the stall verdict
+    // needed four consecutive READY seconds, and the desync verdict
+    // needed a readable live offset and a non-buffering sample. A player
+    // parked at the live window's tail - position crawling and resetting
+    // as the window slides, state flapping READY/BUFFERING - satisfied
+    // none of them and sat frozen for ten minutes. This net only asks:
+    // did the position actually move in the last 20 seconds?
+    private var netWindowStartMs = 0L
+    private var netWindowStartPos = -1L
+    private var lastNetRecoveryMs = 0L
+
     private fun resetWatchdogTracking(now: Long) {
         lastObservedPosition = -1L
         stallCheckCount = 0
@@ -193,6 +206,31 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                     play(currentItem!!, false)
                     mainHandler.postDelayed(this, 1000L)
                     return
+                }
+
+                // 0. Position-advance net: position barely moved over a
+                // full 20 s window while the user wants playback. Whatever
+                // state the player claims, that is a stuck stream; the
+                // sanctioned cure is a re-sync to the live edge.
+                if (now - playbackStartMs > 30000L && now - lastNetRecoveryMs > 90000L) {
+                    if (netWindowStartMs == 0L) {
+                        netWindowStartMs = now
+                        netWindowStartPos = currentPos
+                    } else if (now - netWindowStartMs >= 20000L) {
+                        val advanced = currentPos - netWindowStartPos
+                        if (advanced >= 0L && advanced < 2000L) {
+                            Log.w(TAG, "Position advanced only ${advanced}ms in 20s; re-syncing to live edge")
+                            lastNetRecoveryMs = now
+                            netWindowStartMs = 0L
+                            resetWatchdogTracking(now)
+                            p.seekToDefaultPosition()
+                            p.prepare()
+                            mainHandler.postDelayed(this, 1000L)
+                            return
+                        }
+                        netWindowStartMs = now
+                        netWindowStartPos = currentPos
+                    }
                 }
 
                 // 1. Timeline desync: the one seek Media3 itself sanctions
@@ -537,6 +575,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         }
         currentItem = item
         freezeRecoveries = 0
+        netWindowStartMs = 0L
         rebufferTimesMs.clear()
         lastPlayState = -1
         playbackStartMs = android.os.SystemClock.uptimeMillis()
