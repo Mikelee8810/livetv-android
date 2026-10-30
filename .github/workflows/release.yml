@@ -27,11 +27,13 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Install platform and build tools
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        # ubuntu-latest runners ship the Android SDK already; just add the
+        # platform and build-tools this project targets and accept licenses
+        # non-interactively (the setup-android action's license step is flaky).
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1 || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Run unit tests
         run: ./gradlew :app:testDebugUnitTest
