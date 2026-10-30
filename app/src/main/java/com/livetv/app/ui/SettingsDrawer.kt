@@ -568,7 +568,7 @@ class SettingsDrawer(
             renderCurrent()
         }),
         Row("ABOUT", kind = Kind.HEADER),
-        Row("Live TV for Android TV", sub = "Version 4.2.6"),
+        Row("Live TV for Android TV", sub = "Version 4.2.7"),
         Row("Check for updates", sub = "Latest version comes from GitHub", onClick = {
             com.livetv.app.data.Updater.checkAndPrompt(activity, manual = true)
         }),

@@ -60,6 +60,11 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     // player is rebuilt, instead of replaying into the same broken decoder.
     private var decoderEscalation = 0
     private var decoderEscalationsTotal = 0
+    // Decoder-error rebuilds since playback last reached READY. Without a
+    // cap, a stream that keeps failing as DECODING_FAILED rebuilds the
+    // player forever and never surfaces an error or spends the retry
+    // budget. Three strikes, then the normal retry path takes over.
+    private var decoderRebuildsSinceReady = 0
 
     // When playback last reached READY. The retry budget only resets after
     // 30 s of stable playback; resetting on every READY made a stream that
@@ -98,6 +103,16 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     private var lastRenderAdvanceMs = 0L
     private var positionAtRenderAdvance = -1L
     private var freezeRecoveries = 0
+    // Watchdog grace period: the first seconds of any (re)start are tune
+    // transients, not freezes. On the 4.2.6 soak the watchdog fired on
+    // counts stuck at 2-3 frames right after tunes and zaps - position
+    // "advances" off the live window while the video renderer is still
+    // waiting for its first keyframe - and one such false verdict even
+    // flipped the TV onto the software decoder mid-session. No verdict
+    // before the grace period, and no freeze verdict until the stream
+    // has genuinely rendered video (a real freeze happens thousands of
+    // frames in, not at frame 3).
+    private var playbackStartMs = 0L
 
     private fun resetWatchdogTracking(now: Long) {
         lastObservedPosition = -1L
@@ -186,10 +201,11 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                     }
                 }
 
-                if (!buffering && p.playbackState == Player.STATE_READY) {
+                if (!buffering && p.playbackState == Player.STATE_READY &&
+                    now - playbackStartMs > 12000L) {
                     // 2. Frozen video: rendered frames stopped while the
                     // timeline (audio) keeps moving for a full 7 seconds.
-                    if (p.videoFormat != null && rendered >= 0 && lastRenderedCount >= 0 &&
+                    if (p.videoFormat != null && rendered >= 0 && lastRenderedCount >= 60 &&
                         positionAtRenderAdvance >= 0L &&
                         now - lastRenderAdvanceMs > 7000L &&
                         currentPos - positionAtRenderAdvance > 1500L
@@ -273,9 +289,10 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             setEnableDecoderFallback(true)
             setAllowedVideoJoiningTimeMs(10000)
 
-            // Fix for Google TV Streamer / MT8696 video freeze:
-            // MediaTek hardware AVC decoder (c2.mtk.avc.decoder) stalls on non-IDR live TS packets.
-            // When Software mode is chosen (default on MTK), prefer Google's c2.android.avc.decoder.
+            // Decoder ordering for the Google TV Streamer / MT8696: the
+            // platform lists the software decoder first, which cannot keep
+            // up with HD, so the list is always reordered explicitly to the
+            // wanted preference (see preferSoftware below).
             setMediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
                 val decoders = MediaCodecUtil.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
                 if (mimeType.startsWith("video/")) {
@@ -357,7 +374,8 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                 // live by the renderer for every frame actually displayed.
                 // (Media3 1.8 hands counters out here, not on decoder init.)
                 videoCounters = decoderCounters
-                resetWatchdogTracking(android.os.SystemClock.uptimeMillis())
+                playbackStartMs = android.os.SystemClock.uptimeMillis()
+                resetWatchdogTracking(playbackStartMs)
                 Log.i(TAG, "Video decoder counters captured")
             }
         })
@@ -382,6 +400,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
 
                 if (playbackState == Player.STATE_READY) {
                     readySinceMs = android.os.SystemClock.uptimeMillis()
+                    decoderRebuildsSinceReady = 0
                     // Remember the route that worked for this channel.
                     currentItem?.let { prefs.put("route_" + it.ch.id, routeAttempt % ROUTE_COUNT) }
                 }
@@ -401,13 +420,15 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                     player.prepare()
                     return
                 }
-                if (error.errorCode == PlaybackException.ERROR_CODE_DECODING_FAILED ||
-                    error.errorCode == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED) {
+                if ((error.errorCode == PlaybackException.ERROR_CODE_DECODING_FAILED ||
+                    error.errorCode == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED) &&
+                    decoderRebuildsSinceReady < 3) {
                     // Climb the decoder ladder and rebuild the player with the
                     // next decoder strategy instead of replaying into the same
                     // broken decoder (OwnTV_Core-style engine fallback).
                     decoderEscalation++
                     decoderEscalationsTotal++
+                    decoderRebuildsSinceReady++
                     Log.w(TAG, "Decoder failure! Ladder step ${decoderEscalation % 3}, rebuilding player...")
                     val item = currentItem
                     if (item != null) {
@@ -466,7 +487,9 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             routeAttempt = prefs.int("route_" + item.ch.id, 0)
         }
         currentItem = item
-        resetWatchdogTracking(android.os.SystemClock.uptimeMillis())
+        freezeRecoveries = 0
+        playbackStartMs = android.os.SystemClock.uptimeMillis()
+        resetWatchdogTracking(playbackStartMs)
         val player = exoPlayer ?: initPlayer()
 
         var streamUrl = item.url

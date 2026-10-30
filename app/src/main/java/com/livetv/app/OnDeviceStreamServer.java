@@ -32,6 +32,8 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
     private static final String UA = "Mozilla/5.0 (Linux; Android 14; Google TV Streamer) AppleWebKit/537.36 Chrome/120 Safari/537.36";
     private static OnDeviceStreamServer instance;
     private final OkHttpClient client;
+    /** Segments fetch fail-fast: no retry sleeps, short read timeout. */
+    private final OkHttpClient segmentClient;
     // Route names from dlhd-web (Lunatic16), which added a "hub" player this
     // app never had. Route 0 (ntvs) is the odd one out: its embed page lives
     // on the primary host's /stream/ path, the rest use /<route>/stream-<id>.php.
@@ -146,6 +148,12 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
     public OnDeviceStreamServer() {
         super("127.0.0.1", 48913);
         this.client = new OkHttpClient.Builder().connectTimeout(5L, TimeUnit.SECONDS).readTimeout(12L, TimeUnit.SECONDS).followRedirects(true).build();
+        // A segment fetch sits on the player's critical path: the player
+        // would rather learn about a dead segment in seconds and move on
+        // than wait out the manifest retry policy (3 attempts, backoff
+        // sleeps, 12 s reads - up to ~38 s for one segment, which drains
+        // any buffer and reads on screen as a long freeze).
+        this.segmentClient = new OkHttpClient.Builder().connectTimeout(5L, TimeUnit.SECONDS).readTimeout(8L, TimeUnit.SECONDS).followRedirects(true).build();
     }
 
     public static synchronized OnDeviceStreamServer ensureStarted() throws Exception {
@@ -542,7 +550,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
     }
 
     private NanoHTTPD.Response proxyResource(String url, String referer, String channelId) throws Exception {
-        okhttp3.Response upstream = executeWithRetry(request(url, referer).build());
+        okhttp3.Response upstream = executeOnce(request(url, referer).build());
         // Segments expire with the same token as the manifest. A 403 here used
         // to kill playback mid-stream even though the manifest path already
         // knew how to recover: force one token renewal and retry the segment
@@ -555,7 +563,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                 if (freshToken != null && !freshToken.isEmpty()) {
                     String retryUrl = cleanPlaylistUrl(url);
                     retryUrl += (retryUrl.contains("?") ? "&" : "?") + "t=" + URLEncoder.encode(freshToken, StandardCharsets.UTF_8.name()) + "&_=" + System.currentTimeMillis();
-                    upstream = executeWithRetry(request(retryUrl, referer).build());
+                    upstream = executeOnce(request(retryUrl, referer).build());
                 }
             }
         }
@@ -919,6 +927,11 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
      * exponential backoff (0.75s, 1.5s) on transport failures and 5xx
      * responses. 4xx responses are returned to the caller immediately.
      */
+    /** Single attempt on the fail-fast segment client. See constructor. */
+    private okhttp3.Response executeOnce(okhttp3.Request req) throws Exception {
+        return this.segmentClient.newCall(req).execute();
+    }
+
     private okhttp3.Response executeWithRetry(okhttp3.Request req) throws Exception {
         Exception last = null;
         for (int attempt = 0; attempt < 3; attempt++) {
