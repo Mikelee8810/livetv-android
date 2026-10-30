@@ -609,6 +609,9 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                         return if (loadErrorInfo.errorCount <= 2) 500L else C.TIME_UNSET
                     }
                     override fun getMinimumLoadableRetryCount(dataType: Int): Int = 1
+                    override fun getFallbackSelectionFor(
+                        loadErrorInfo: androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo
+                    ): androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.FallbackSelection? = null
                 })
                 .createMediaSource(mediaItem)
         } else {
