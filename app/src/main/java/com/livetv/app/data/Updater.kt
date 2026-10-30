@@ -63,7 +63,7 @@ object Updater {
             .build()
         client.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) return null
-            val body = resp.body()?.string() ?: return null
+            val body = resp.body?.string() ?: return null
             val json = JSONObject(body)
             val tag = json.optString("tag_name")
             if (tag.isBlank()) return null
@@ -125,7 +125,7 @@ object Updater {
                     .header("User-Agent", "LiveTV-Android/" + BuildConfig.VERSION_NAME)
                     .build()
                 client.newCall(req).execute().use { resp ->
-                    val body = resp.body()
+                    val body = resp.body
                     if (resp.isSuccessful && body != null) {
                         val total = body.contentLength()
                         activity.runOnUiThread {
