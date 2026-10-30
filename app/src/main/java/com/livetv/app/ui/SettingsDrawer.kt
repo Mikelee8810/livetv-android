@@ -397,7 +397,7 @@ class SettingsDrawer(
             }
         }),
         Row("Video decoder", value = prefs.videoDecoder, onClick = {
-            val opts = listOf("Hardware", "Software")
+            val opts = listOf("Auto", "Hardware", "Software")
             Dialogs.choose(activity, "Video Decoder", opts, opts.indexOf(prefs.videoDecoder).coerceAtLeast(0)) {
                 prefs.videoDecoder = opts[it]
                 renderCurrent()
@@ -568,7 +568,7 @@ class SettingsDrawer(
             renderCurrent()
         }),
         Row("ABOUT", kind = Kind.HEADER),
-        Row("Live TV for Android TV", sub = "Version 4.2.4"),
+        Row("Live TV for Android TV", sub = "Version 4.2.5"),
         Row("Check for updates", sub = "Latest version comes from GitHub", onClick = {
             com.livetv.app.data.Updater.checkAndPrompt(activity, manual = true)
         }),

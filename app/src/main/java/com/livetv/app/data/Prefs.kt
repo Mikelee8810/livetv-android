@@ -60,7 +60,10 @@ class Prefs(ctx: Context) {
     // Playback
     var buffer get() = str("buffer", "Medium"); set(v) = put("buffer", v)
     var audioDecoder get() = str("audioDecoder", "Hardware"); set(v) = put("audioDecoder", v)
-    var videoDecoder get() = str("videoDecoder", if (android.os.Build.MODEL.contains("Google TV Streamer", ignoreCase = true) || android.os.Build.HARDWARE.contains("mt", ignoreCase = true)) "Software" else "Hardware"); set(v) = put("videoDecoder", v)
+    // Default is Auto: the player tries hardware first and falls back to
+    // software on failure. This used to default to Software on MediaTek,
+    // which silently pinned every Streamer to a decoder that drops frames.
+    var videoDecoder get() = str("videoDecoder", "Auto"); set(v) = put("videoDecoder", v)
     var afr get() = str("afr", "Off"); set(v) = put("afr", v)
     var surroundDefault get() = bool("surroundDefault", false); set(v) = put("surroundDefault", v)
     var passthrough get() = bool("passthrough", false); set(v) = put("passthrough", v)
