@@ -136,7 +136,7 @@ class RowView(ctx: Context) : LinearLayout(ctx) {
 
     private fun applyFocus(f: Boolean) {
         val r = row ?: return
-        background = if (f && r.kind == Kind.ITEM) GradientDrawable().apply { setColor(Pal.focusFill); cornerRadius = dp(6f) } else null
+        background = if (f && r.kind == Kind.ITEM) GradientDrawable().apply { setColor(Pal.focusFill); cornerRadius = dp(10f); setStroke(dpi(2f), Pal.accent) } else null
         val tc = when { f -> Pal.focusText; r.kind == Kind.HEADER -> Pal.accent; accentTitle -> Pal.accent; dim -> Pal.textDim; else -> Pal.text }
         title.setTextColor(tc); sub.setTextColor(if (f) Color.argb(170, 10, 14, 20) else Pal.textDim)
         value.setTextColor(if (f) Color.argb(200, 10, 14, 20) else Pal.textDim)

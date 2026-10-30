@@ -50,6 +50,8 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
 
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     private val tp = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Fonts.regular }
+    private var bgShader: LinearGradient? = null
+    private var bgShaderKey: Int = 0
     private val timeFmt = SimpleDateFormat("hh:mm a", Locale.US)
     private val dateFmt = SimpleDateFormat("EEE, MMM d, h:mm a", Locale.US)
     private var anim: ValueAnimator? = null
@@ -110,6 +112,15 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
     // -- drawing -------------------------------------------------------------------
     override fun onDraw(c: Canvas) {
         val w = width.toFloat(); val h = height.toFloat()
+        // Background: soft vertical gradient instead of one flat colour.
+        val shaderKey = Pal.bgTop * 31 + h.toInt()
+        if (bgShader == null || bgShaderKey != shaderKey) {
+            bgShader = LinearGradient(0f, 0f, 0f, h, Pal.bgTop, Pal.bgBottom, Shader.TileMode.CLAMP)
+            bgShaderKey = shaderKey
+        }
+        p.style = Paint.Style.FILL; p.shader = bgShader
+        c.drawRect(0f, 0f, w, h, p)
+        p.shader = null
         val now = System.currentTimeMillis()
         val viewEnd = viewStart + (w - chanW) / ppm * 60_000f
         // header
@@ -123,6 +134,8 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
             t += 1_800_000L
         }
         p.color = Pal.cardHi; p.style = Paint.Style.FILL
+        c.drawRect(0f, headH - dp(1f), w, headH, p)
+        p.color = Pal.accent.withAlpha(70)
         c.drawRect(0f, headH - dp(1f), w, headH, p)
 
         // rows
@@ -150,18 +163,25 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
         val cy = y + rowH / 2f
         val isChanFocused = isSel && focusCol == GuideFocus.CHANNEL && hasFocus()
 
-        // Draw Channel Column card background
+        // Draw Channel Column card background: filled card with a subtle
+        // edge, an accent edge on the selected row, and an accent ring on focus.
         val chanRect = RectF(dp(8f), y + dp(1.5f), chanW - dp(8f), y + rowH - dp(2.5f))
-        if (isChanFocused) {
-            p.color = Pal.focusFill
-            c.drawRoundRect(chanRect, dp(6f), dp(6f), p)
-        } else if (isSel) {
-            p.color = Pal.cardHi
-            c.drawRoundRect(chanRect, dp(6f), dp(6f), p)
-        } else {
-            p.color = Pal.card
-            c.drawRoundRect(chanRect, dp(6f), dp(6f), p)
+        p.style = Paint.Style.FILL
+        p.color = when {
+            isChanFocused -> Pal.focusFill
+            isSel -> Pal.cardHi
+            else -> Pal.card
         }
+        c.drawRoundRect(chanRect, dp(10f), dp(10f), p)
+        p.style = Paint.Style.STROKE
+        p.strokeWidth = if (isChanFocused) dp(2f) else dp(1f)
+        p.color = when {
+            isChanFocused -> Pal.accent
+            isSel -> Pal.accent.withAlpha(110)
+            else -> Pal.cardEdge
+        }
+        c.drawRoundRect(chanRect, dp(10f), dp(10f), p)
+        p.style = Paint.Style.FILL
 
         // Channel Number
         if (prefs.guideChannelNumbers) {
@@ -219,19 +239,31 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
             val isCurrentTime = selTime >= cell.start && selTime < cell.end
             val focused = isSel && isCurrentTime && focusCol == GuideFocus.PROGRAM && hasFocus()
             val softSel = isSel && isCurrentTime
+            p.style = Paint.Style.FILL
             p.color = when {
                 focused -> Pal.focusFill
                 softSel -> Pal.cardHi
                 isSel -> Pal.cardHi.blend(Pal.card, 0.4f)
                 else -> Pal.card
             }
-            c.drawRoundRect(rect, dp(4f), dp(4f), p)
+            c.drawRoundRect(rect, dp(8f), dp(8f), p)
+            p.style = Paint.Style.STROKE
+            p.strokeWidth = if (focused) dp(2f) else dp(1f)
+            p.color = if (focused) Pal.accent else Pal.cardEdge
+            c.drawRoundRect(rect, dp(8f), dp(8f), p)
+            p.style = Paint.Style.FILL
 
-            // played portion
+            // played portion: soft shade plus an accent progress tick along
+            // the bottom edge of the live cell
             if (prefs.guideProgress && cell.start < now && cell.end > now && cell.program != null) {
                 val px = (chanW + (now - viewStart) / 60_000f * ppm).coerceIn(rect.left, rect.right)
-                p.color = Color.argb(if (focused) 28 else 40, 0, 0, 0)
+                p.color = Color.argb(if (focused) 22 else 32, 0, 0, 0)
                 c.drawRect(rect.left, rect.top, px, rect.bottom, p)
+                if (rect.width() > dp(44f) && px > rect.left + dp(10f)) {
+                    p.color = if (focused) Pal.focusText else Pal.accent
+                    val bar = RectF(rect.left + dp(6f), rect.bottom - dp(5.5f), px - dp(4f), rect.bottom - dp(3f))
+                    c.drawRoundRect(bar, dp(1.5f), dp(1.5f), p)
+                }
             }
 
             tp.textSize = sp(17f); tp.textAlign = Paint.Align.LEFT; tp.typeface = Fonts.regular

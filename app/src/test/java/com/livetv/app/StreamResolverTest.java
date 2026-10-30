@@ -1,1 +1,86 @@
-cGFja2FnZSBjb20ubGl2ZXR2LmFwcDsKCmltcG9ydCBzdGF0aWMgb3JnLmp1bml0LkFzc2VydC5hc3NlcnRFcXVhbHM7CmltcG9ydCBzdGF0aWMgb3JnLmp1bml0LkFzc2VydC5hc3NlcnRUcnVlOwppbXBvcnQgc3RhdGljIG9yZy5qdW5pdC5Bc3NlcnQuZmFpbDsKCmltcG9ydCBqYXZhLnV0aWwuTWFwOwppbXBvcnQgb3JnLmp1bml0LlRlc3Q7CgovKioKICogUmVzb2x2ZXIgYW5kIGxpdmUtY2F0YWxvZyByZWdyZXNzaW9uIHRlc3RzLiBUaGUgRGFkZHlMaXZlIHBhZ2Ugc2hhcGUgaXMKICogdGhlIGFwcCdzIHNpbmdsZSBwb2ludCBvZiBmYWlsdXJlLCBzbyBldmVyeSBleHRyYWN0aW9uIHBhdHRlcm4gdGhlCiAqIHJlc29sdmVyIHN1cHBvcnRzIGdldHMgYSBmaXh0dXJlIGhlcmUuIEZpeHR1cmVzIG1pcnJvciB0aGUgcmVhbCBwYWdlcwogKiAodmVyaWZpZWQgMjAyNi0xMC0zMCkgd2l0aCBleGFtcGxlIENETiBob3N0cyBzd2FwcGVkIGluLgogKi8KcHVibGljIGNsYXNzIFN0cmVhbVJlc29sdmVyVGVzdCB7CgogICAgQFRlc3QKICAgIHB1YmxpYyB2b2lkIGVuZHBvaW50c1VzZUN1cnJlbnRQcmltYXJ5RG9tYWluKCkgewogICAgICAgIGFzc2VydEVxdWFscygiaHR0cHM6Ly90aGVkYWRkeS5way93YXRjaC5waHA/aWQ9NTEiLCBTdHJlYW1FbmRwb2ludHMud2F0Y2hVcmwoU3RyZWFtRW5kcG9pbnRzLlBSSU1BUlksICI1MSIpKTsKICAgICAgICBhc3NlcnRFcXVhbHMoImh0dHBzOi8vdGhlZGFkZHkucGsvc3RyZWFtL3N0cmVhbS01MS5waHAiLCBTdHJlYW1FbmRwb2ludHMuc3RyZWFtVXJsKFN0cmVhbUVuZHBvaW50cy5QUklNQVJZLCAiNTEiKSk7CiAgICAgICAgYXNzZXJ0RXF1YWxzKCJodHRwczovL3RoZWRhZGR5LnBrLzI0LTctY2hhbm5lbHMucGhwIiwgU3RyZWFtRW5kcG9pbnRzLmNoYW5uZWxzVXJsKFN0cmVhbUVuZHBvaW50cy5QUklNQVJZKSk7CiAgICAgICAgYXNzZXJ0VHJ1ZShTdHJlYW1FbmRwb2ludHMuQkFTRVMuZ2V0KDApLmVxdWFscyhTdHJlYW1FbmRwb2ludHMuUFJJTUFSWSkpOwogICAgfQoKICAgIEBUZXN0CiAgICBwdWJsaWMgdm9pZCBleHRyYWN0c1NvdXJjZUF0b2IoKSB0aHJvd3MgRXhjZXB0aW9uIHsKICAgICAgICBTdHJpbmcgaHRtbCA9ICI8c2NyaXB0PnZhciBwbGF5ZXIgPSB7IHNvdXJjZTogd2luZG93LmF0b2IoJ2FIUjBjSE02THk5alpHNHVaWGhoYlhCc1pTNWpiMjB2YkdsMlpTOXpkSEpsWVcwdWJUTjFPQT09JykgfTs8L3NjcmlwdD4iOwogICAgICAgIGFzc2VydEVxdWFscygiaHR0cHM6Ly9jZG4uZXhhbXBsZS5jb20vbGl2ZS9zdHJlYW0ubTN1OCIsIE9uRGV2aWNlU3RyZWFtU2VydmVyLmV4dHJhY3RTdHJlYW1VcmwoaHRtbCkpOwogICAgfQoKICAgIEBUZXN0CiAgICBwdWJsaWMgdm9pZCBleHRyYWN0c1N0cmVhbVVybEZpZWxkKCkgdGhyb3dzIEV4Y2VwdGlvbiB7CiAgICAgICAgU3RyaW5nIGh0bWwgPSAiPHNjcmlwdD5jZmcgPSB7IHN0cmVhbVVybDogJ2h0dHBzOi8vY2RuLmV4YW1wbGUuY29tL2xpdmUvc3RyZWFtLm0zdTg/az0xJyB9Ozwvc2NyaXB0PiI7CiAgICAgICAgYXNzZXJ0RXF1YWxzKCJodHRwczovL2Nkbi5leGFtcGxlLmNvbS9saXZlL3N0cmVhbS5tM3U4P2s9MSIsIE9uRGV2aWNlU3RyZWFtU2VydmVyLmV4dHJhY3RTdHJlYW1VcmwoaHRtbCkpOwogICAgfQoKICAgIEBUZXN0CiAgICBwdWJsaWMgdm9pZCBleHRyYWN0c0RpcmVjdE0zdThGYWxsYmFjaygpIHRocm93cyBFeGNlcHRpb24gewogICAgICAgIC8vIE5vIHNvdXJjZTovc3RyZWFtVXJsOiBmaWVsZHMgYXQgYWxsIC0gdGhlIGRsaGQtY2xpIGRpcmVjdCBzY2FuLgogICAgICAgIFN0cmluZyBodG1sID0gIjxodG1sPjxib2R5Pjx2aWRlbyBkYXRhLXNyYz1cImh0dHBzOi8vY2RuLmV4YW1wbGUuY29tL2xpdmUvc3RyZWFtLm0zdThcIj48L3ZpZGVvPjwvYm9keT48L2h0bWw+IjsKICAgICAgICBhc3NlcnRFcXVhbHMoImh0dHBzOi8vY2RuLmV4YW1wbGUuY29tL2xpdmUvc3RyZWFtLm0zdTgiLCBPbkRldmljZVN0cmVhbVNlcnZlci5leHRyYWN0U3RyZWFtVXJsKGh0bWwpKTsKICAgIH0KCiAgICBAVGVzdAogICAgcHVibGljIHZvaWQgZXh0cmFjdHNHZW5lcmljQXRvYkZhbGxiYWNrKCkgdGhyb3dzIEV4Y2VwdGlvbiB7CiAgICAgICAgLy8gYXRvYigpIG5vdCBhdHRhY2hlZCB0byBhIHNvdXJjZTogZmllbGQgLSB0aGUgZGxoZC1jbGkgZ2VuZXJpYyBzY2FuLgogICAgICAgIFN0cmluZyBodG1sID0gIjxzY3JpcHQ+bG9hZChhdG9iKFwiYUhSMGNITTZMeTlqWkc0dVpYaGhiWEJzWlM1amIyMHZlQzV0TTNVNFwiKSk7PC9zY3JpcHQ+IjsKICAgICAgICBhc3NlcnRFcXVhbHMoImh0dHBzOi8vY2RuLmV4YW1wbGUuY29tL3gubTN1OCIsIE9uRGV2aWNlU3RyZWFtU2VydmVyLmV4dHJhY3RTdHJlYW1VcmwoaHRtbCkpOwogICAgfQoKICAgIEBUZXN0CiAgICBwdWJsaWMgdm9pZCBleHRyYWN0c0ZpbGVDb25maWdGYWxsYmFjaygpIHRocm93cyBFeGNlcHRpb24gewogICAgICAgIFN0cmluZyBodG1sID0gIjxzY3JpcHQ+andwbGF5ZXIoKS5zZXR1cCh7IGZpbGU6IFwiaHR0cHM6Ly9jZG4uZXhhbXBsZS5jb20vbGl2ZS9zdHJlYW0ubTN1OFwiIH0pOzwvc2NyaXB0PiI7CiAgICAgICAgYXNzZXJ0RXF1YWxzKCJodHRwczovL2Nkbi5leGFtcGxlLmNvbS9saXZlL3N0cmVhbS5tM3U4IiwgT25EZXZpY2VTdHJlYW1TZXJ2ZXIuZXh0cmFjdFN0cmVhbVVybChodG1sKSk7CiAgICB9CgogICAgQFRlc3QKICAgIHB1YmxpYyB2b2lkIHJlamVjdHNQYWdlV2l0aG91dFN0cmVhbSgpIHsKICAgICAgICB0cnkgewogICAgICAgICAgICBPbkRldmljZVN0cmVhbVNlcnZlci5leHRyYWN0U3RyZWFtVXJsKCI8aHRtbD48Ym9keT5vZmZsaW5lPC9ib2R5PjwvaHRtbD4iKTsKICAgICAgICAgICAgZmFpbCgiZXhwZWN0ZWQgYW4gZXhjZXB0aW9uIGZvciBhIHBhZ2Ugd2l0aCBubyBzdHJlYW0iKTsKICAgICAgICB9IGNhdGNoIChFeGNlcHRpb24gZXhwZWN0ZWQpIHsKICAgICAgICB9CiAgICB9CgogICAgQFRlc3QKICAgIHB1YmxpYyB2b2lkIHBhcnNlc0xpdmVDaGFubmVsc1BhZ2UoKSB7CiAgICAgICAgU3RyaW5nIGh0bWwgPSAiPGRpdiBjbGFzcz1cImdyaWRcIj4iCiAgICAgICAgICAgICAgICArICI8YSBjbGFzcz1cImNhcmRcIiBocmVmPVwiL3dhdGNoLnBocD9pZD01MVwiIGRhdGEtdGl0bGU9XCJhYmMgdXNhXCIgZGF0YS1maXJzdD1cIkFcIj4iCiAgICAgICAgICAgICAgICArICI8ZGl2IGNsYXNzPVwiY2FyZF9fdGl0bGVcIj5BQkMgVVNBPC9kaXY+PGRpdiBjbGFzcz1cIlwiPklEOiA1MTwvZGl2PjwvYT4iCiAgICAgICAgICAgICAgICArICI8YSBjbGFzcz1cImNhcmRcIiBocmVmPVwiL3dhdGNoLnBocD9pZD0yODNcIiBkYXRhLXRpdGxlPVwiYW50ZW5uYSB0diB1c2FcIiBkYXRhLWZpcnN0PVwiQVwiPiIKICAgICAgICAgICAgICAgICsgIjxkaXYgY2xhc3M9XCJjYXJkX190aXRsZVwiPkFudGVubmEgVFYgVVNBPC9kaXY+PGRpdiBjbGFzcz1cIlwiPklEOiAyODM8L2Rpdj48L2E+IgogICAgICAgICAgICAgICAgKyAiPC9kaXY+IjsKICAgICAgICBNYXA8U3RyaW5nLCBTdHJpbmc+IGNoYW5uZWxzID0gTGl2ZUNhdGFsb2cucGFyc2VDaGFubmVsc1BhZ2UoaHRtbCk7CiAgICAgICAgYXNzZXJ0RXF1YWxzKDIsIGNoYW5uZWxzLnNpemUoKSk7CiAgICAgICAgYXNzZXJ0RXF1YWxzKCJBQkMgVVNBIiwgY2hhbm5lbHMuZ2V0KCI1MSIpKTsKICAgICAgICBhc3NlcnRFcXVhbHMoIkFudGVubmEgVFYgVVNBIiwgY2hhbm5lbHMuZ2V0KCIyODMiKSk7CiAgICB9CgogICAgQFRlc3QKICAgIHB1YmxpYyB2b2lkIHBsYXllclBhZ2VVcmxVc2VzUHJpbWFyeURvbWFpbigpIHsKICAgICAgICBhc3NlcnRFcXVhbHMoImh0dHBzOi8vdGhlZGFkZHkucGsvc3RyZWFtL3N0cmVhbS01MS5waHAiLCBPbkRldmljZVN0cmVhbVNlcnZlci5wbGF5ZXJQYWdlVXJsKCI1MSIsIDApKTsKICAgICAgICBhc3NlcnRFcXVhbHMoImh0dHBzOi8vdGhlZGFkZHkucGsvd2F0Y2gvc3RyZWFtLTUxLnBocCIsIE9uRGV2aWNlU3RyZWFtU2VydmVyLnBsYXllclBhZ2VVcmwoIjUxIiwgMykpOwogICAgfQp9Cg==
+package com.livetv.app;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import java.util.Map;
+import org.junit.Test;
+
+/**
+ * Resolver and live-catalog regression tests. The DaddyLive page shape is
+ * the app's single point of failure, so every extraction pattern the
+ * resolver supports gets a fixture here. Fixtures mirror the real pages
+ * (verified 2026-10-30) with example CDN hosts swapped in.
+ */
+public class StreamResolverTest {
+
+    @Test
+    public void endpointsUseCurrentPrimaryDomain() {
+        assertEquals("https://thedaddy.pk/watch.php?id=51", StreamEndpoints.watchUrl(StreamEndpoints.PRIMARY, "51"));
+        assertEquals("https://thedaddy.pk/stream/stream-51.php", StreamEndpoints.streamUrl(StreamEndpoints.PRIMARY, "51"));
+        assertEquals("https://thedaddy.pk/24-7-channels.php", StreamEndpoints.channelsUrl(StreamEndpoints.PRIMARY));
+        assertTrue(StreamEndpoints.BASES.get(0).equals(StreamEndpoints.PRIMARY));
+    }
+
+    @Test
+    public void extractsSourceAtob() throws Exception {
+        String html = "<script>var player = { source: window.atob('aHR0cHM6Ly9jZG4uZXhhbXBsZS5jb20vbGl2ZS9zdHJlYW0ubTN1OA==') };</script>";
+        assertEquals("https://cdn.example.com/live/stream.m3u8", OnDeviceStreamServer.extractStreamUrl(html));
+    }
+
+    @Test
+    public void extractsStreamUrlField() throws Exception {
+        String html = "<script>cfg = { streamUrl: 'https://cdn.example.com/live/stream.m3u8?k=1' };</script>";
+        assertEquals("https://cdn.example.com/live/stream.m3u8?k=1", OnDeviceStreamServer.extractStreamUrl(html));
+    }
+
+    @Test
+    public void extractsDirectM3u8Fallback() throws Exception {
+        // No source:/streamUrl: fields at all - the dlhd-cli direct scan.
+        String html = "<html><body><video data-src=\"https://cdn.example.com/live/stream.m3u8\"></video></body></html>";
+        assertEquals("https://cdn.example.com/live/stream.m3u8", OnDeviceStreamServer.extractStreamUrl(html));
+    }
+
+    @Test
+    public void extractsGenericAtobFallback() throws Exception {
+        // atob() not attached to a source: field - the dlhd-cli generic scan.
+        String html = "<script>load(atob(\"aHR0cHM6Ly9jZG4uZXhhbXBsZS5jb20veC5tM3U4\"));</script>";
+        assertEquals("https://cdn.example.com/x.m3u8", OnDeviceStreamServer.extractStreamUrl(html));
+    }
+
+    @Test
+    public void extractsFileConfigFallback() throws Exception {
+        String html = "<script>jwplayer().setup({ file: \"https://cdn.example.com/live/stream.m3u8\" });</script>";
+        assertEquals("https://cdn.example.com/live/stream.m3u8", OnDeviceStreamServer.extractStreamUrl(html));
+    }
+
+    @Test
+    public void rejectsPageWithoutStream() {
+        try {
+            OnDeviceStreamServer.extractStreamUrl("<html><body>offline</body></html>");
+            fail("expected an exception for a page with no stream");
+        } catch (Exception expected) {
+        }
+    }
+
+    @Test
+    public void parsesLiveChannelsPage() {
+        String html = "<div class=\"grid\">"
+                + "<a class=\"card\" href=\"/watch.php?id=51\" data-title=\"abc usa\" data-first=\"A\">"
+                + "<div class=\"card__title\">ABC USA</div><div class=\"\">ID: 51</div></a>"
+                + "<a class=\"card\" href=\"/watch.php?id=283\" data-title=\"antenna tv usa\" data-first=\"A\">"
+                + "<div class=\"card__title\">Antenna TV USA</div><div class=\"\">ID: 283</div></a>"
+                + "</div>";
+        Map<String, String> channels = LiveCatalog.parseChannelsPage(html);
+        assertEquals(2, channels.size());
+        assertEquals("ABC USA", channels.get("51"));
+        assertEquals("Antenna TV USA", channels.get("283"));
+    }
+
+    @Test
+    public void playerPageUrlUsesPrimaryDomain() {
+        assertEquals("https://thedaddy.pk/stream/stream-51.php", OnDeviceStreamServer.playerPageUrl("51", 0));
+        assertEquals("https://thedaddy.pk/watch/stream-51.php", OnDeviceStreamServer.playerPageUrl("51", 3));
+    }
+}

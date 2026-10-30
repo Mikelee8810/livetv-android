@@ -25,7 +25,8 @@ object Dialogs {
         val root = FrameLayout(a).apply { setBackgroundColor(Pal.scrim) }
         val card = LinearLayout(a).apply {
             orientation = LinearLayout.VERTICAL
-            background = GradientDrawable().apply { setColor(Pal.panel); cornerRadius = a.dp(12f) }
+            background = GradientDrawable().apply { setColor(Pal.panel); cornerRadius = a.dp(16f); setStroke(a.dpi(1f), Pal.cardEdge) }
+            elevation = a.dp(24f)
             setPadding(a.dpi(20f), a.dpi(18f), a.dpi(20f), a.dpi(14f))
         }
         card.addView(TextView(a).apply { text = title; textSize = 21f * Fonts.scale; setTextColor(Pal.text); typeface = Fonts.medium; setPadding(a.dpi(8f), 0, 0, a.dpi(10f)) })

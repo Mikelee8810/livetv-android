@@ -104,7 +104,21 @@ public final class ChannelCatalog {
                 } else {
                     reader.close();
                     ChannelClassifier.Result classified = new ChannelClassifier().classify(parsed);
-                    return new LoadResult(classified.channels, classified.report, epgSources);
+                    // Merge channels the live DaddyLive list has added since the
+                    // bundled snapshot was frozen (cached on disk, refreshed in
+                    // the background by LiveCatalog.refreshIfStale).
+                    java.util.List<Channel> merged = new java.util.ArrayList<>(classified.channels);
+                    try {
+                        merged.addAll(LiveCatalog.loadCachedNew(context, classified.channels));
+                    } catch (Exception ignored) {
+                    }
+                    // Always include the dedicated DaddyLive XMLTV guide
+                    // (Mikoshi-nyudo/dlhd, regenerated every 12 hours) so the
+                    // guide does not depend only on the playlist header list.
+                    java.util.List<String> allEpg = new java.util.ArrayList<>(epgSources);
+                    String daddyEpg = "https://raw.githubusercontent.com/Mikoshi-nyudo/dlhd/main/epgs/daddylive-channels-epg.xml.gz";
+                    if (!allEpg.contains(daddyEpg)) allEpg.add(daddyEpg);
+                    return new LoadResult(merged, classified.report, allEpg);
                 }
             } catch (Throwable th) {
                 try {

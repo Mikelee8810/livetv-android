@@ -9,10 +9,14 @@ import android.view.View
 /** Live TV colour system. "Lagoon" is the default: deep ink surfaces with a teal accent and amber highlights. */
 object Pal {
     var bg = Color.parseColor("#0A0E14")
+    var bgTop = Color.parseColor("#0E1622")
+    var bgBottom = Color.parseColor("#06090E")
+    var cardEdge = Color.parseColor("#27364A")
     var rail = Color.parseColor("#0F151D")
     var panel = Color.parseColor("#131B26")
     var card = Color.parseColor("#18222F")
     var cardHi = Color.parseColor("#243142")
+    var live = Color.parseColor("#FF5252")
     var focusFill = Color.parseColor("#E4F6F3")
     var focusText = Color.parseColor("#0A0E14")
     var text = Color.parseColor("#E8EEF4")
@@ -32,12 +36,22 @@ object Pal {
     fun apply(base: String, accentName: String) {
         accent = Color.parseColor(accents[accentName] ?: accents["Lagoon"]!!)
         when (base) {
-            "AMOLED" -> { bg = Color.BLACK; rail = Color.parseColor("#06080B"); panel = Color.parseColor("#0B0E12"); card = Color.parseColor("#12171D"); cardHi = Color.parseColor("#1C242E") }
-            "Slate" -> { bg = Color.parseColor("#141A21"); rail = Color.parseColor("#1A222B"); panel = Color.parseColor("#1F2832"); card = Color.parseColor("#27323E"); cardHi = Color.parseColor("#33414F") }
-            else -> { bg = Color.parseColor("#0A0E14"); rail = Color.parseColor("#0F151D"); panel = Color.parseColor("#131B26"); card = Color.parseColor("#18222F"); cardHi = Color.parseColor("#243142") }
+            "AMOLED" -> { bg = Color.BLACK; bgTop = Color.parseColor("#05070A"); bgBottom = Color.BLACK; cardEdge = Color.parseColor("#1B2530"); rail = Color.parseColor("#06080B"); panel = Color.parseColor("#0B0E12"); card = Color.parseColor("#12171D"); cardHi = Color.parseColor("#1C242E") }
+            "Slate" -> { bg = Color.parseColor("#141A21"); bgTop = Color.parseColor("#1A242F"); bgBottom = Color.parseColor("#0F151B"); cardEdge = Color.parseColor("#3D4F61"); rail = Color.parseColor("#1A222B"); panel = Color.parseColor("#1F2832"); card = Color.parseColor("#27323E"); cardHi = Color.parseColor("#33414F") }
+            else -> { bg = Color.parseColor("#0A0E14"); bgTop = Color.parseColor("#0E1622"); bgBottom = Color.parseColor("#06090E"); cardEdge = Color.parseColor("#27364A"); rail = Color.parseColor("#0F151D"); panel = Color.parseColor("#131B26"); card = Color.parseColor("#18222F"); cardHi = Color.parseColor("#243142") }
         }
     }
+
+    /** Vertical background gradient used by the main surfaces. */
+    fun bgGradient(): android.graphics.drawable.GradientDrawable =
+        android.graphics.drawable.GradientDrawable(
+            android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(bgTop, bgBottom)
+        )
 }
+
+/** This colour with a different alpha (0-255). */
+fun Int.withAlpha(a: Int): Int = Color.argb(a, Color.red(this), Color.green(this), Color.blue(this))
 
 object Fonts {
     val regular: Typeface = Typeface.create("sans-serif", Typeface.NORMAL)

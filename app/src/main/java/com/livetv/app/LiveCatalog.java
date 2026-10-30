@@ -1,1 +1,167 @@
-cGFja2FnZSBjb20ubGl2ZXR2LmFwcDsKCmltcG9ydCBhbmRyb2lkLmNvbnRlbnQuQ29udGV4dDsKaW1wb3J0IGFuZHJvaWQudXRpbC5Mb2c7CmltcG9ydCBjb20ubGl2ZXR2LmFwcC5jYXRhbG9nLkNoYW5uZWxDbGFzc2lmaWVyOwppbXBvcnQgamF2YS5pby5GaWxlOwppbXBvcnQgamF2YS5pby5GaWxlSW5wdXRTdHJlYW07CmltcG9ydCBqYXZhLmlvLkZpbGVPdXRwdXRTdHJlYW07CmltcG9ydCBqYXZhLm5pby5jaGFyc2V0LlN0YW5kYXJkQ2hhcnNldHM7CmltcG9ydCBqYXZhLnV0aWwuQXJyYXlMaXN0OwppbXBvcnQgamF2YS51dGlsLkxpbmtlZEhhc2hNYXA7CmltcG9ydCBqYXZhLnV0aWwuTGlzdDsKaW1wb3J0IGphdmEudXRpbC5NYXA7CmltcG9ydCBqYXZhLnV0aWwuY29uY3VycmVudC5UaW1lVW5pdDsKaW1wb3J0IGphdmEudXRpbC5yZWdleC5NYXRjaGVyOwppbXBvcnQgamF2YS51dGlsLnJlZ2V4LlBhdHRlcm47CmltcG9ydCBva2h0dHAzLk9rSHR0cENsaWVudDsKaW1wb3J0IG9raHR0cDMuUmVxdWVzdDsKCi8qKgogKiBMaXZlIERhZGR5TGl2ZSBjaGFubmVsIGxpc3QsIGJvcnJvd2VkIGZyb20gZGxoZC1jbGkncyBmZXRjaF9jaGFubmVscygpOgogKiB0aGUgYnVuZGxlZCBjaGFubmVscy5tM3UgaXMgYSBmcm96ZW4gc25hcHNob3QgKDUwOSBlbnRyaWVzIG9uIDIwMjYtMTAtMjIpCiAqIHdoaWxlIHRoZSBvcGVyYXRvcidzIDI0LTcgcGFnZSBsaXN0ZWQgODk5IGNoYW5uZWxzIGEgd2VlayBsYXRlciwgc28gdGhlCiAqIGNhdGFsb2cgbm93IHJlZnJlc2hlcyBmcm9tIHRoZSBsaXZlIHBhZ2UgYW5kIG1lcmdlcy4KICoKICogQnVuZGxlZCBjaGFubmVscyBrZWVwIHRoZWlyIGN1cmF0ZWQgbWV0YWRhdGEgKGxvZ28sIGdyb3VwLCBFUEcgaWQpLiBMaXZlCiAqIGVudHJpZXMgdGhlIGJ1bmRsZSBkb2VzIG5vdCBrbm93IGFyZSBhcHBlbmRlZCwgY2xhc3NpZmllZCBsaWtlIHRoZSByZXN0LgogKiBUaGUgZmV0Y2hlZCBsaXN0IGlzIGNhY2hlZCBvbiBkaXNrIGZvciAxMiBob3VycyBzbyBzdGFydHVwIG5ldmVyIHdhaXRzIG9uCiAqIHRoZSBuZXR3b3JrOiBsb2FkQ2FjaGVkKCkgaXMgaW5zdGFudCwgcmVmcmVzaElmU3RhbGUoKSBydW5zIGluIHRoZQogKiBiYWNrZ3JvdW5kIGZyb20gUmVwby5yZWxvYWQoKS4KICovCnB1YmxpYyBmaW5hbCBjbGFzcyBMaXZlQ2F0YWxvZyB7CiAgICBwcml2YXRlIHN0YXRpYyBmaW5hbCBTdHJpbmcgVEFHID0gIkxpdmVDYXRhbG9nIjsKICAgIHByaXZhdGUgc3RhdGljIGZpbmFsIGxvbmcgU1RBTEVfTVMgPSAxMkwgKiA2MEwgKiA2MEwgKiAxMDAwTDsKICAgIHByaXZhdGUgc3RhdGljIGZpbmFsIFN0cmluZyBDQUNIRV9GSUxFID0gImxpdmVfY2hhbm5lbHMudHN2IjsKCiAgICAvLyBWZXJpZmllZCAyMDI2LTEwLTMwIGFnYWluc3QgdGhlZGFkZHkucGsvMjQtNy1jaGFubmVscy5waHA6CiAgICAvLyA8YSBjbGFzcz0iY2FyZCIgaHJlZj0iL3dhdGNoLnBocD9pZD01MSIgLi4uPgogICAgLy8gICA8ZGl2IGNsYXNzPSJjYXJkX190aXRsZSI+QUJDIFVTQTwvZGl2PjxkaXYgY2xhc3M9IiI+SUQ6IDUxPC9kaXY+PC9hPgogICAgcHJpdmF0ZSBzdGF0aWMgZmluYWwgUGF0dGVybiBDQVJEID0gUGF0dGVybi5jb21waWxlKAogICAgICAgICAgICAiPGFbXj5dKmhyZWY9XCJbXlwiXSp3YXRjaFxcLnBocFxcP2lkPShcXGQrKVwiW14+XSo+KC4qPyk8L2E+IiwgUGF0dGVybi5ET1RBTEwgfCBQYXR0ZXJuLkNBU0VfSU5TRU5TSVRJVkUpOwogICAgcHJpdmF0ZSBzdGF0aWMgZmluYWwgUGF0dGVybiBUSVRMRSA9IFBhdHRlcm4uY29tcGlsZSgKICAgICAgICAgICAgImNhcmRfX3RpdGxlXCI+KFtePF0rKTwvZGl2PiIsIFBhdHRlcm4uQ0FTRV9JTlNFTlNJVElWRSk7CgogICAgcHJpdmF0ZSBMaXZlQ2F0YWxvZygpIHsKICAgIH0KCiAgICAvKiogUGFyc2VzIHRoZSAyNC03IGNoYW5uZWxzIHBhZ2UgaW50byBpZCAtPiBuYW1lLCBpbiBwYWdlIG9yZGVyLiAqLwogICAgc3RhdGljIE1hcDxTdHJpbmcsIFN0cmluZz4gcGFyc2VDaGFubmVsc1BhZ2UoU3RyaW5nIGh0bWwpIHsKICAgICAgICBNYXA8U3RyaW5nLCBTdHJpbmc+IG91dCA9IG5ldyBMaW5rZWRIYXNoTWFwPD4oKTsKICAgICAgICBpZiAoaHRtbCA9PSBudWxsKSB7CiAgICAgICAgICAgIHJldHVybiBvdXQ7CiAgICAgICAgfQogICAgICAgIE1hdGNoZXIgY2FyZHMgPSBDQVJELm1hdGNoZXIoaHRtbCk7CiAgICAgICAgd2hpbGUgKGNhcmRzLmZpbmQoKSkgewogICAgICAgICAgICBNYXRjaGVyIHRpdGxlID0gVElUTEUubWF0Y2hlcihjYXJkcy5ncm91cCgyKSk7CiAgICAgICAgICAgIFN0cmluZyBuYW1lID0gdGl0bGUuZmluZCgpID8gdGl0bGUuZ3JvdXAoMSkudHJpbSgpIDogIiI7CiAgICAgICAgICAgIGlmICghbmFtZS5pc0VtcHR5KCkpIHsKICAgICAgICAgICAgICAgIG91dC5wdXQoY2FyZHMuZ3JvdXAoMSksIG5hbWUpOwogICAgICAgICAgICB9CiAgICAgICAgfQogICAgICAgIHJldHVybiBvdXQ7CiAgICB9CgogICAgLyoqIENoYW5uZWxzIGZyb20gdGhlIGRpc2sgY2FjaGUgdGhhdCB0aGUgYnVuZGxlZCBjYXRhbG9nIGRvZXMgbm90IGhhdmUuICovCiAgICBwdWJsaWMgc3RhdGljIExpc3Q8Q2hhbm5lbD4gbG9hZENhY2hlZE5ldyhDb250ZXh0IGNvbnRleHQsIExpc3Q8Q2hhbm5lbD4gYnVuZGxlZCkgewogICAgICAgIE1hcDxTdHJpbmcsIFN0cmluZz4gbGl2ZSA9IHJlYWRDYWNoZShjb250ZXh0KTsKICAgICAgICByZXR1cm4gbmV3Q2hhbm5lbHMobGl2ZSwgYnVuZGxlZCk7CiAgICB9CgogICAgc3RhdGljIExpc3Q8Q2hhbm5lbD4gbmV3Q2hhbm5lbHMoTWFwPFN0cmluZywgU3RyaW5nPiBsaXZlLCBMaXN0PENoYW5uZWw+IGJ1bmRsZWQpIHsKICAgICAgICBqYXZhLnV0aWwuU2V0PFN0cmluZz4ga25vd24gPSBuZXcgamF2YS51dGlsLkhhc2hTZXQ8PigpOwogICAgICAgIGZvciAoQ2hhbm5lbCBjIDogYnVuZGxlZCkgewogICAgICAgICAgICBrbm93bi5hZGQoYy5pZCk7CiAgICAgICAgfQogICAgICAgIExpc3Q8Q2hhbm5lbD4gZnJlc2ggPSBuZXcgQXJyYXlMaXN0PD4oKTsKICAgICAgICBmb3IgKE1hcC5FbnRyeTxTdHJpbmcsIFN0cmluZz4gZSA6IGxpdmUuZW50cnlTZXQoKSkgewogICAgICAgICAgICBpZiAoIWtub3duLmNvbnRhaW5zKGUuZ2V0S2V5KCkpKSB7CiAgICAgICAgICAgICAgICBmcmVzaC5hZGQobmV3IENoYW5uZWwoZS5nZXRLZXkoKSwgIiIsIGUuZ2V0VmFsdWUoKSwgIkxpdmUgVFYiLCAiIiwgbnVsbCwgNykpOwogICAgICAgICAgICB9CiAgICAgICAgfQogICAgICAgIGlmIChmcmVzaC5pc0VtcHR5KCkpIHsKICAgICAgICAgICAgcmV0dXJuIGZyZXNoOwogICAgICAgIH0KICAgICAgICAvLyBTYW1lIGFkdWx0IGZpbHRlciwgZGVkdXBlIGFuZCByYW5raW5nIGFzIHRoZSBidW5kbGVkIGNhdGFsb2cuCiAgICAgICAgcmV0dXJuIG5ldyBDaGFubmVsQ2xhc3NpZmllcigpLmNsYXNzaWZ5KGZyZXNoKS5jaGFubmVsczsKICAgIH0KCiAgICAvKioKICAgICAqIEZldGNoZXMgdGhlIGxpdmUgbGlzdCB3aGVuIHRoZSBjYWNoZSBpcyBvbGRlciB0aGFuIDEyIGhvdXJzLgogICAgICogUmV0dXJucyB0cnVlIHdoZW4gdGhlIGNhY2hlIGNoYW5nZWQsIHNvIHRoZSBjYWxsZXIgY2FuIHJlbG9hZC4KICAgICAqLwogICAgcHVibGljIHN0YXRpYyBib29sZWFuIHJlZnJlc2hJZlN0YWxlKENvbnRleHQgY29udGV4dCkgewogICAgICAgIEZpbGUgY2FjaGUgPSBuZXcgRmlsZShjb250ZXh0LmdldENhY2hlRGlyKCksIENBQ0hFX0ZJTEUpOwogICAgICAgIGlmIChjYWNoZS5leGlzdHMoKSAmJiBTeXN0ZW0uY3VycmVudFRpbWVNaWxsaXMoKSAtIGNhY2hlLmxhc3RNb2RpZmllZCgpIDwgU1RBTEVfTVMpIHsKICAgICAgICAgICAgcmV0dXJuIGZhbHNlOwogICAgICAgIH0KICAgICAgICBPa0h0dHBDbGllbnQgY2xpZW50ID0gbmV3IE9rSHR0cENsaWVudC5CdWlsZGVyKCkKICAgICAgICAgICAgICAgIC5jb25uZWN0VGltZW91dCg4LCBUaW1lVW5pdC5TRUNPTkRTKQogICAgICAgICAgICAgICAgLnJlYWRUaW1lb3V0KDE1LCBUaW1lVW5pdC5TRUNPTkRTKQogICAgICAgICAgICAgICAgLmZvbGxvd1JlZGlyZWN0cyh0cnVlKQogICAgICAgICAgICAgICAgLmJ1aWxkKCk7CiAgICAgICAgZm9yIChTdHJpbmcgYmFzZSA6IFN0cmVhbUVuZHBvaW50cy5CQVNFUykgewogICAgICAgICAgICB0cnkgewogICAgICAgICAgICAgICAgUmVxdWVzdCByZXEgPSBuZXcgUmVxdWVzdC5CdWlsZGVyKCkKICAgICAgICAgICAgICAgICAgICAgICAgLnVybChTdHJlYW1FbmRwb2ludHMuY2hhbm5lbHNVcmwoYmFzZSkpCiAgICAgICAgICAgICAgICAgICAgICAgIC5oZWFkZXIoIlVzZXItQWdlbnQiLCAiTW96aWxsYS81LjAgKExpbnV4OyBBbmRyb2lkIDE0OyBHb29nbGUgVFYgU3RyZWFtZXIpIEFwcGxlV2ViS2l0LzUzNy4zNiBDaHJvbWUvMTIwIFNhZmFyaS81MzcuMzYiKQogICAgICAgICAgICAgICAgICAgICAgICAuYnVpbGQoKTsKICAgICAgICAgICAgICAgIHRyeSAob2todHRwMy5SZXNwb25zZSByZXNwID0gY2xpZW50Lm5ld0NhbGwocmVxKS5leGVjdXRlKCkpIHsKICAgICAgICAgICAgICAgICAgICBpZiAoIXJlc3AuaXNTdWNjZXNzZnVsKCkgfHwgcmVzcC5ib2R5KCkgPT0gbnVsbCkgewogICAgICAgICAgICAgICAgICAgICAgICBjb250aW51ZTsKICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICAgICAgTWFwPFN0cmluZywgU3RyaW5nPiBsaXZlID0gcGFyc2VDaGFubmVsc1BhZ2UocmVzcC5ib2R5KCkuc3RyaW5nKCkpOwogICAgICAgICAgICAgICAgICAgIGlmIChsaXZlLnNpemUoKSA8IDEwMCkgewogICAgICAgICAgICAgICAgICAgICAgICBMb2cudyhUQUcsICJMaXZlIGxpc3QgZnJvbSAiICsgYmFzZSArICIgbG9va2VkIHdyb25nICgiICsgbGl2ZS5zaXplKCkgKyAiIGNoYW5uZWxzKSwgc2tpcHBpbmciKTsKICAgICAgICAgICAgICAgICAgICAgICAgY29udGludWU7CiAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgICAgIHdyaXRlQ2FjaGUoY29udGV4dCwgbGl2ZSk7CiAgICAgICAgICAgICAgICAgICAgTG9nLmkoVEFHLCAiTGl2ZSBjYXRhbG9nIHJlZnJlc2hlZCBmcm9tICIgKyBiYXNlICsgIjogIiArIGxpdmUuc2l6ZSgpICsgIiBjaGFubmVscyIpOwogICAgICAgICAgICAgICAgICAgIHJldHVybiB0cnVlOwogICAgICAgICAgICAgICAgfQogICAgICAgICAgICB9IGNhdGNoIChFeGNlcHRpb24gZSkgewogICAgICAgICAgICAgICAgTG9nLncoVEFHLCAiTGl2ZSBjYXRhbG9nIGZldGNoIGZhaWxlZCBmcm9tICIgKyBiYXNlICsgIjogIiArIGUuZ2V0TWVzc2FnZSgpKTsKICAgICAgICAgICAgfQogICAgICAgIH0KICAgICAgICByZXR1cm4gZmFsc2U7CiAgICB9CgogICAgcHJpdmF0ZSBzdGF0aWMgTWFwPFN0cmluZywgU3RyaW5nPiByZWFkQ2FjaGUoQ29udGV4dCBjb250ZXh0KSB7CiAgICAgICAgTWFwPFN0cmluZywgU3RyaW5nPiBvdXQgPSBuZXcgTGlua2VkSGFzaE1hcDw+KCk7CiAgICAgICAgRmlsZSBjYWNoZSA9IG5ldyBGaWxlKGNvbnRleHQuZ2V0Q2FjaGVEaXIoKSwgQ0FDSEVfRklMRSk7CiAgICAgICAgaWYgKCFjYWNoZS5leGlzdHMoKSkgewogICAgICAgICAgICByZXR1cm4gb3V0OwogICAgICAgIH0KICAgICAgICB0cnkgewogICAgICAgICAgICBieXRlW10gYnl0ZXMgPSBuZXcgYnl0ZVsoaW50KSBjYWNoZS5sZW5ndGgoKV07CiAgICAgICAgICAgIHRyeSAoRmlsZUlucHV0U3RyZWFtIGluID0gbmV3IEZpbGVJbnB1dFN0cmVhbShjYWNoZSkpIHsKICAgICAgICAgICAgICAgIGludCByZWFkID0gMDsKICAgICAgICAgICAgICAgIHdoaWxlIChyZWFkIDwgYnl0ZXMubGVuZ3RoKSB7CiAgICAgICAgICAgICAgICAgICAgaW50IG4gPSBpbi5yZWFkKGJ5dGVzLCByZWFkLCBieXRlcy5sZW5ndGggLSByZWFkKTsKICAgICAgICAgICAgICAgICAgICBpZiAobiA8IDApIGJyZWFrOwogICAgICAgICAgICAgICAgICAgIHJlYWQgKz0gbjsKICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgfQogICAgICAgICAgICBmb3IgKFN0cmluZyBsaW5lIDogbmV3IFN0cmluZyhieXRlcywgU3RhbmRhcmRDaGFyc2V0cy5VVEZfOCkuc3BsaXQoIlxuIikpIHsKICAgICAgICAgICAgICAgIGludCB0YWIgPSBsaW5lLmluZGV4T2YoJ1x0Jyk7CiAgICAgICAgICAgICAgICBpZiAodGFiID4gMCkgewogICAgICAgICAgICAgICAgICAgIG91dC5wdXQobGluZS5zdWJzdHJpbmcoMCwgdGFiKS50cmltKCksIGxpbmUuc3Vic3RyaW5nKHRhYiArIDEpLnRyaW0oKSk7CiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KICAgICAgICB9IGNhdGNoIChFeGNlcHRpb24gZSkgewogICAgICAgICAgICBMb2cudyhUQUcsICJMaXZlIGNhdGFsb2cgY2FjaGUgdW5yZWFkYWJsZTogIiArIGUuZ2V0TWVzc2FnZSgpKTsKICAgICAgICB9CiAgICAgICAgcmV0dXJuIG91dDsKICAgIH0KCiAgICBwcml2YXRlIHN0YXRpYyB2b2lkIHdyaXRlQ2FjaGUoQ29udGV4dCBjb250ZXh0LCBNYXA8U3RyaW5nLCBTdHJpbmc+IGxpdmUpIHRocm93cyBFeGNlcHRpb24gewogICAgICAgIFN0cmluZ0J1aWxkZXIgc2IgPSBuZXcgU3RyaW5nQnVpbGRlcigpOwogICAgICAgIGZvciAoTWFwLkVudHJ5PFN0cmluZywgU3RyaW5nPiBlIDogbGl2ZS5lbnRyeVNldCgpKSB7CiAgICAgICAgICAgIHNiLmFwcGVuZChlLmdldEtleSgpKS5hcHBlbmQoJ1x0JykuYXBwZW5kKGUuZ2V0VmFsdWUoKS5yZXBsYWNlKCdcdCcsICcgJykpLmFwcGVuZCgnXG4nKTsKICAgICAgICB9CiAgICAgICAgRmlsZSBjYWNoZSA9IG5ldyBGaWxlKGNvbnRleHQuZ2V0Q2FjaGVEaXIoKSwgQ0FDSEVfRklMRSk7CiAgICAgICAgdHJ5IChGaWxlT3V0cHV0U3RyZWFtIG91dCA9IG5ldyBGaWxlT3V0cHV0U3RyZWFtKGNhY2hlKSkgewogICAgICAgICAgICBvdXQud3JpdGUoc2IudG9TdHJpbmcoKS5nZXRCeXRlcyhTdGFuZGFyZENoYXJzZXRzLlVURl84KSk7CiAgICAgICAgfQogICAgfQp9Cg==
+package com.livetv.app;
+
+import android.content.Context;
+import android.util.Log;
+import com.livetv.app.catalog.ChannelClassifier;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+
+/**
+ * Live DaddyLive channel list, borrowed from dlhd-cli's fetch_channels():
+ * the bundled channels.m3u is a frozen snapshot (509 entries on 2026-10-22)
+ * while the operator's 24-7 page listed 899 channels a week later, so the
+ * catalog now refreshes from the live page and merges.
+ *
+ * Bundled channels keep their curated metadata (logo, group, EPG id). Live
+ * entries the bundle does not know are appended, classified like the rest.
+ * The fetched list is cached on disk for 12 hours so startup never waits on
+ * the network: loadCached() is instant, refreshIfStale() runs in the
+ * background from Repo.reload().
+ */
+public final class LiveCatalog {
+    private static final String TAG = "LiveCatalog";
+    private static final long STALE_MS = 12L * 60L * 60L * 1000L;
+    private static final String CACHE_FILE = "live_channels.tsv";
+
+    // Verified 2026-10-30 against thedaddy.pk/24-7-channels.php:
+    // <a class="card" href="/watch.php?id=51" ...>
+    //   <div class="card__title">ABC USA</div><div class="">ID: 51</div></a>
+    private static final Pattern CARD = Pattern.compile(
+            "<a[^>]*href=\"[^\"]*watch\\.php\\?id=(\\d+)\"[^>]*>(.*?)</a>", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
+    private static final Pattern TITLE = Pattern.compile(
+            "card__title\">([^<]+)</div>", Pattern.CASE_INSENSITIVE);
+
+    private LiveCatalog() {
+    }
+
+    /** Parses the 24-7 channels page into id -> name, in page order. */
+    static Map<String, String> parseChannelsPage(String html) {
+        Map<String, String> out = new LinkedHashMap<>();
+        if (html == null) {
+            return out;
+        }
+        Matcher cards = CARD.matcher(html);
+        while (cards.find()) {
+            Matcher title = TITLE.matcher(cards.group(2));
+            String name = title.find() ? title.group(1).trim() : "";
+            if (!name.isEmpty()) {
+                out.put(cards.group(1), name);
+            }
+        }
+        return out;
+    }
+
+    /** Channels from the disk cache that the bundled catalog does not have. */
+    public static List<Channel> loadCachedNew(Context context, List<Channel> bundled) {
+        Map<String, String> live = readCache(context);
+        return newChannels(live, bundled);
+    }
+
+    static List<Channel> newChannels(Map<String, String> live, List<Channel> bundled) {
+        java.util.Set<String> known = new java.util.HashSet<>();
+        for (Channel c : bundled) {
+            known.add(c.id);
+        }
+        List<Channel> fresh = new ArrayList<>();
+        for (Map.Entry<String, String> e : live.entrySet()) {
+            if (!known.contains(e.getKey())) {
+                fresh.add(new Channel(e.getKey(), "", e.getValue(), "Live TV", "", null, 7));
+            }
+        }
+        if (fresh.isEmpty()) {
+            return fresh;
+        }
+        // Same adult filter, dedupe and ranking as the bundled catalog.
+        return new ChannelClassifier().classify(fresh).channels;
+    }
+
+    /**
+     * Fetches the live list when the cache is older than 12 hours.
+     * Returns true when the cache changed, so the caller can reload.
+     */
+    public static boolean refreshIfStale(Context context) {
+        File cache = new File(context.getCacheDir(), CACHE_FILE);
+        if (cache.exists() && System.currentTimeMillis() - cache.lastModified() < STALE_MS) {
+            return false;
+        }
+        OkHttpClient client = new OkHttpClient.Builder()
+                .connectTimeout(8, TimeUnit.SECONDS)
+                .readTimeout(15, TimeUnit.SECONDS)
+                .followRedirects(true)
+                .build();
+        for (String base : StreamEndpoints.BASES) {
+            try {
+                Request req = new Request.Builder()
+                        .url(StreamEndpoints.channelsUrl(base))
+                        .header("User-Agent", "Mozilla/5.0 (Linux; Android 14; Google TV Streamer) AppleWebKit/537.36 Chrome/120 Safari/537.36")
+                        .build();
+                try (okhttp3.Response resp = client.newCall(req).execute()) {
+                    if (!resp.isSuccessful() || resp.body() == null) {
+                        continue;
+                    }
+                    Map<String, String> live = parseChannelsPage(resp.body().string());
+                    if (live.size() < 100) {
+                        Log.w(TAG, "Live list from " + base + " looked wrong (" + live.size() + " channels), skipping");
+                        continue;
+                    }
+                    writeCache(context, live);
+                    Log.i(TAG, "Live catalog refreshed from " + base + ": " + live.size() + " channels");
+                    return true;
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Live catalog fetch failed from " + base + ": " + e.getMessage());
+            }
+        }
+        return false;
+    }
+
+    private static Map<String, String> readCache(Context context) {
+        Map<String, String> out = new LinkedHashMap<>();
+        File cache = new File(context.getCacheDir(), CACHE_FILE);
+        if (!cache.exists()) {
+            return out;
+        }
+        try {
+            byte[] bytes = new byte[(int) cache.length()];
+            try (FileInputStream in = new FileInputStream(cache)) {
+                int read = 0;
+                while (read < bytes.length) {
+                    int n = in.read(bytes, read, bytes.length - read);
+                    if (n < 0) break;
+                    read += n;
+                }
+            }
+            for (String line : new String(bytes, StandardCharsets.UTF_8).split("\n")) {
+                int tab = line.indexOf('\t');
+                if (tab > 0) {
+                    out.put(line.substring(0, tab).trim(), line.substring(tab + 1).trim());
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Live catalog cache unreadable: " + e.getMessage());
+        }
+        return out;
+    }
+
+    private static void writeCache(Context context, Map<String, String> live) throws Exception {
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<String, String> e : live.entrySet()) {
+            sb.append(e.getKey()).append('\t').append(e.getValue().replace('\t', ' ')).append('\n');
+        }
+        File cache = new File(context.getCacheDir(), CACHE_FILE);
+        try (FileOutputStream out = new FileOutputStream(cache)) {
+            out.write(sb.toString().getBytes(StandardCharsets.UTF_8));
+        }
+    }
+}

@@ -1,1 +1,141 @@
-cGFja2FnZSBjb20ubGl2ZXR2LmFwcC5kYXRhCgppbXBvcnQgYW5kcm9pZC5hcHAuQWxhcm1NYW5hZ2VyCmltcG9ydCBhbmRyb2lkLmFwcC5Ob3RpZmljYXRpb25DaGFubmVsCmltcG9ydCBhbmRyb2lkLmFwcC5Ob3RpZmljYXRpb25NYW5hZ2VyCmltcG9ydCBhbmRyb2lkLmFwcC5QZW5kaW5nSW50ZW50CmltcG9ydCBhbmRyb2lkLmNvbnRlbnQuQnJvYWRjYXN0UmVjZWl2ZXIKaW1wb3J0IGFuZHJvaWQuY29udGVudC5Db250ZXh0CmltcG9ydCBhbmRyb2lkLmNvbnRlbnQuSW50ZW50CmltcG9ydCBhbmRyb2lkLm9zLkJ1aWxkCmltcG9ydCBhbmRyb2lkeC5jb3JlLmFwcC5Ob3RpZmljYXRpb25Db21wYXQKaW1wb3J0IGNvbS5saXZldHYuYXBwLk1haW5BY3Rpdml0eQppbXBvcnQgY29tLmxpdmV0di5hcHAuUgppbXBvcnQgamF2YS50aW1lLkluc3RhbnQKCi8qKgogKiBQcm9ncmFtIHJlbWluZGVycywgc3RvcmVkIGluIFByZWZzIGFuZCBmaXJlZCBieSBBbGFybU1hbmFnZXIuCiAqCiAqIFRoaXMgcmVwbGFjZXMgdGhlIG9sZCBmYWtlIGZsb3csIHdoZXJlICJTZXQgcmVtaW5kZXIiIGFuZCAiUmVjb3JkIiBvbmx5CiAqIHNob3dlZCBhIHN1Y2Nlc3MgZGlhbG9nIGFuZCBub3RoaW5nIHdhcyBldmVyIHNhdmVkIG9yIHNjaGVkdWxlZC4KICogUmVjb3JkaW5ncyB3ZXJlIHJlbW92ZWQgZm9yIHRoZSBzYW1lIHJlYXNvbjogdGhlIGFwcCBuZXZlciByZWNvcmRlZAogKiBhbnl0aGluZywgc28gdGhlIFVJIG5vIGxvbmdlciBjbGFpbXMgaXQgZG9lcy4KICovCmRhdGEgY2xhc3MgUmVtaW5kZXIodmFsIHN0YXJ0TXM6IExvbmcsIHZhbCBjaGFubmVsS2V5OiBTdHJpbmcsIHZhbCBjaGFubmVsTmFtZTogU3RyaW5nLCB2YWwgdGl0bGU6IFN0cmluZykgewogICAgZnVuIGVuY29kZSgpOiBTdHJpbmcgPSBsaXN0T2Yoc3RhcnRNcy50b1N0cmluZygpLCBjaGFubmVsS2V5LCBjaGFubmVsTmFtZSwgdGl0bGUpCiAgICAgICAgLmpvaW5Ub1N0cmluZygiXHUwMDFGIikgeyBpdC5yZXBsYWNlKCJcdTAwMUYiLCAiICIpIH0KCiAgICBjb21wYW5pb24gb2JqZWN0IHsKICAgICAgICBmdW4gZGVjb2RlKHJhdzogU3RyaW5nKTogUmVtaW5kZXI/IHsKICAgICAgICAgICAgdmFsIHBhcnRzID0gcmF3LnNwbGl0KCJcdTAwMUYiKQogICAgICAgICAgICBpZiAocGFydHMuc2l6ZSA8IDQpIHJldHVybiBudWxsCiAgICAgICAgICAgIHZhbCBzdGFydCA9IHBhcnRzWzBdLnRvTG9uZ09yTnVsbCgpID86IHJldHVybiBudWxsCiAgICAgICAgICAgIHJldHVybiBSZW1pbmRlcihzdGFydCwgcGFydHNbMV0sIHBhcnRzWzJdLCBwYXJ0c1szXSkKICAgICAgICB9CiAgICB9Cn0KCm9iamVjdCBSZW1pbmRlcnMgewogICAgcHJpdmF0ZSBjb25zdCB2YWwgS0VZID0gInJlbWluZGVycyIKCiAgICBmdW4gYWxsKHByZWZzOiBQcmVmcyk6IExpc3Q8UmVtaW5kZXI+ID0KICAgICAgICBwcmVmcy5zZXQoS0VZKS5tYXBOb3ROdWxsIHsgUmVtaW5kZXIuZGVjb2RlKGl0KSB9CiAgICAgICAgICAgIC5maWx0ZXIgeyBpdC5zdGFydE1zID4gU3lzdGVtLmN1cnJlbnRUaW1lTWlsbGlzKCkgLSA2MF8wMDBMIH0KICAgICAgICAgICAgLnNvcnRlZEJ5IHsgaXQuc3RhcnRNcyB9CgogICAgZnVuIGFkZChjdHg6IENvbnRleHQsIHByZWZzOiBQcmVmcywgcmVtaW5kZXI6IFJlbWluZGVyKSB7CiAgICAgICAgdmFsIGVudHJpZXMgPSBwcmVmcy5zZXQoS0VZKS50b011dGFibGVTZXQoKQogICAgICAgIGVudHJpZXMucmVtb3ZlQWxsIHsgUmVtaW5kZXIuZGVjb2RlKGl0KT8ubGV0IHsgciAtPiByLnN0YXJ0TXMgPT0gcmVtaW5kZXIuc3RhcnRNcyAmJiByLmNoYW5uZWxLZXkgPT0gcmVtaW5kZXIuY2hhbm5lbEtleSB9ID09IHRydWUgfQogICAgICAgIGVudHJpZXMuYWRkKHJlbWluZGVyLmVuY29kZSgpKQogICAgICAgIHByZWZzLnB1dChLRVksIGVudHJpZXMpCiAgICAgICAgc2NoZWR1bGUoY3R4LCBwcmVmcywgcmVtaW5kZXIpCiAgICB9CgogICAgZnVuIGNhbmNlbChjdHg6IENvbnRleHQsIHByZWZzOiBQcmVmcywgcmVtaW5kZXI6IFJlbWluZGVyKSB7CiAgICAgICAgdmFsIGVudHJpZXMgPSBwcmVmcy5zZXQoS0VZKS50b011dGFibGVTZXQoKQogICAgICAgIGVudHJpZXMucmVtb3ZlQWxsIHsgUmVtaW5kZXIuZGVjb2RlKGl0KT8ubGV0IHsgciAtPiByLnN0YXJ0TXMgPT0gcmVtaW5kZXIuc3RhcnRNcyAmJiByLmNoYW5uZWxLZXkgPT0gcmVtaW5kZXIuY2hhbm5lbEtleSB9ID09IHRydWUgfQogICAgICAgIHByZWZzLnB1dChLRVksIGVudHJpZXMpCiAgICAgICAgdmFsIGFtID0gY3R4LmdldFN5c3RlbVNlcnZpY2UoQ29udGV4dC5BTEFSTV9TRVJWSUNFKSBhcyBBbGFybU1hbmFnZXIKICAgICAgICBhbS5jYW5jZWwocGVuZGluZ0ludGVudChjdHgsIHJlbWluZGVyKSkKICAgIH0KCiAgICBwcml2YXRlIGZ1biByZXF1ZXN0Q29kZShyZW1pbmRlcjogUmVtaW5kZXIpOiBJbnQgPQogICAgICAgIChyZW1pbmRlci5zdGFydE1zIC8gMTAwMEwpLnRvSW50KCkgeG9yIHJlbWluZGVyLmNoYW5uZWxLZXkuaGFzaENvZGUoKQoKICAgIHByaXZhdGUgZnVuIHBlbmRpbmdJbnRlbnQoY3R4OiBDb250ZXh0LCByZW1pbmRlcjogUmVtaW5kZXIpOiBQZW5kaW5nSW50ZW50IHsKICAgICAgICB2YWwgaW50ZW50ID0gSW50ZW50KGN0eCwgUmVtaW5kZXJSZWNlaXZlcjo6Y2xhc3MuamF2YSkuYXBwbHkgewogICAgICAgICAgICBwdXRFeHRyYSgidGl0bGUiLCByZW1pbmRlci50aXRsZSkKICAgICAgICAgICAgcHV0RXh0cmEoImNoYW5uZWwiLCByZW1pbmRlci5jaGFubmVsTmFtZSkKICAgICAgICAgICAgcHV0RXh0cmEoImNoYW5uZWxLZXkiLCByZW1pbmRlci5jaGFubmVsS2V5KQogICAgICAgICAgICBwdXRFeHRyYSgiYXV0b1N3aXRjaCIsIGZhbHNlKQogICAgICAgIH0KICAgICAgICByZXR1cm4gUGVuZGluZ0ludGVudC5nZXRCcm9hZGNhc3QoCiAgICAgICAgICAgIGN0eCwgcmVxdWVzdENvZGUocmVtaW5kZXIpLCBpbnRlbnQsCiAgICAgICAgICAgIFBlbmRpbmdJbnRlbnQuRkxBR19VUERBVEVfQ1VSUkVOVCBvciBQZW5kaW5nSW50ZW50LkZMQUdfSU1NVVRBQkxFCiAgICAgICAgKQogICAgfQoKICAgIHByaXZhdGUgZnVuIHNjaGVkdWxlKGN0eDogQ29udGV4dCwgcHJlZnM6IFByZWZzLCByZW1pbmRlcjogUmVtaW5kZXIpIHsKICAgICAgICB2YWwgZmlyZUF0ID0gcmVtaW5kZXIuc3RhcnRNcyAtIHByZWZzLnJlbWluZExlYWRNaW51dGVzICogNjBfMDAwTAogICAgICAgIGlmIChmaXJlQXQgPD0gU3lzdGVtLmN1cnJlbnRUaW1lTWlsbGlzKCkpIHJldHVybgogICAgICAgIHZhbCBhbSA9IGN0eC5nZXRTeXN0ZW1TZXJ2aWNlKENvbnRleHQuQUxBUk1fU0VSVklDRSkgYXMgQWxhcm1NYW5hZ2VyCiAgICAgICAgdmFsIHBpID0gcGVuZGluZ0ludGVudChjdHgsIHJlbWluZGVyKQogICAgICAgIHRyeSB7CiAgICAgICAgICAgIGlmIChCdWlsZC5WRVJTSU9OLlNES19JTlQgPj0gQnVpbGQuVkVSU0lPTl9DT0RFUy5TICYmIGFtLmNhblNjaGVkdWxlRXhhY3RBbGFybXMoKSkgewogICAgICAgICAgICAgICAgYW0uc2V0RXhhY3RBbmRBbGxvd1doaWxlSWRsZShBbGFybU1hbmFnZXIuUlRDX1dBS0VVUCwgZmlyZUF0LCBwaSkKICAgICAgICAgICAgfSBlbHNlIHsKICAgICAgICAgICAgICAgIGFtLnNldEFuZEFsbG93V2hpbGVJZGxlKEFsYXJtTWFuYWdlci5SVENfV0FLRVVQLCBmaXJlQXQsIHBpKQogICAgICAgICAgICB9CiAgICAgICAgfSBjYXRjaCAoZTogU2VjdXJpdHlFeGNlcHRpb24pIHsKICAgICAgICAgICAgYW0uc2V0QW5kQWxsb3dXaGlsZUlkbGUoQWxhcm1NYW5hZ2VyLlJUQ19XQUtFVVAsIGZpcmVBdCwgcGkpCiAgICAgICAgfQogICAgfQoKICAgIC8qKiBSZS1hcm0gZXZlcnkgc2F2ZWQgcmVtaW5kZXIsIGUuZy4gYWZ0ZXIgYSByZWJvb3QuICovCiAgICBmdW4gcmVzY2hlZHVsZUFsbChjdHg6IENvbnRleHQsIHByZWZzOiBQcmVmcykgewogICAgICAgIGFsbChwcmVmcykuZm9yRWFjaCB7IHNjaGVkdWxlKGN0eCwgcHJlZnMsIGl0KSB9CiAgICB9Cn0KCi8qKiBSZS1hcm1zIHNhdmVkIHJlbWluZGVycyBhZnRlciBhIHJlYm9vdCAoYWxhcm1zIGRvIG5vdCBzdXJ2aXZlIG9uZSkuICovCmNsYXNzIEJvb3RSZWNlaXZlciA6IEJyb2FkY2FzdFJlY2VpdmVyKCkgewogICAgb3ZlcnJpZGUgZnVuIG9uUmVjZWl2ZShjb250ZXh0OiBDb250ZXh0LCBpbnRlbnQ6IEludGVudCkgewogICAgICAgIGlmIChpbnRlbnQuYWN0aW9uID09IEludGVudC5BQ1RJT05fQk9PVF9DT01QTEVURUQpIHsKICAgICAgICAgICAgUmVtaW5kZXJzLnJlc2NoZWR1bGVBbGwoY29udGV4dCwgUHJlZnMoY29udGV4dCkpCiAgICAgICAgfQogICAgfQp9CgpjbGFzcyBSZW1pbmRlclJlY2VpdmVyIDogQnJvYWRjYXN0UmVjZWl2ZXIoKSB7CiAgICBvdmVycmlkZSBmdW4gb25SZWNlaXZlKGNvbnRleHQ6IENvbnRleHQsIGludGVudDogSW50ZW50KSB7CiAgICAgICAgdmFsIHRpdGxlID0gaW50ZW50LmdldFN0cmluZ0V4dHJhKCJ0aXRsZSIpID86ICJQcm9ncmFtIHN0YXJ0aW5nIgogICAgICAgIHZhbCBjaGFubmVsID0gaW50ZW50LmdldFN0cmluZ0V4dHJhKCJjaGFubmVsIikgPzogIiIKICAgICAgICB2YWwgbm0gPSBjb250ZXh0LmdldFN5c3RlbVNlcnZpY2UoQ29udGV4dC5OT1RJRklDQVRJT05fU0VSVklDRSkgYXMgTm90aWZpY2F0aW9uTWFuYWdlcgogICAgICAgIGlmIChCdWlsZC5WRVJTSU9OLlNES19JTlQgPj0gQnVpbGQuVkVSU0lPTl9DT0RFUy5PKSB7CiAgICAgICAgICAgIG5tLmNyZWF0ZU5vdGlmaWNhdGlvbkNoYW5uZWwoCiAgICAgICAgICAgICAgICBOb3RpZmljYXRpb25DaGFubmVsKCJyZW1pbmRlcnMiLCAiUHJvZ3JhbSByZW1pbmRlcnMiLCBOb3RpZmljYXRpb25NYW5hZ2VyLklNUE9SVEFOQ0VfSElHSCkKICAgICAgICAgICAgKQogICAgICAgIH0KICAgICAgICB2YWwgb3BlbiA9IEludGVudChjb250ZXh0LCBNYWluQWN0aXZpdHk6OmNsYXNzLmphdmEpLmFwcGx5IHsKICAgICAgICAgICAgZmxhZ3MgPSBJbnRlbnQuRkxBR19BQ1RJVklUWV9ORVdfVEFTSyBvciBJbnRlbnQuRkxBR19BQ1RJVklUWV9DTEVBUl9UT1AKICAgICAgICAgICAgcHV0RXh0cmEoImNoYW5uZWxLZXkiLCBpbnRlbnQuZ2V0U3RyaW5nRXh0cmEoImNoYW5uZWxLZXkiKSkKICAgICAgICB9CiAgICAgICAgdmFsIHBpID0gUGVuZGluZ0ludGVudC5nZXRBY3Rpdml0eSgKICAgICAgICAgICAgY29udGV4dCwgdGl0bGUuaGFzaENvZGUoKSwgb3BlbiwKICAgICAgICAgICAgUGVuZGluZ0ludGVudC5GTEFHX1VQREFURV9DVVJSRU5UIG9yIFBlbmRpbmdJbnRlbnQuRkxBR19JTU1VVEFCTEUKICAgICAgICApCiAgICAgICAgdmFsIG5vdGlmaWNhdGlvbiA9IE5vdGlmaWNhdGlvbkNvbXBhdC5CdWlsZGVyKGNvbnRleHQsICJyZW1pbmRlcnMiKQogICAgICAgICAgICAuc2V0U21hbGxJY29uKFIuZHJhd2FibGUuaWNfYWxhcm0pCiAgICAgICAgICAgIC5zZXRDb250ZW50VGl0bGUodGl0bGUpCiAgICAgICAgICAgIC5zZXRDb250ZW50VGV4dChpZiAoY2hhbm5lbC5pc05vdEVtcHR5KCkpICJTdGFydGluZyBzb29uIG9uICRjaGFubmVsIiBlbHNlICJTdGFydGluZyBzb29uIikKICAgICAgICAgICAgLnNldENvbnRlbnRJbnRlbnQocGkpCiAgICAgICAgICAgIC5zZXRBdXRvQ2FuY2VsKHRydWUpCiAgICAgICAgICAgIC5zZXRQcmlvcml0eShOb3RpZmljYXRpb25Db21wYXQuUFJJT1JJVFlfSElHSCkKICAgICAgICAgICAgLmJ1aWxkKCkKICAgICAgICB0cnkgewogICAgICAgICAgICBubS5ub3RpZnkodGl0bGUuaGFzaENvZGUoKSwgbm90aWZpY2F0aW9uKQogICAgICAgIH0gY2F0Y2ggKGU6IFNlY3VyaXR5RXhjZXB0aW9uKSB7CiAgICAgICAgICAgIC8vIFBPU1RfTk9USUZJQ0FUSU9OUyBub3QgZ3JhbnRlZDogdGhlIHJlbWluZGVyIHN0YXlzIGxpc3RlZCBpbiB0aGUgYXBwLgogICAgICAgIH0KICAgIH0KfQo=
+package com.livetv.app.data
+
+import android.app.AlarmManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import com.livetv.app.MainActivity
+import com.livetv.app.R
+import java.time.Instant
+
+/**
+ * Program reminders, stored in Prefs and fired by AlarmManager.
+ *
+ * This replaces the old fake flow, where "Set reminder" and "Record" only
+ * showed a success dialog and nothing was ever saved or scheduled.
+ * Recordings were removed for the same reason: the app never recorded
+ * anything, so the UI no longer claims it does.
+ */
+data class Reminder(val startMs: Long, val channelKey: String, val channelName: String, val title: String) {
+    fun encode(): String = listOf(startMs.toString(), channelKey, channelName, title)
+        .joinToString("\u001F") { it.replace("\u001F", " ") }
+
+    companion object {
+        fun decode(raw: String): Reminder? {
+            val parts = raw.split("\u001F")
+            if (parts.size < 4) return null
+            val start = parts[0].toLongOrNull() ?: return null
+            return Reminder(start, parts[1], parts[2], parts[3])
+        }
+    }
+}
+
+object Reminders {
+    private const val KEY = "reminders"
+
+    fun all(prefs: Prefs): List<Reminder> =
+        prefs.set(KEY).mapNotNull { Reminder.decode(it) }
+            .filter { it.startMs > System.currentTimeMillis() - 60_000L }
+            .sortedBy { it.startMs }
+
+    fun add(ctx: Context, prefs: Prefs, reminder: Reminder) {
+        val entries = prefs.set(KEY).toMutableSet()
+        entries.removeAll { Reminder.decode(it)?.let { r -> r.startMs == reminder.startMs && r.channelKey == reminder.channelKey } == true }
+        entries.add(reminder.encode())
+        prefs.put(KEY, entries)
+        schedule(ctx, prefs, reminder)
+    }
+
+    fun cancel(ctx: Context, prefs: Prefs, reminder: Reminder) {
+        val entries = prefs.set(KEY).toMutableSet()
+        entries.removeAll { Reminder.decode(it)?.let { r -> r.startMs == reminder.startMs && r.channelKey == reminder.channelKey } == true }
+        prefs.put(KEY, entries)
+        val am = ctx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        am.cancel(pendingIntent(ctx, reminder))
+    }
+
+    private fun requestCode(reminder: Reminder): Int =
+        (reminder.startMs / 1000L).toInt() xor reminder.channelKey.hashCode()
+
+    private fun pendingIntent(ctx: Context, reminder: Reminder): PendingIntent {
+        val intent = Intent(ctx, ReminderReceiver::class.java).apply {
+            putExtra("title", reminder.title)
+            putExtra("channel", reminder.channelName)
+            putExtra("channelKey", reminder.channelKey)
+            putExtra("autoSwitch", false)
+        }
+        return PendingIntent.getBroadcast(
+            ctx, requestCode(reminder), intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    private fun schedule(ctx: Context, prefs: Prefs, reminder: Reminder) {
+        val fireAt = reminder.startMs - prefs.remindLeadMinutes * 60_000L
+        if (fireAt <= System.currentTimeMillis()) return
+        val am = ctx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val pi = pendingIntent(ctx, reminder)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && am.canScheduleExactAlarms()) {
+                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAt, pi)
+            } else {
+                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAt, pi)
+            }
+        } catch (e: SecurityException) {
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAt, pi)
+        }
+    }
+
+    /** Re-arm every saved reminder, e.g. after a reboot. */
+    fun rescheduleAll(ctx: Context, prefs: Prefs) {
+        all(prefs).forEach { schedule(ctx, prefs, it) }
+    }
+}
+
+/** Re-arms saved reminders after a reboot (alarms do not survive one). */
+class BootReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
+            Reminders.rescheduleAll(context, Prefs(context))
+        }
+    }
+}
+
+class ReminderReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val title = intent.getStringExtra("title") ?: "Program starting"
+        val channel = intent.getStringExtra("channel") ?: ""
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            nm.createNotificationChannel(
+                NotificationChannel("reminders", "Program reminders", NotificationManager.IMPORTANCE_HIGH)
+            )
+        }
+        val open = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("channelKey", intent.getStringExtra("channelKey"))
+        }
+        val pi = PendingIntent.getActivity(
+            context, title.hashCode(), open,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(context, "reminders")
+            .setSmallIcon(R.drawable.ic_alarm)
+            .setContentTitle(title)
+            .setContentText(if (channel.isNotEmpty()) "Starting soon on $channel" else "Starting soon")
+            .setContentIntent(pi)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+        try {
+            nm.notify(title.hashCode(), notification)
+        } catch (e: SecurityException) {
+            // POST_NOTIFICATIONS not granted: the reminder stays listed in the app.
+        }
+    }
+}

@@ -1,1 +1,79 @@
-IyBMaXZlIFRWIGZvciBBbmRyb2lkIFRWCgpBIGhpZ2gtcGVyZm9ybWFuY2UsIG1vZGVybiBBbmRyb2lkIFRWIGxpdmUgdGVsZXZpc2lvbiBzdHJlYW1pbmcgY2xpZW50IGVuZ2luZWVyZWQgd2l0aCBhIDE6MSBUaXZpTWF0ZS1zdHlsZSBVSS9VWCwgYnVpbHQgbmF0aXZlbHkgaW4gS290bGluIGFuZCBBbmRyb2lkWCBNZWRpYTMgKEV4b1BsYXllcikuCgpEZXNpZ25lZCBmb3IgR29vZ2xlIFRWLCBBbmRyb2lkIFRWIHN0cmVhbWluZyBib3hlcywgYW5kIHNtYXJ0IFRWcyB3aXRoIHJlbW90ZS1maXJzdCBELXBhZCBuYXZpZ2F0aW9uLgoKLS0tCgojIyBGZWF0dXJlcwoKLSAqKlRpdmlNYXRlLUdyYWRlIEQtUGFkIE5hdmlnYXRpb24qKjoKICAtIEZ1bGwtZmVhdHVyZWQgY3VzdG9tIGNhbnZhcyBFUEcgZ3JpZCB3aXRoIHNtb290aCA2MGZwcyBzY3JvbGxpbmcsIGxpdmUgdGltZSBpbmRpY2F0b3JzLCBjdXJyZW50LXByb2dyYW0gcHJvZ3Jlc3MgYmFycywgYW5kIGNoYW5uZWwgbG9nbyBjYWNoaW5nLgogIC0gTGVmdCBTbGlkZSBSYWlsIChTZWFyY2gsIFRWLCBSZWNvcmRpbmdzLCBNeSBMaXN0LCBTZXR0aW5ncykuCiAgLSBDYXRlZ29yaXplZCBjaGFubmVsIGJyb3dzaW5nIHdpdGggbXVsdGktZ3JvdXAgZmlsdGVyaW5nIGFuZCBjaGFubmVsIGNvdW50cy4KICAtIFNlYW1sZXNzIGluLWd1aWRlIFZpZGVvIFByZXZpZXcgd2luZG93IHdpdGggemVybyBmbGlja2VyIGFuZCByb3VuZGVkLWNvcm5lciBjb21wb3NpdGlvbi4KICAtIDE6MSBUaXZpTWF0ZSByaWdodC1zaWRlIHNsaWRlLW92ZXIgU2V0dGluZ3MgRHJhd2VyIGNvdmVyaW5nIGFsbCA4IGNvcmUgY29uZmlndXJhdGlvbiBzZWN0aW9ucy4KCi0gKipQbGF5YmFjayAmIEVuZ2luZSoqOgogIC0gUG93ZXJlZCBieSAqKkFuZHJvaWRYIE1lZGlhMyAoRXhvUGxheWVyKSoqIHdpdGggaGFyZHdhcmUgZGVjb2RpbmcgYW5kIGFkYXB0aXZlIEhMUyBzdHJlYW1pbmcuCiAgLSBNdWx0aS1zdHJlYW0gYnVmZmVyIHR1bmluZyAoU21hbGwsIE1lZGl1bSwgTGFyZ2UsIFZlcnkgTGFyZ2UpIGFuZCBhdWRpbyBkZWNvZGVyIGZhbGxiYWNrLgogIC0gQXNwZWN0IHJhdGlvIGNvbnRyb2w6IEF1dG8vRml0LCBGaWxsLCBab29tLCAxNjo5LCA0OjMuCiAgLSBJbi1wbGF5ZXIgcXVpY2stYWNjZXNzIE9TRCAoSW5mbyBiYXIsIENoYW5uZWwgUXVpY2stU3dpdGNoZXIsIEF1ZGlvIHRyYWNrIHNlbGVjdGlvbiwgU3VidGl0bGUgc2VsZWN0aW9uLCBGYXZvcml0ZXMgdG9nZ2xlLCBOdW1iZXIgWmFwKS4KICAtIEJhY2tncm91bmQgc3RyZWFtIHByb3h5IHZpYSBlbWJlZGRlZCBgT25EZXZpY2VTdHJlYW1TZXJ2ZXJgIGZvciBsb2NhbCBtYW5pZmVzdCBwcm94eWluZyBhbmQgYXV0aGVudGljYXRlZCBzdHJlYW0gaGVhZGVycy4KCi0gKipEZXNpZ24gJiBUaGVtaW5nKio6CiAgLSBDdXN0b20gbW9kZXJuIHRoZW1lIHN5c3RlbSAoIkxhZ29vbiIgZGFyayB0ZWFsL2FtYmVyIGRlZmF1bHQsIEFNT0xFRCBkZWVwIGJsYWNrLCBTbGF0ZSBuZXV0cmFsIGRhcmspIHdpdGggNiBzZWxlY3RhYmxlIGFjY2VudCBwYWxldHRlcyAoTGFnb29uLCBFbWJlciwgT3JjaGlkLCBDb3JhbCwgU2t5LCBMaW1lKS4KICAtIEN1c3RvbSB2ZWN0b3IgaWNvbnMgYW5kIExlYW5iYWNrIFRWIGJhbm5lciAobm8gZ2VuZXJpYyBBSSBhc3NldHMpLgogIC0gQWRqdXN0YWJsZSB0eXBvZ3JhcGh5IHNjYWxlIChTbWFsbCwgTWVkaXVtLCBMYXJnZSkuCgotICoqVFYgSW50ZWdyYXRpb24qKjoKICAtIEFuZHJvaWQgVFYgTGVhbmJhY2sgVFYgSW5wdXQgRnJhbWV3b3JrIGludGVncmF0aW9uIChgTGl2ZVR2SW5wdXRTZXJ2aWNlYCwgYExpdmVUdlNldHVwQWN0aXZpdHlgKS4KICAtIFRpdGFuVFYgJiBYTUxUViBFUEcgaW5nZXN0aW9uIHdpdGggcHJvZ3Jlc3NpdmUgc25hcHNob3QgY2FjaGluZy4KCi0tLQoKIyMgQnVpbGRpbmcgZnJvbSBTb3VyY2UKCiMjIyBQcmVyZXF1aXNpdGVzCi0gSkRLIDE3IChgSkFWQV9IT01FYCBwb2ludGluZyB0byBKREsgMTcpCi0gQW5kcm9pZCBTREsgKEFQSSAzNCkKCiMjIyBCdWlsZCBEZWJ1ZyBBUEsKYGBgYmFzaAouL2dyYWRsZXcgOmFwcDphc3NlbWJsZURlYnVnCmBgYAoKT3V0cHV0IEFQSyB3aWxsIGJlIGdlbmVyYXRlZCBhdDoKYGFwcC9idWlsZC9vdXRwdXRzL2Fway9kZWJ1Zy9hcHAtZGVidWcuYXBrYAoKIyMjIEluc3RhbGwgdG8gQW5kcm9pZCBUViBEZXZpY2UgdmlhIEFEQgpgYGBiYXNoCmFkYiBjb25uZWN0IDxERVZJQ0VfSVA+OjU1NTUKYWRiIGluc3RhbGwgLXIgYXBwL2J1aWxkL291dHB1dHMvYXBrL2RlYnVnL2FwcC1kZWJ1Zy5hcGsKYGBgCgotLS0KCiMjIFdoYXQncyBuZXcgaW4gNC4xLjAKCi0gKipEb21haW4gcm90IGZpeGVkLioqIERhZGR5TGl2ZSBtb3ZlZDogYGRsaGQuc3RgIGFuZCBgZGxzdHJlYW1zLnN0YCBub3cgcmVkaXJlY3QgdG8gYHRoZWRhZGR5LnBrYC4gRXZlcnkgdXBzdHJlYW0gZG9tYWluIGxpdmVzIGluIG9uZSBwbGFjZSBub3csIGBTdHJlYW1FbmRwb2ludHMuamF2YWAgKHByaW1hcnkgYHRoZWRhZGR5LnBrYCwgbWlycm9ycyBgZGFkZHlsaXZlLmF0YCwgYGRhZGR5bGl2ZS5hcHBgKSwgc28gdGhlIG5leHQgZG9tYWluIGhvcCBpcyBhIG9uZSBmaWxlIGNoYW5nZS4KLSAqKkxpdmUgY2hhbm5lbCBjYXRhbG9nLioqIFRoZSBidW5kbGVkIGBjaGFubmVscy5tM3VgIHdhcyBhIGZyb3plbiBzbmFwc2hvdCBvZiA1MDkgY2hhbm5lbHMuIFRoZSBhcHAgbm93IGZldGNoZXMgdGhlIGxpdmUgMjQvNyBsaXN0ICg4OTkgY2hhbm5lbHMgd2hlbiB0aGlzIHNoaXBwZWQpLCBtZXJnZXMgbmV3IGNoYW5uZWxzIGludG8gdGhlIGd1aWRlLCBhbmQgY2FjaGVzIHRoZSBsaXN0IGZvciAxMiBob3VycyBzbyBzdGFydHVwIG5ldmVyIHdhaXRzIG9uIHRoZSBuZXR3b3JrLiBUaGUgYnVuZGxlZCBmaWxlIHN0YXlzIGFzIHRoZSBvZmZsaW5lIGZhbGxiYWNrLgotICoqU3Ryb25nZXIgc3RyZWFtIHJlc29sdmVyLioqIEV4dHJhY3Rpb24gZmFsbGJhY2tzIHBvcnRlZCBmcm9tIFtkbGhkLWNsaV0oaHR0cHM6Ly9naXRodWIuY29tL0x1bmF0aWMxNi9kbGhkLWNsaSk6IGRpcmVjdCBgLm0zdThgIHNjYW4sIGdlbmVyaWMgYGF0b2IoKWAgc2NhbiwgYGZpbGU6YCBjb25maWdzLCBwbHVzIDMgdHJpZXMgd2l0aCBleHBvbmVudGlhbCBiYWNrb2ZmIG9uIDV4eC4gUmVzb2x2ZWQgVVJMcyBhcmUgY2FjaGVkIDUgbWludXRlcyBpbnN0ZWFkIG9mIDMwLCBiZWNhdXNlIHRoZSBzdHJlYW1zIGFyZSB0b2tlbml6ZWQgYW5kIHRpbWUtbGltaXRlZC4gTm9uLXBsYXlsaXN0IHJlc3BvbnNlcyBhcmUgcmVqZWN0ZWQgaW5zdGVhZCBvZiBzdGFsbGluZyB0aGUgcGxheWVyLCBhbmQgYSBzZWdtZW50IGxldmVsIDQwMyBub3cgZm9yY2UtcmVmcmVzaGVzIHRoZSBwbGF5bGlzdCB0b2tlbiBhbmQgcmV0cmllcywgbGlrZSB0aGUgbWFuaWZlc3QgcGF0aCBhbHdheXMgZGlkLgotICoqUm91dGUgZmFpbG92ZXIuKiogUGxheWVyIHJldHJpZXMgdXNlZCB0byByZXBsYXkgdGhlIHNhbWUgZGVhZCBVUkwuIFRoZXkgbm93IHN0ZXAgdGhyb3VnaCB0aGUgcmVzb2x2ZXIncyA4IHJvdXRlcyAoaW5jbHVkaW5nIHRoZSBgaHViYCBwbGF5ZXIgYm9ycm93ZWQgZnJvbSBbZGxoZC13ZWJdKGh0dHBzOi8vZ2l0aHViLmNvbS9MdW5hdGljMTYvZGxoZC13ZWIpKSwgYW5kIHRoZSByb3V0ZSB0aGF0IHdvcmtzIGZvciBhIGNoYW5uZWwgaXMgcmVtZW1iZXJlZCBhbmQgdHJpZWQgZmlyc3QgbmV4dCB0aW1lLgotICoqQSByZWFsIERhZGR5TGl2ZSBFUEcgc291cmNlLioqIFRoZSBndWlkZSBub3cgYWxzbyBwdWxscyBbTWlrb3NoaS1ueXVkby9kbGhkXShodHRwczovL2dpdGh1Yi5jb20vTWlrb3NoaS1ueXVkby9kbGhkKSdzIERhZGR5TGl2ZSBYTUxUViwgcmVnZW5lcmF0ZWQgZXZlcnkgMTIgaG91cnMsIHNvIGd1aWRlIGRhdGEgbm8gbG9uZ2VyIGRlcGVuZHMgb25seSBvbiB0aGUgcmV2ZXJzZS1lbmdpbmVlcmVkIFRpdGFuVFYgZ3Vlc3QgZmxvdy4KLSAqKktub3duIGdhcDoqKiBgLmdpdGh1Yi93b3JrZmxvd3MvYnVpbGQueW1sYCAoQ0kpIGlzIGluIHRoZSBsb2NhbCBjb21taXQgYnV0IEdpdEh1YidzIGFwcCBpbnRlZ3JhdGlvbiBjYW5ub3QgY3JlYXRlIHdvcmtmbG93IGZpbGVzOyBhZGQgaXQgb25jZSBmcm9tIGEgcmVndWxhciBnaXQgY2xpZW50IGFuZCBDSSBnb2VzIGxpdmUuCi0gKipTZWdtZW50IGNhY2hlLioqIEEgMjAwIE1CIExSVSBFeG9QbGF5ZXIgY2FjaGUgKHBhdHRlcm4gYm9ycm93ZWQgZnJvbSBTdHJlYW1WYXVsdFgpIHNvIHJlLXphcHBpbmcgYW5kIGd1aWRlIHByZXZpZXdzIGRvIG5vdCByZS1kb3dubG9hZCBsaXZlIHNlZ21lbnRzLgotICoqUmVhbCByZW1pbmRlcnMsIG5vIGZha2UgcmVjb3JkaW5ncy4qKiAiU2V0IHJlbWluZGVyIiBub3cgYWN0dWFsbHkgc2F2ZXMgdGhlIHJlbWluZGVyLCBhcm1zIGl0IGluIEFsYXJtTWFuYWdlciwgcG9zdHMgYSBub3RpZmljYXRpb24gYmVmb3JlIHRoZSBwcm9ncmFtIHN0YXJ0cywgc3Vydml2ZXMgcmVib290cywgYW5kIHRhcHBpbmcgdGhlIG5vdGlmaWNhdGlvbiBvcGVucyB0aGF0IGNoYW5uZWwuIFRoZSBvbGQgIlJlY29yZCIgYWN0aW9uIGFuZCBSZWNvcmRpbmdzIHNjcmVlbiBwcm9taXNlZCByZWNvcmRpbmdzIHRoZSBhcHAgbmV2ZXIgbWFkZSwgc28gdGhleSBhcmUgZ29uZS4KLSAqKlN0cmVhbSBoZWFsdGguKiogU2V0dGluZ3MsIFBsYXliYWNrLCBTdHJlYW0gaGVhbHRoIHNob3dzIHRoZSBsaXZlIHJvdXRlLCBjb2RlYywgcmVzb2x1dGlvbiwgYml0cmF0ZSwgYnVmZmVyLCByZXRyaWVzLCBhbmQgZHJvcHBlZCBmcmFtZXMgZnJvbSB0aGUgcGxheWVyIHdhdGNoZG9nLgotICoqVW5kZXIgdGhlIGhvb2QuKiogTWVkaWEzIDEuNC4xIHRvIDEuOC4wLCBjb21waWxlU2RrIDM1LCBSOCBtaW5pZmljYXRpb24gYW5kIHJlc291cmNlIHNocmlua2luZyBvbiByZWxlYXNlIGJ1aWxkcywgYGFsbG93QmFja3VwYCBvZmYsIHVuaXQgdGVzdHMgZm9yIHRoZSByZXNvbHZlciBhbmQgbGl2ZSBjYXRhbG9nIHBhcnNlciwgYW5kIGEgR2l0SHViIEFjdGlvbnMgd29ya2Zsb3cgdGhhdCBydW5zIHRoZSB0ZXN0cyBhbmQgYnVpbGRzIHRoZSBBUEsgb24gZXZlcnkgcHVzaC4KClBhdHRlcm5zIHZlcmlmaWVkIGFnYWluc3QgdGhlIGxpdmUgRGFkZHlMaXZlIHBsYXllciBvbiAyMDI2LTEwLTMwIHdpdGggUkVBIChSZXZlcnNlIEVuZ2luZWVyIEFueXRoaW5nKTogdGhlIHRva2VuIEFQSSBuZWVkcyB0aGUgbmVzdGVkIHBsYXllciBwYWdlIGFzIFJlZmVyZXIgd2l0aCBpdHMgb3JpZ2luLCB0b2tlbnMgbGl2ZSAxMjAgc2Vjb25kcyBhbmQgcmVuZXcgYXQgaGFsZi1saWZlLCBhbmQgb25seSBtYW5pZmVzdCByZXF1ZXN0cyBjYXJyeSB0aGUgdG9rZW4uCgojIyBMaWNlbnNlCk1JVCBMaWNlbnNlLgo=
+# Live TV for Android TV
+
+A high-performance, modern Android TV live television streaming client engineered with a 1:1 TiviMate-style UI/UX, built natively in Kotlin and AndroidX Media3 (ExoPlayer).
+
+Designed for Google TV, Android TV streaming boxes, and smart TVs with remote-first D-pad navigation.
+
+---
+
+## Features
+
+- **TiviMate-Grade D-Pad Navigation**:
+  - Full-featured custom canvas EPG grid with smooth 60fps scrolling, live time indicators, current-program progress bars, and channel logo caching.
+  - Left Slide Rail (Search, TV, Recordings, My List, Settings).
+  - Categorized channel browsing with multi-group filtering and channel counts.
+  - Seamless in-guide Video Preview window with zero flicker and rounded-corner composition.
+  - 1:1 TiviMate right-side slide-over Settings Drawer covering all 8 core configuration sections.
+
+- **Playback & Engine**:
+  - Powered by **AndroidX Media3 (ExoPlayer)** with hardware decoding and adaptive HLS streaming.
+  - Multi-stream buffer tuning (Small, Medium, Large, Very Large) and audio decoder fallback.
+  - Aspect ratio control: Auto/Fit, Fill, Zoom, 16:9, 4:3.
+  - In-player quick-access OSD (Info bar, Channel Quick-Switcher, Audio track selection, Subtitle selection, Favorites toggle, Number Zap).
+  - Background stream proxy via embedded `OnDeviceStreamServer` for local manifest proxying and authenticated stream headers.
+
+- **Design & Theming**:
+  - Custom modern theme system ("Lagoon" dark teal/amber default, AMOLED deep black, Slate neutral dark) with 6 selectable accent palettes (Lagoon, Ember, Orchid, Coral, Sky, Lime).
+  - Custom vector icons and Leanback TV banner (no generic AI assets).
+  - Adjustable typography scale (Small, Medium, Large).
+
+- **TV Integration**:
+  - Android TV Leanback TV Input Framework integration (`LiveTvInputService`, `LiveTvSetupActivity`).
+  - TitanTV & XMLTV EPG ingestion with progressive snapshot caching.
+
+---
+
+## Building from Source
+
+### Prerequisites
+- JDK 17 (`JAVA_HOME` pointing to JDK 17)
+- Android SDK (API 34)
+
+### Build Debug APK
+```bash
+./gradlew :app:assembleDebug
+```
+
+Output APK will be generated at:
+`app/build/outputs/apk/debug/app-debug.apk`
+
+### Install to Android TV Device via ADB
+```bash
+adb connect <DEVICE_IP>:5555
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+---
+
+## What's new in 4.1.0
+
+- **Domain rot fixed.** DaddyLive moved: `dlhd.st` and `dlstreams.st` now redirect to `thedaddy.pk`. Every upstream domain lives in one place now, `StreamEndpoints.java` (primary `thedaddy.pk`, mirrors `daddylive.at`, `daddylive.app`), so the next domain hop is a one file change.
+- **Live channel catalog.** The bundled `channels.m3u` was a frozen snapshot of 509 channels. The app now fetches the live 24/7 list (899 channels when this shipped), merges new channels into the guide, and caches the list for 12 hours so startup never waits on the network. The bundled file stays as the offline fallback.
+- **Stronger stream resolver.** Extraction fallbacks ported from [dlhd-cli](https://github.com/Lunatic16/dlhd-cli): direct `.m3u8` scan, generic `atob()` scan, `file:` configs, plus 3 tries with exponential backoff on 5xx. Resolved URLs are cached 5 minutes instead of 30, because the streams are tokenized and time-limited. Non-playlist responses are rejected instead of stalling the player, and a segment level 403 now force-refreshes the playlist token and retries, like the manifest path always did.
+- **Route failover.** Player retries used to replay the same dead URL. They now step through the resolver's 8 routes (including the `hub` player borrowed from [dlhd-web](https://github.com/Lunatic16/dlhd-web)), and the route that works for a channel is remembered and tried first next time.
+- **A real DaddyLive EPG source.** The guide now also pulls [Mikoshi-nyudo/dlhd](https://github.com/Mikoshi-nyudo/dlhd)'s DaddyLive XMLTV, regenerated every 12 hours, so guide data no longer depends only on the reverse-engineered TitanTV guest flow.
+## What's new in 4.2.0
+
+- **Decoder fallback ladder** (pattern from [OwnTV_Core](https://github.com/ahXN00/OwnTV_Core)). A decoder failure no longer replays into the same broken decoder: the player climbs a ladder (your preference, then forced software, then forced hardware), rebuilds, and Stream health shows which step it is on.
+- **Catch-up** (pattern from [ondo-iptv](https://github.com/markedoe/ondo-iptv)). A live programme's details now offer "Restart from beginning" and "Back to live", and a past programme offers "Watch from start" while it is still inside the stream's replay window. DaddyLive windows are short (about 30 seconds of segments), so catch-up reaches back minutes, not hours; the app says so plainly when a moment has slid out of the window instead of faking it.
+- **UI polish.** The flat look is gone: main surfaces use a soft vertical gradient, guide channel cards and programme cells get rounder corners with subtle edges, the selected row carries an accent edge, the focused cell gets an accent ring, live programmes show an accent progress tick along the bottom of their cell, and menus, dialogs, and drawers get matching rounded corners, edges, and elevation.
+- Still deliberately not included: OwnTV's libmpv second engine and Ondo's Xtream timeshift modes. DaddyLive streams are not Xtream and carry no timeshift parameters, and libmpv would triple the APK for a fallback the decoder ladder already covers.
+- **Segment cache.** A 200 MB LRU ExoPlayer cache (pattern borrowed from StreamVaultX) so re-zapping and guide previews do not re-download live segments.
+- **Real reminders, no fake recordings.** "Set reminder" now actually saves the reminder, arms it in AlarmManager, posts a notification before the program starts, survives reboots, and tapping the notification opens that channel. The old "Record" action and Recordings screen promised recordings the app never made, so they are gone.
+- **Stream health.** Settings, Playback, Stream health shows the live route, codec, resolution, bitrate, buffer, retries, and dropped frames from the player watchdog.
+- **Under the hood.** Media3 1.4.1 to 1.8.0, compileSdk 35, R8 minification and resource shrinking on release builds, `allowBackup` off, unit tests for the resolver and live catalog parser, and a GitHub Actions workflow that runs the tests and builds the APK on every push.
+
+Patterns verified against the live DaddyLive player on 2026-10-30 with REA (Reverse Engineer Anything): the token API needs the nested player page as Referer with its origin, tokens live 120 seconds and renew at half-life, and only manifest requests carry the token.
+
+## License
+MIT License.

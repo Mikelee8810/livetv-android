@@ -85,7 +85,9 @@ class PlayerOverlay(
         quickListContainer.apply {
             layoutParams = LayoutParams(activity.dpi(360f), LayoutParams.MATCH_PARENT, Gravity.START)
             background = GradientDrawable().apply {
-                setColor(Color.argb(225, 15, 21, 29))
+                setColor(Color.argb(228, 13, 20, 30))
+                cornerRadii = floatArrayOf(0f, 0f, activity.dp(18f), activity.dp(18f), activity.dp(18f), activity.dp(18f), 0f, 0f)
+                setStroke(activity.dpi(1f), Pal.cardEdge)
             }
             visibility = View.GONE
             setPadding(activity.dpi(14f), activity.dpi(16f), activity.dpi(14f), activity.dpi(16f))
@@ -141,7 +143,8 @@ class PlayerOverlay(
             setTextColor(Pal.textDim)
             background = GradientDrawable().apply {
                 setColor(Pal.card)
-                cornerRadius = activity.dp(6f)
+                cornerRadius = activity.dp(10f)
+                setStroke(activity.dpi(1f), Pal.cardEdge)
             }
             visibility = View.GONE
         }

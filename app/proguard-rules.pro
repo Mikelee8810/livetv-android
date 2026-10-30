@@ -1,1 +1,15 @@
-IyBMaXZlIFRWIHJlbGVhc2UgcnVsZXMuCiMgVGhlIGFwcCBpcyBzbWFsbCBhbmQgc2VsZi1jb250YWluZWQ6IGtlZXAgZXZlcnkgYXBwIGNsYXNzIHNvIFI4IGNhbm5vdAojIHN0cmlwIGNvbXBvbmVudHMgdGhlIG1hbmlmZXN0LCB0aGUgVFYgaW5wdXQgZnJhbWV3b3JrLCBvciBOYW5vSFRUUEQKIyByZWFjaCByZWZsZWN0aXZlbHkuCi1rZWVwIGNsYXNzIGNvbS5saXZldHYuYXBwLioqIHsgKjsgfQota2VlcCBjbGFzcyBmaS5pa2kuZWxvbmVuLioqIHsgKjsgfQoKIyBHbGlkZSBnZW5lcmF0ZWQgQVBJIGFuZCBPa0h0dHAgcGxhdGZvcm0gcGx1bWJpbmcuCi1rZWVwIGNsYXNzIGNvbS5idW1wdGVjaC5nbGlkZS5pbnRlZ3JhdGlvbi4qKiB7ICo7IH0KLWRvbnR3YXJuIGNvbS5idW1wdGVjaC5nbGlkZS4qKgotZG9udHdhcm4gb2todHRwMy4qKgotZG9udHdhcm4gb2tpby4qKgotZG9udHdhcm4gb3JnLmNvbnNjcnlwdC4qKgotZG9udHdhcm4gb3JnLmJvdW5jeWNhc3RsZS4qKgotZG9udHdhcm4gb3JnLm9wZW5qc3NlLioqCg==
+# Live TV release rules.
+# The app is small and self-contained: keep every app class so R8 cannot
+# strip components the manifest, the TV input framework, or NanoHTTPD
+# reach reflectively.
+-keep class com.livetv.app.** { *; }
+-keep class fi.iki.elonen.** { *; }
+
+# Glide generated API and OkHttp platform plumbing.
+-keep class com.bumptech.glide.integration.** { *; }
+-dontwarn com.bumptech.glide.**
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-dontwarn org.conscrypt.**
+-dontwarn org.bouncycastle.**
+-dontwarn org.openjsse.**
