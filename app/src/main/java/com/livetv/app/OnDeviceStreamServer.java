@@ -388,9 +388,11 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             int player = (preferred + i) % ROUTES.length;
             try {
                 Resolved res = resolveSingle(id, player);
-                // 5 minutes, not 30: resolved URLs are tokenized and time-limited
-                // (dlhd-cli's own note), so a long cache hands ExoPlayer dead links.
-                RESOLVE_CACHE.put(cacheKey, new CachedResolved(res, System.currentTimeMillis() + 300_000L));
+                // 15 minutes. The playlist token itself is renewed separately
+                // by TokenSession, and a failed manifest fetch drops the cache
+                // entry, so a longer resolve cache is safe and makes zapping
+                // back to a recent channel fast instead of re-walking embeds.
+                RESOLVE_CACHE.put(cacheKey, new CachedResolved(res, System.currentTimeMillis() + 900_000L));
                 return res;
             } catch (Exception e) {
                 lastError = e;

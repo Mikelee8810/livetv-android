@@ -62,6 +62,15 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - **Stronger stream resolver.** Extraction fallbacks ported from [dlhd-cli](https://github.com/Lunatic16/dlhd-cli): direct `.m3u8` scan, generic `atob()` scan, `file:` configs, plus 3 tries with exponential backoff on 5xx. Resolved URLs are cached 5 minutes instead of 30, because the streams are tokenized and time-limited. Non-playlist responses are rejected instead of stalling the player, and a segment level 403 now force-refreshes the playlist token and retries, like the manifest path always did.
 - **Route failover.** Player retries used to replay the same dead URL. They now step through the resolver's 8 routes (including the `hub` player borrowed from [dlhd-web](https://github.com/Lunatic16/dlhd-web)), and the route that works for a channel is remembered and tried first next time.
 - **A real DaddyLive EPG source.** The guide now also pulls [Mikoshi-nyudo/dlhd](https://github.com/Mikoshi-nyudo/dlhd)'s DaddyLive XMLTV, regenerated every 12 hours, so guide data no longer depends only on the reverse-engineered TitanTV guest flow.
+## What's new in 4.2.3
+
+Speed and smoothness, driven by on-device measurements:
+
+- **Hardware decoding first on the Google TV Streamer.** The software AVC decoder could not keep up with HD: the TV's own logs showed dropped frames in bursts of 400+. The app now prefers the MediaTek hardware decoder, and the old freeze risk is covered two ways: the frame watchdog escalates to the other decoder when frames stop, and decoder errors climb the same ladder. Settings > Playback > Video decoder still forces either one.
+- **Faster channel changes.** The guide now pre-resolves the channel you are resting on (the embed walk and token happen in the background), and a resolved channel stays cached for 15 minutes instead of 5, so zapping back is quick.
+- **Calmer startup.** The EPG refresh waits 15 seconds after launch instead of fighting the first playback for CPU with its ~25 MB of downloads.
+- **Bigger live cushion.** Playback now sits 10 seconds behind the live edge (was 8) with a 12-25 second buffer, trading a little latency for far fewer stalls.
+
 ## What's new in 4.2.2
 
 - **The stutter is fixed.** Streams were dying about 25 seconds in, every time: the segment cache added in 4.2.0 also cached the live playlist, so every playlist reload served the same frozen manifest and playback ran off the end of the window. Live HLS no longer goes through a cache at all. On top of that, the retry budget no longer resets the moment a stream recovers (which made the failure loop forever), retries only change route on every second failure, and playback now waits for a solid buffer before starting or resuming.

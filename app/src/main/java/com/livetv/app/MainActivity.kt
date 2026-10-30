@@ -313,6 +313,7 @@ class MainActivity : Activity() {
             }
             onSelection = { item, prog ->
                 updateInfoCard(item, prog)
+                schedulePrewarm(item)
             }
         }
         guideContainer.addView(guideView)
@@ -741,6 +742,37 @@ class MainActivity : Activity() {
             )
         }
         groupsList.submit(rows)
+    }
+
+    // -- channel prewarm -----------------------------------------------------
+    // Resolving a DaddyLive channel walks embed pages and can take 5-15 s.
+    // When focus rests on a guide row for a moment, resolve that channel in
+    // the background so pressing OK starts playback almost immediately.
+    private val prewarmHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var prewarmRunnable: Runnable? = null
+
+    private fun schedulePrewarm(item: Item?) {
+        prewarmRunnable?.let { prewarmHandler.removeCallbacks(it) }
+        prewarmRunnable = null
+        if (item == null) return
+        if (item.key == playerEngine.currentItem?.key) return
+        if (!item.url.startsWith("/")) return
+        val url = "http://127.0.0.1:48913" + item.url
+        val r = Runnable {
+            kotlin.concurrent.thread(name = "prewarm") {
+                try {
+                    val client = okhttp3.OkHttpClient.Builder()
+                        .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                        .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                        .build()
+                    client.newCall(okhttp3.Request.Builder().url(url).build()).execute().use { resp ->
+                        resp.body?.close()
+                    }
+                } catch (e: Exception) { /* prewarm is best-effort */ }
+            }
+        }
+        prewarmRunnable = r
+        prewarmHandler.postDelayed(r, 600)
     }
 
     private fun updateGuideRows() {

@@ -117,8 +117,19 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                     lastObservedPosition = -1L
                     if (stallCheckCount >= 2) {
                         stallCheckCount = 0
-                        // Hard recovery: reload current media item
-                        currentItem?.let { play(it, false) }
+                        // Hard recovery: reload on the OTHER decoder. A decoder
+                        // that stopped rendering rarely recovers by replaying
+                        // into itself; the ladder step flips hardware/software.
+                        currentItem?.let { item ->
+                            decoderEscalation++
+                            decoderEscalationsTotal++
+                            val sv = attachedSurfaceView
+                            val tv = attachedTextureView
+                            val np = initPlayer()
+                            if (sv != null) np.setVideoSurfaceView(sv)
+                            if (tv != null) np.setVideoTextureView(tv)
+                            play(item, false)
+                        }
                     } else {
                         // Soft recovery: seek to live edge
                         p.seekToDefaultPosition()
@@ -165,10 +176,10 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         val loadControl = DefaultLoadControl.Builder().apply {
             val (minBuffer, maxBuffer) = when (prefs.buffer) {
                 "Small" -> Pair(5000, 10000)
-                "Normal" -> Pair(10000, 20000)
+                "Normal" -> Pair(12000, 25000)
                 "Large" -> Pair(15000, 25000)
                 "Very large" -> Pair(20000, 30000)
-                else -> Pair(10000, 20000)
+                else -> Pair(12000, 25000)
             }
             setBufferDurationsMs(
                 minBuffer,
@@ -198,10 +209,17 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                     val isGoogleTvStreamer = Build.MODEL.contains("Google TV Streamer", ignoreCase = true) ||
                                              Build.HARDWARE.contains("mt8696", ignoreCase = true) ||
                                              Build.HARDWARE.contains("mt", ignoreCase = true)
-                    val preferSoftware = when (decoderEscalation % 3) {
-                        1 -> true
-                        2 -> false
-                        else -> prefs.videoDecoder == "Software" || (isGoogleTvStreamer && prefs.videoDecoder != "Hardware")
+                    // Hardware first on the Streamer: its software AVC decoder
+                    // cannot keep up with HD and drops frames in bursts of
+                    // hundreds (measured on device, v4.2.2). The old freeze
+                    // risk is now covered by the frame watchdog and this
+                    // ladder: any decoder failure or freeze escalates to
+                    // software, and an explicit user choice always wins.
+                    val preferSoftware = when {
+                        prefs.videoDecoder == "Software" -> true
+                        prefs.videoDecoder == "Hardware" -> false
+                        isGoogleTvStreamer -> decoderEscalation % 2 == 1
+                        else -> false
                     }
                     if (preferSoftware) {
                         val swDecoders = decoders.filter { it.softwareOnly || it.name.startsWith("c2.android.") || it.name.startsWith("OMX.google.") }
@@ -392,9 +410,9 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
 
         val uri = Uri.parse(streamUrl)
         val liveConfig = MediaItem.LiveConfiguration.Builder()
-            .setTargetOffsetMs(8000L) // 8 seconds target offset
+            .setTargetOffsetMs(10000L) // 10 seconds behind live: more cushion, fewer stalls
             .setMinOffsetMs(4000L)
-            .setMaxOffsetMs(18000L)
+            .setMaxOffsetMs(22000L)
             .setMinPlaybackSpeed(0.98f)
             .setMaxPlaybackSpeed(1.02f)
             .build()
@@ -451,7 +469,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             }
             append("Buffered ahead: ").append(bufferedSec).append("s").append('\n')
             append("Dropped frames this session: ").append(droppedFramesTotal).append('\n')
-            append("Decoder ladder step: ").append(decoderEscalation % 3)
+            append("Decoder ladder step: ").append(decoderEscalation)
                 .append(" (escalations this session: ").append(decoderEscalationsTotal).append(")\n")
             append("Retries this channel: ").append(retryCount)
         }

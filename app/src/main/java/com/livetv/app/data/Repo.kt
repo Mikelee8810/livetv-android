@@ -57,7 +57,9 @@ object Repo {
         // channels at all but we already have some, keep the ones we have.
         val newItems = sortItems(out)
         if (newItems.isNotEmpty() || items.isEmpty()) items = newItems
-        main.post { done?.invoke(); fire(); if (prefs.epgOnStart) refreshEpg() }
+        // EPG waits 15 s: its ~25 MB of downloads and parsing used to fight
+        // the first playback for CPU right at app start.
+        main.post { done?.invoke(); fire(); if (prefs.epgOnStart) main.postDelayed({ if (prefs.epgOnStart) refreshEpg() }, 15000) }
         // Background: refresh the live DaddyLive channel list when its cache
         // is stale, then reload once so new channels appear without a restart.
         thread(name = "live-catalog") {
