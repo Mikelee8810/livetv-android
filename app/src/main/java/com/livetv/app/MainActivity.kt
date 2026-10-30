@@ -178,6 +178,16 @@ class MainActivity : Activity() {
         rootContainer.addView(fullscreenContainer, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
 
         setContentView(rootContainer)
+
+        // Quiet update check a few seconds after start; only speaks up when
+        // a newer GitHub release exists (Settings > Other can turn it off).
+        if (prefs.autoUpdate) {
+            rootContainer.postDelayed({
+                if (!isFinishing && !isDestroyed) {
+                    com.livetv.app.data.Updater.checkAndPrompt(this, manual = false)
+                }
+            }, 6000)
+        }
     }
 
     private fun setupGuideLayout() {
@@ -734,7 +744,14 @@ class MainActivity : Activity() {
     }
 
     private fun updateGuideRows() {
-        val channels = Repo.inGroup(prefs.lastGroup)
+        var channels = Repo.inGroup(prefs.lastGroup)
+        // Never show an empty guide while channels exist: if the remembered
+        // group has nothing in it (catalog refresh, group renamed), fall
+        // back to the full list.
+        if (channels.isEmpty()) {
+            val all = Repo.inGroup(Repo.ALL)
+            if (all.isNotEmpty()) channels = all
+        }
         guideView.rows = channels
         guideView.playingKey = playerEngine.currentItem?.key
     }

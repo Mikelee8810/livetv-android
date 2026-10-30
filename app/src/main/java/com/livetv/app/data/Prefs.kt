@@ -33,6 +33,7 @@ class Prefs(ctx: Context) {
     var epgDescriptions get() = bool("epgDescriptions", true); set(v) = put("epgDescriptions", v)
     var epgIntervalHours get() = int("epgIntervalHours", 0); set(v) = put("epgIntervalHours", v)
     var epgOnStart get() = bool("epgOnStart", true); set(v) = put("epgOnStart", v)
+    var autoUpdate get() = bool("autoUpdate", true); set(v) = put("autoUpdate", v)
     var epgOnPlaylist get() = bool("epgOnPlaylist", true); set(v) = put("epgOnPlaylist", v)
     var epgLastUpdate get() = sp.getLong("epgLastUpdate", 0L); set(v) = put("epgLastUpdate", v)
     var epgLastStatus get() = str("epgLastStatus", "—"); set(v) = put("epgLastStatus", v)

@@ -61,6 +61,11 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     private var decoderEscalation = 0
     private var decoderEscalationsTotal = 0
 
+    // When playback last reached READY. The retry budget only resets after
+    // 30 s of stable playback; resetting on every READY made a stream that
+    // died every ~25 s retry forever (v4.2 stutter loop).
+    private var readySinceMs = 0L
+
     private var attachedSurfaceView: SurfaceView? = null
     private var attachedTextureView: TextureView? = null
 
@@ -81,6 +86,13 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     private val healthCheckRunnable = object : Runnable {
         override fun run() {
             val p = exoPlayer
+            // Forgive past failures only after 30 s of stable playback.
+            if (p != null && retryCount > 0 && readySinceMs > 0L &&
+                android.os.SystemClock.uptimeMillis() - readySinceMs > 30_000L &&
+                p.playbackState == Player.STATE_READY
+            ) {
+                retryCount = 0
+            }
             if (p != null && p.isPlaying && !isBuffering) {
                 val now = android.os.SystemClock.uptimeMillis()
                 val currentPos = p.currentPosition
@@ -161,8 +173,8 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             setBufferDurationsMs(
                 minBuffer,
                 maxBuffer,
-                1500, // bufferForPlaybackMs
-                2500  // bufferForPlaybackAfterRebufferMs
+                2500, // bufferForPlaybackMs: do not start on a sliver of data
+                5000  // bufferForPlaybackAfterRebufferMs: recover solidly
             )
             setPrioritizeTimeOverSizeThresholds(true)
             setBackBuffer(0, false)
@@ -264,7 +276,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                 isPlaying = playbackState == Player.STATE_READY && player.playWhenReady
 
                 if (playbackState == Player.STATE_READY) {
-                    retryCount = 0
+                    readySinceMs = android.os.SystemClock.uptimeMillis()
                     // Remember the route that worked for this channel.
                     currentItem?.let { prefs.put("route_" + it.ch.id, routeAttempt % ROUTE_COUNT) }
                 }
@@ -301,7 +313,9 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                 }
                 if (prefs.autoRetry && retryCount < maxRetries) {
                     retryCount++
-                    routeAttempt++
+                    // A dead segment or token is not a dead route: only move
+                    // to the next route on every second consecutive failure.
+                    if (retryCount % 2 == 0) routeAttempt++
                     Log.i(TAG, "Auto-retrying stream (attempt $retryCount of $maxRetries, route ${routeAttempt % ROUTE_COUNT})...")
                     mainHandler.postDelayed({
                         currentItem?.let { play(it, false) }
@@ -369,17 +383,12 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             .setConnectTimeoutMs(8000)
             .setReadTimeoutMs(15000)
             .setAllowCrossProtocolRedirects(true)
-        // Segment cache borrowed from StreamVaultX (REA-analyzed pattern):
-        // a 200 MB least-recently-used cache in front of the HTTP source, so
-        // re-zapping to a recent channel and guide preview replays do not
-        // re-download segments that are still in the live window.
-        val dataSourceFactory = androidx.media3.datasource.cache.CacheDataSource.Factory()
-            .setCache(mediaCache())
-            .setUpstreamDataSourceFactory(httpFactory)
-            .setFlags(
-                androidx.media3.datasource.cache.CacheDataSource.FLAG_BLOCK_ON_CACHE or
-                    androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR
-            )
+        // No cache in front of live HLS. A CacheDataSource here was the
+        // v4.2 stutter bug: playlist reloads were served the first cached
+        // manifest forever, so playback died at the end of the initial
+        // window (~25 s) and retried in a loop. Live streams must always
+        // fetch the manifest fresh; segments are use-once anyway.
+        val dataSourceFactory: androidx.media3.datasource.DataSource.Factory = httpFactory
 
         val uri = Uri.parse(streamUrl)
         val liveConfig = MediaItem.LiveConfiguration.Builder()
@@ -415,24 +424,6 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         player.prepare()
         player.playWhenReady = true
         onStateChanged?.invoke()
-    }
-
-    @Volatile
-    private var cacheInstance: androidx.media3.datasource.cache.SimpleCache? = null
-
-    private fun mediaCache(): androidx.media3.datasource.cache.SimpleCache {
-        cacheInstance?.let { return it }
-        synchronized(this) {
-            cacheInstance?.let { return it }
-            val dir = java.io.File(context.cacheDir, "media-cache")
-            val created = androidx.media3.datasource.cache.SimpleCache(
-                dir,
-                androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor(200L * 1024L * 1024L),
-                androidx.media3.database.StandaloneDatabaseProvider(context)
-            )
-            cacheInstance = created
-            return created
-        }
     }
 
     /** Plain-language playback diagnostics for Settings > Playback > Stream health. */

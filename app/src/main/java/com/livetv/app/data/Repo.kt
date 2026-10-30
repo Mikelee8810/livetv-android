@@ -53,7 +53,10 @@ object Repo {
             } catch (e: Exception) { emptyList() }
             for (c in chans) out.add(Item(c, pl.id, n++, splitGroups(c.group)))
         }
-        items = sortItems(out)
+        // A bad reload must never blank the guide: if this pass produced no
+        // channels at all but we already have some, keep the ones we have.
+        val newItems = sortItems(out)
+        if (newItems.isNotEmpty() || items.isEmpty()) items = newItems
         main.post { done?.invoke(); fire(); if (prefs.epgOnStart) refreshEpg() }
         // Background: refresh the live DaddyLive channel list when its cache
         // is stale, then reload once so new channels appear without a restart.

@@ -9,8 +9,8 @@ android {
         applicationId = "com.livetv.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 17
-        versionName = "4.2.1"
+        versionCode = 18
+        versionName = "4.2.2"
     }
     buildTypes {
         release {
@@ -18,6 +18,9 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
+    }
+    buildFeatures {
+        buildConfig = true // Updater reads BuildConfig.VERSION_NAME
     }
     testOptions {
         unitTests.isReturnDefaultValues = true

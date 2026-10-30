@@ -62,6 +62,12 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - **Stronger stream resolver.** Extraction fallbacks ported from [dlhd-cli](https://github.com/Lunatic16/dlhd-cli): direct `.m3u8` scan, generic `atob()` scan, `file:` configs, plus 3 tries with exponential backoff on 5xx. Resolved URLs are cached 5 minutes instead of 30, because the streams are tokenized and time-limited. Non-playlist responses are rejected instead of stalling the player, and a segment level 403 now force-refreshes the playlist token and retries, like the manifest path always did.
 - **Route failover.** Player retries used to replay the same dead URL. They now step through the resolver's 8 routes (including the `hub` player borrowed from [dlhd-web](https://github.com/Lunatic16/dlhd-web)), and the route that works for a channel is remembered and tried first next time.
 - **A real DaddyLive EPG source.** The guide now also pulls [Mikoshi-nyudo/dlhd](https://github.com/Mikoshi-nyudo/dlhd)'s DaddyLive XMLTV, regenerated every 12 hours, so guide data no longer depends only on the reverse-engineered TitanTV guest flow.
+## What's new in 4.2.2
+
+- **The stutter is fixed.** Streams were dying about 25 seconds in, every time: the segment cache added in 4.2.0 also cached the live playlist, so every playlist reload served the same frozen manifest and playback ran off the end of the window. Live HLS no longer goes through a cache at all. On top of that, the retry budget no longer resets the moment a stream recovers (which made the failure loop forever), retries only change route on every second failure, and playback now waits for a solid buffer before starting or resuming.
+- **The guide no longer goes blank.** A catalog reload that came back empty, or a remembered channel group that momentarily had nothing in it, could clear the whole guide while the preview kept playing. Empty reloads are now ignored and the guide falls back to the full channel list.
+- **The app can update itself.** Settings > Other > Check for updates compares the installed version against the latest GitHub release, offers the download, and hands the new APK to the system installer. It also checks quietly a few seconds after the app starts - Settings > Other > Auto-check for updates turns that off.
+
 ## What's new in 4.2.1
 
 - **New icon.** The thin TV outline is gone. The app now wears the ON AIR studio sign: a glossy red neon sign in a chrome frame, because that is what the app is.
