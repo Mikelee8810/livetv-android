@@ -79,82 +79,155 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     var onError: ((String) -> Unit)? = null
     var onTracksChanged: (() -> Unit)? = null
 
-    // Health watchdog: detect video freeze, stall, or timeline desync while audio advances
+    // Health watchdog v2 (v4.2.6). The v1 watchdog trusted
+    // VideoFrameMetadataListener as its "frames are rendering" heartbeat.
+    // On the MediaTek hardware decoder that callback goes silent while the
+    // picture is fine, so the watchdog seek-rescued a healthy stream every
+    // few seconds and replayed the buffered seconds in a loop - the exact
+    // symptom it was meant to cure. v2 reads
+    // DecoderCounters.renderedOutputBufferCount, which the renderer
+    // increments for every frame it actually releases for display, and its
+    // recoveries never seek-rescue on MediaTek silicon (Media3 itself
+    // releases rather than flushes c2.mtk decoders): first a re-prepare,
+    // then a rebuild on the other decoder. Production players recover the
+    // same way; none of them nudge-seek.
     private var lastObservedPosition = -1L
     private var stallCheckCount = 0
-    private var lastRenderedFrameTimeMs = 0L
+    @Volatile private var videoCounters: androidx.media3.exoplayer.DecoderCounters? = null
+    private var lastRenderedCount = -1
+    private var lastRenderAdvanceMs = 0L
+    private var positionAtRenderAdvance = -1L
+    private var freezeRecoveries = 0
+
+    private fun resetWatchdogTracking(now: Long) {
+        lastObservedPosition = -1L
+        stallCheckCount = 0
+        lastRenderedCount = -1
+        lastRenderAdvanceMs = now
+        positionAtRenderAdvance = -1L
+    }
+
+    /** Recovery rung 1: re-prepare the same media. No seek, no flush. */
+    private fun reprepare(p: ExoPlayer) {
+        try {
+            p.stop()
+            p.prepare()
+            p.playWhenReady = true
+        } catch (e: Exception) {
+            Log.w(TAG, "Re-prepare failed", e)
+        }
+    }
+
+    /** Recovery rung 2: rebuild the player on the other decoder and replay. */
+    private fun flipDecoderAndReload() {
+        val item = currentItem ?: return
+        decoderEscalation++
+        decoderEscalationsTotal++
+        val sv = attachedSurfaceView
+        val tv = attachedTextureView
+        val np = initPlayer()
+        if (sv != null) np.setVideoSurfaceView(sv)
+        if (tv != null) np.setVideoTextureView(tv)
+        play(item, false)
+    }
+
     private val healthCheckRunnable = object : Runnable {
         override fun run() {
             val p = exoPlayer
+            val now = android.os.SystemClock.uptimeMillis()
             // Forgive past failures only after 30 s of stable playback.
             if (p != null && retryCount > 0 && readySinceMs > 0L &&
-                android.os.SystemClock.uptimeMillis() - readySinceMs > 30_000L &&
+                now - readySinceMs > 30_000L &&
                 p.playbackState == Player.STATE_READY
             ) {
                 retryCount = 0
             }
-            if (p != null && p.isPlaying && !isBuffering) {
-                val now = android.os.SystemClock.uptimeMillis()
-                val currentPos = p.currentPosition
 
-                // 1. Detect timeline desync (negative position or drifting > 25s behind live edge)
-                if (currentPos < 0L || (p.isCurrentMediaItemLive && p.currentLiveOffset > 25000L)) {
-                    Log.w(TAG, "Timeline desync detected (pos=$currentPos, offset=${p.currentLiveOffset})! Re-syncing to live edge...")
-                    stallCheckCount = 0
-                    lastObservedPosition = -1L
-                    lastRenderedFrameTimeMs = now
+            if (p != null && p.playWhenReady && p.playbackState != Player.STATE_IDLE) {
+                val currentPos = p.currentPosition
+                val buffering = p.playbackState == Player.STATE_BUFFERING || isBuffering
+
+                // 1. Timeline desync: the one seek Media3 itself sanctions
+                // for live playback, and it is paired with prepare().
+                if (!buffering && (currentPos < 0L || (p.isCurrentMediaItemLive && p.currentLiveOffset > 25000L))) {
+                    Log.w(TAG, "Timeline desync (pos=$currentPos, offset=${p.currentLiveOffset}); seek + prepare")
+                    resetWatchdogTracking(now)
                     p.seekToDefaultPosition()
+                    p.prepare()
                     mainHandler.postDelayed(this, 1000L)
                     return
                 }
 
-                // 2. Detect video frozen while audio plays:
-                // If stream has video track, but no video frame has been rendered for >= 3.5s
-                if (p.videoFormat != null && lastRenderedFrameTimeMs > 0L && (now - lastRenderedFrameTimeMs) > 3500L) {
-                    stallCheckCount++
-                    Log.w(TAG, "Video freeze detected while audio playing (no frame for ${now - lastRenderedFrameTimeMs}ms, count=$stallCheckCount)! Recovering...")
-                    lastRenderedFrameTimeMs = now
-                    lastObservedPosition = -1L
-                    if (stallCheckCount >= 2) {
-                        stallCheckCount = 0
-                        // Hard recovery: reload on the OTHER decoder. A decoder
-                        // that stopped rendering rarely recovers by replaying
-                        // into itself; the ladder step flips hardware/software.
-                        currentItem?.let { item ->
-                            decoderEscalation++
-                            decoderEscalationsTotal++
-                            val sv = attachedSurfaceView
-                            val tv = attachedTextureView
-                            val np = initPlayer()
-                            if (sv != null) np.setVideoSurfaceView(sv)
-                            if (tv != null) np.setVideoTextureView(tv)
-                            play(item, false)
+                // Rendered-frame tracking, straight from the decoder counters.
+                val counters = videoCounters
+                var rendered = -1
+                if (counters != null) {
+                    counters.ensureUpdated()
+                    rendered = counters.renderedOutputBufferCount
+                }
+                if (rendered >= 0) {
+                    when {
+                        // First read after a reset: establish the baseline.
+                        // This is not proof of life and must not forgive a
+                        // recovery that did not work.
+                        lastRenderedCount == -1 || rendered < lastRenderedCount -> {
+                            lastRenderedCount = rendered
+                            lastRenderAdvanceMs = now
+                            positionAtRenderAdvance = currentPos
+                        }
+                        // Frames genuinely advancing again.
+                        rendered > lastRenderedCount -> {
+                            lastRenderedCount = rendered
+                            lastRenderAdvanceMs = now
+                            positionAtRenderAdvance = currentPos
+                            freezeRecoveries = 0
+                        }
+                        // rendered == lastRenderedCount: the freeze clock runs.
+                    }
+                }
+
+                if (!buffering && p.playbackState == Player.STATE_READY) {
+                    // 2. Frozen video: rendered frames stopped while the
+                    // timeline (audio) keeps moving for a full 7 seconds.
+                    if (p.videoFormat != null && rendered >= 0 && lastRenderedCount >= 0 &&
+                        positionAtRenderAdvance >= 0L &&
+                        now - lastRenderAdvanceMs > 7000L &&
+                        currentPos - positionAtRenderAdvance > 1500L
+                    ) {
+                        freezeRecoveries++
+                        Log.w(TAG, "Video frozen: rendered count stuck at $rendered for ${now - lastRenderAdvanceMs}ms while position advanced; recovery $freezeRecoveries")
+                        resetWatchdogTracking(now)
+                        if (freezeRecoveries >= 2) {
+                            freezeRecoveries = 0
+                            flipDecoderAndReload()
+                        } else {
+                            reprepare(p)
+                        }
+                        mainHandler.postDelayed(this, 1000L)
+                        return
+                    }
+
+                    // 3. Total stall: the position itself is not advancing.
+                    if (lastObservedPosition != -1L && Math.abs(currentPos - lastObservedPosition) < 250L) {
+                        stallCheckCount++
+                        if (stallCheckCount >= 4) {
+                            Log.w(TAG, "Playback stalled at $currentPos; re-preparing")
+                            resetWatchdogTracking(now)
+                            reprepare(p)
+                            mainHandler.postDelayed(this, 1000L)
+                            return
                         }
                     } else {
-                        // Soft recovery: seek to live edge
-                        p.seekToDefaultPosition()
-                    }
-                    mainHandler.postDelayed(this, 1000L)
-                    return
-                }
-
-                // 3. Detect total playback stall (neither audio nor video advancing)
-                if (lastObservedPosition != -1L && Math.abs(currentPos - lastObservedPosition) < 250L) {
-                    stallCheckCount++
-                    if (stallCheckCount >= 3) {
-                        Log.w(TAG, "Video stall detected at position $currentPos! Re-syncing to live edge...")
                         stallCheckCount = 0
-                        lastObservedPosition = -1L
-                        lastRenderedFrameTimeMs = now
-                        p.seekToDefaultPosition()
                     }
+                    lastObservedPosition = currentPos
                 } else {
+                    // Buffering: keep the freeze clock honest, take no action.
+                    lastRenderAdvanceMs = now
                     stallCheckCount = 0
                 }
-                lastObservedPosition = currentPos
             } else {
-                lastRenderedFrameTimeMs = android.os.SystemClock.uptimeMillis()
-                stallCheckCount = 0
+                resetWatchdogTracking(now)
             }
             mainHandler.postDelayed(this, 1000L)
         }
@@ -276,11 +349,23 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             ) {
                 Log.e(TAG, "VIDEO CODEC ERROR: ", videoCodecError)
             }
+            override fun onVideoDecoderInitialized(
+                eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+                decoderName: String,
+                decoderCounters: androidx.media3.exoplayer.DecoderCounters
+            ) {
+                // The watchdog's heartbeat: this counters object is updated
+                // live by the renderer for every frame actually displayed.
+                videoCounters = decoderCounters
+                resetWatchdogTracking(android.os.SystemClock.uptimeMillis())
+                Log.i(TAG, "Video decoder counters captured for $decoderName")
+            }
         })
 
-        player.setVideoFrameMetadataListener { _, _, _, _ ->
-            lastRenderedFrameTimeMs = android.os.SystemClock.uptimeMillis()
-        }
+        // No VideoFrameMetadataListener: on the MediaTek hardware decoder
+        // it goes silent during healthy playback, which is what made the
+        // old watchdog attack good streams. The watchdog reads
+        // DecoderCounters (captured below) instead.
 
         if (attachedTextureView != null) {
             player.setVideoTextureView(attachedTextureView)
@@ -381,9 +466,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             routeAttempt = prefs.int("route_" + item.ch.id, 0)
         }
         currentItem = item
-        stallCheckCount = 0
-        lastObservedPosition = -1L
-        lastRenderedFrameTimeMs = android.os.SystemClock.uptimeMillis()
+        resetWatchdogTracking(android.os.SystemClock.uptimeMillis())
         val player = exoPlayer ?: initPlayer()
 
         var streamUrl = item.url
@@ -635,9 +718,8 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         exoPlayer = null
         isPlaying = false
         isBuffering = false
-        stallCheckCount = 0
-        lastObservedPosition = -1L
-        lastRenderedFrameTimeMs = 0L
+        videoCounters = null
+        resetWatchdogTracking(0L)
     }
 
     data class TrackInfo(
