@@ -160,6 +160,14 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         lastRenderedCount = -1
         lastRenderAdvanceMs = now
         positionAtRenderAdvance = -1L
+        // The net watchdog's clocks live here too. They used to survive
+        // play() and reprepare(), so the position window opened by a
+        // previous session (startPos 35.69 at the live edge) was later
+        // compared against a fresh session's position (10.46) and read
+        // as "stuck" on a healthy player (emulator bench, 2026-10-30).
+        netWindowStartMs = 0L
+        netWindowStartPos = 0L
+        bufferingSinceMs = 0L
     }
 
     /** Recovery rung 1: re-prepare the same media. No seek, no flush. */
@@ -168,6 +176,10 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             p.stop()
             p.prepare()
             p.playWhenReady = true
+            // A re-prepare is a fresh tune: the net watchdog re-gates
+            // on the next first READY, exactly as after play().
+            firstReadyMs = 0L
+            resetWatchdogTracking(android.os.SystemClock.uptimeMillis())
         } catch (e: Exception) {
             Log.w(TAG, "Re-prepare failed", e)
         }
@@ -207,6 +219,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             if (p != null) {
                 if (p.playbackState == Player.STATE_BUFFERING) {
                     if (bufferingSinceMs == 0L) bufferingSinceMs = now
+                    netWindowStartMs = 0L
                 } else {
                     bufferingSinceMs = 0L
                 }
