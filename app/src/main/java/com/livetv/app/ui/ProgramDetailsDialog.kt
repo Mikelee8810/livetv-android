@@ -53,29 +53,37 @@ object ProgramDetailsDialog {
             rows.add(Row(if (live) "Restart from beginning" else "Watch from start", onClick = {
                 val ok = catchUpHandler?.invoke(item, program) ?: false
                 if (!ok) {
-                    Dialogs.message(activity, "Not Available", "That moment has already left this stream's replay window. DaddyLive windows are short, so catch-up only reaches back a few minutes.")
+                    // Audit R3: the old text blamed "DaddyLive" even
+                    // for programmes from other playlists.
+                    Dialogs.message(activity, "Not Available", "That moment has already left this stream's replay window, so catch-up only reaches back a few minutes.")
                 }
             }))
             if (live) {
                 rows.add(Row("Back to live", onClick = { liveHandler?.invoke(item) }))
             }
         }
-        rows.add(
-            Row("Set reminder", onClick = {
-                // Real reminder: saved to Prefs and armed in AlarmManager.
-                // (The old row only showed a success dialog and saved nothing,
-                // and the even older "Record" row promised recordings the app
-                // never made, so it is gone.)
-                val prefs = com.livetv.app.data.Repo.prefs
-                com.livetv.app.data.Reminders.add(
-                    activity, prefs,
-                    com.livetv.app.data.Reminder(
-                        program.start.toEpochMilli(), item.key, item.name, program.title
+        // Audit R1: a reminder for a live or past programme arms an
+        // alarm in the past. Offer it only when the lead time still
+        // lands before the programme starts.
+        val leadMs = com.livetv.app.data.Repo.prefs.remindLeadMinutes * 60_000L
+        if (startMs - leadMs > nowMs) {
+            rows.add(
+                Row("Set reminder", onClick = {
+                    // Real reminder: saved to Prefs and armed in AlarmManager.
+                    // (The old row only showed a success dialog and saved nothing,
+                    // and the even older "Record" row promised recordings the app
+                    // never made, so it is gone.)
+                    val prefs = com.livetv.app.data.Repo.prefs
+                    com.livetv.app.data.Reminders.add(
+                        activity, prefs,
+                        com.livetv.app.data.Reminder(
+                            program.start.toEpochMilli(), item.key, item.name, program.title
+                        )
                     )
-                )
-                Dialogs.message(activity, "Reminder Set", "You will be alerted ${prefs.remindLeadMinutes} minutes before '${program.title}' starts on ${item.name}. Find it under Main Menu, Reminders.")
-            })
-        )
+                    Dialogs.message(activity, "Reminder Set", "You will be alerted ${prefs.remindLeadMinutes} minutes before '${program.title}' starts on ${item.name}. Find it under Main Menu, Reminders.")
+                })
+            )
+        }
 
         Dialogs.menu(activity, program.title, rows, 460f)
     }

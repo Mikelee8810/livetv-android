@@ -103,6 +103,13 @@ object Repo {
         else -> l
     }.mapIndexed { i, it -> Item(it.ch, it.playlistId, i + 1, it.groups) }
 
+    // Local re-sort (audit Se7): a sort-mode change in settings used
+    // to trigger a full network reload of every playlist.
+    fun resort() {
+        items = sortItems(ArrayList(items))
+        fire()
+    }
+
     fun splitGroups(g: String): List<String> =
         (if (prefs.groupsSplitSemicolon) g.split(';') else listOf(g)).map { it.trim() }.filter { it.isNotEmpty() }.ifEmpty { listOf("Uncategorized") }
 

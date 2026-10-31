@@ -925,6 +925,9 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        // Audit Dg1: dialogs are tracked centrally; dismiss them all
+        // so none leak a window past the activity.
+        com.livetv.app.ui.Dialogs.dismissAll()
         Repo.listeners.remove(repoListener)
         ProgramDetailsDialog.catchUpHandler = null
         ProgramDetailsDialog.liveHandler = null

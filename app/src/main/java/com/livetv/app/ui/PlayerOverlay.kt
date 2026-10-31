@@ -5,7 +5,9 @@ import android.animation.AnimatorListenerAdapter
 import android.app.Activity
 import android.content.Context
 import android.graphics.Color
+import android.graphics.drawable.ClipDrawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
@@ -67,6 +69,17 @@ class PlayerOverlay(
     var isQuickListVisible = false; private set
 
     private val hideBottomRunnable = Runnable { hideBottomBar() }
+    // Audit P8: with no auto-hide (playerInfoSeconds == 0) the info
+    // bar never refreshed; this keeps it live while visible.
+    private val infoRefreshRunnable = object : Runnable {
+        override fun run() {
+            if (isBottomBarVisible) {
+                updateContent()
+                mainHandler.postDelayed(this, 30_000L)
+            }
+        }
+    }
+    private var lastZapMs = 0L
 
     init {
         // 1. Quick Channel List (Left slide panel)
@@ -242,9 +255,21 @@ class PlayerOverlay(
                 it.topMargin = activity.dpi(4f)
                 it.bottomMargin = activity.dpi(8f)
             }
-            progressDrawable = GradientDrawable().apply {
+            // Audit P5: a plain GradientDrawable as progressDrawable
+            // fills the whole bar regardless of progress. Layer a
+            // clipped accent fill over the track instead.
+            val track = GradientDrawable().apply {
                 setColor(Pal.card)
                 cornerRadius = activity.dp(2f)
+            }
+            val fill = GradientDrawable().apply {
+                setColor(Pal.accent)
+                cornerRadius = activity.dp(2f)
+            }
+            val clipped = ClipDrawable(fill, Gravity.START, ClipDrawable.HORIZONTAL)
+            progressDrawable = LayerDrawable(arrayOf(track, clipped)).apply {
+                setId(0, android.R.id.background)
+                setId(1, android.R.id.progress)
             }
             progress = 35
         }
@@ -369,27 +394,39 @@ class PlayerOverlay(
 
     fun showBottomBar() {
         mainHandler.removeCallbacks(hideBottomRunnable)
+        // Audit P2: cancel a fade-out already in flight, or its end
+        // listener hides the bar we are trying to show.
+        bottomBar.animate().cancel()
         updateContent()
         if (!isBottomBarVisible) {
             bottomBar.visibility = View.VISIBLE
             bottomBar.alpha = 0f
             bottomBar.animate().alpha(1f).setDuration(160).setListener(null).start()
             isBottomBarVisible = true
+        } else {
+            bottomBar.alpha = 1f
         }
         val timeout = prefs.playerInfoSeconds * 1000L
         if (timeout > 0) {
             mainHandler.postDelayed(hideBottomRunnable, timeout)
+        } else {
+            // No auto-hide: refresh the info periodically instead.
+            mainHandler.removeCallbacks(infoRefreshRunnable)
+            mainHandler.postDelayed(infoRefreshRunnable, 30_000L)
         }
     }
 
     fun hideBottomBar() {
         mainHandler.removeCallbacks(hideBottomRunnable)
+        mainHandler.removeCallbacks(infoRefreshRunnable)
         if (isBottomBarVisible) {
             bottomBar.animate().alpha(0f).setDuration(160).setListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
                     bottomBar.visibility = View.GONE
                     isBottomBarVisible = false
-                    requestFocus()
+                    // Audit P1: do not steal focus back when the
+                    // quick list is (or is becoming) visible.
+                    if (!isQuickListVisible) requestFocus()
                 }
             }).start()
         }
@@ -569,8 +606,25 @@ class PlayerOverlay(
         mainHandler.postDelayed(zapRunnable, 1600L)
     }
 
+    // Audit P7: no callbacks or animations outlive the view.
+    override fun onDetachedFromWindow() {
+        mainHandler.removeCallbacks(hideBottomRunnable)
+        mainHandler.removeCallbacks(infoRefreshRunnable)
+        mainHandler.removeCallbacks(zapRunnable)
+        bottomBar.animate().cancel()
+        quickListContainer.animate().cancel()
+        super.onDetachedFromWindow()
+    }
+
     fun onKey(code: Int, event: KeyEvent): Boolean {
         if (event.action != KeyEvent.ACTION_DOWN) return false
+
+        // Audit P3: a HELD OK / play-pause key used to toggle at
+        // repeat rate. Swallow repeats of the momentary keys.
+        if (event.repeatCount > 0 && (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER ||
+                code == KeyEvent.KEYCODE_NUMPAD_ENTER || code == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)) {
+            return true
+        }
 
         // Handle number keys (0..9)
         if (code in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9) {
@@ -646,9 +700,12 @@ class PlayerOverlay(
                 return true
             }
             KeyEvent.KEYCODE_DPAD_LEFT -> {
+                // Audit P4: every option string the settings drawer
+                // offers is handled by name (no silent else drift).
                 when (prefs.playerLeft) {
                     "TV Guide" -> onExitFullscreen()
                     "Program info" -> showBottomBar()
+                    "Channel list" -> showQuickList()
                     else -> showQuickList()
                 }
                 return true
@@ -657,6 +714,7 @@ class PlayerOverlay(
                 when (prefs.playerRight) {
                     "TV Guide" -> onExitFullscreen()
                     "Channel list" -> showQuickList()
+                    "Program info" -> showBottomBar()
                     else -> showBottomBar()
                 }
                 return true
@@ -689,11 +747,19 @@ class PlayerOverlay(
     }
 
     private fun switchChannelDelta(delta: Int) {
+        // Audit P3: debounce held up/down so a held key does not
+        // fire a burst of channel changes.
+        val nowMs = System.currentTimeMillis()
+        if (nowMs - lastZapMs < 300L) return
+        lastZapMs = nowMs
         val items = Repo.visibleItems()
         if (items.isEmpty()) return
         val cur = playerEngine.currentItem
         val idx = items.indexOfFirst { it.key == cur?.key }
-        var next = if (idx >= 0) idx + delta else 0
+        // Audit P8: current channel not in the visible list used to
+        // land on 0 in BOTH directions; Down goes to the first,
+        // Up to the last.
+        var next = if (idx >= 0) idx + delta else if (delta < 0) items.size - 1 else 0
         if (prefs.channelWrap) {
             next = (next + items.size) % items.size
         } else {

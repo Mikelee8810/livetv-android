@@ -51,8 +51,14 @@ class ListPanel(ctx: Context) : RecyclerView(ctx) {
     }
 
     fun submit(r: List<Row>, focusIndex: Int = -1) {
+        // Audit L1: with no explicit focus index, keep focus on the
+        // row position that had it. Callers that re-submit after an
+        // action (quick list, settings toggles) used to lose focus
+        // to nowhere.
+        val prevFocus = if (focusIndex < 0) focusedIndex() else -1
         rows = r; adapter!!.notifyDataSetChanged()
         if (focusIndex >= 0) focusRow(focusIndex)
+        else if (prevFocus in r.indices) focusRow(prevFocus)
     }
     fun update(index: Int, r: Row) { rows = rows.toMutableList().also { it[index] = r }; adapter!!.notifyItemChanged(index) }
     fun focusRow(i: Int) {
@@ -117,7 +123,9 @@ class RowView(ctx: Context) : LinearLayout(ctx) {
 
     fun bind(r: Row, scale: Float, minH: Float, onFocus: () -> Unit) {
         row = r; focusCb = onFocus; accentTitle = r.accentTitle; dim = r.dim
-        isFocusable = r.kind == Kind.ITEM && (r.onClick != null || r.checked != null || r.onLong != null || r.sub != null || r.value != null || true)
+        // Audit L2: the trailing "|| true" made EVERY item row
+        // focusable, including inert info rows that trap D-pad focus.
+        isFocusable = r.kind == Kind.ITEM && (r.onClick != null || r.checked != null || r.onLong != null || r.sub != null || r.value != null)
         if (r.kind == Kind.HEADER) isFocusable = false
         minimumHeight = dpi(if (r.kind == Kind.HEADER) 36f else if (r.kind == Kind.SPACER) 12f else minH)
         val s = scale

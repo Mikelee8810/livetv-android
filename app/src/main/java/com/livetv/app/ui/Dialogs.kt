@@ -2,6 +2,7 @@ package com.livetv.app.ui
 
 import android.app.Activity
 import android.app.Dialog
+import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
@@ -12,14 +13,31 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import com.livetv.app.R
+import java.util.Collections
+import java.util.WeakHashMap
 
 /** Centered modal card used for choices, text input, confirmation and PIN entry. */
 object Dialogs {
+    // Audit Dg1: open dialogs are tracked so MainActivity can dismiss
+    // them all on destroy instead of leaking windows.
+    private val openDialogs: MutableSet<Dialog> = Collections.newSetFromMap(WeakHashMap())
+
+    fun dismissAll() {
+        openDialogs.toList().forEach { d -> try { d.dismiss() } catch (e: Exception) { } }
+    }
+
+    private fun Dialog.safeShow(a: Activity) {
+        // Audit Dg1: never show into a finishing/destroyed activity.
+        if (!a.isFinishing && !a.isDestroyed) show()
+    }
+
     private fun shell(a: Activity, title: String, widthDp: Float = 380f, content: (LinearLayout, Dialog) -> Unit): Dialog {
         val d = Dialog(a, android.R.style.Theme_Translucent_NoTitleBar)
         val root = FrameLayout(a).apply { setBackgroundColor(Pal.scrim) }
@@ -35,6 +53,8 @@ object Dialogs {
         content(card, d)
         d.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         d.window?.setLayout(-1, -1)
+        openDialogs.add(d)
+        d.setOnDismissListener { openDialogs.remove(d) }
         return d
     }
 
@@ -46,7 +66,7 @@ object Dialogs {
             card.addView(lp, LinearLayout.LayoutParams(-1, minOf(a.dpi(44f) * options.size + a.dpi(8f), a.dpi(340f))))
             lp.post { lp.focusRow(selected.coerceAtLeast(0)) }
         }
-        d.show()
+        d.safeShow(a)
     }
 
     fun menu(a: Activity, title: String, rows: List<Row>, widthDp: Float = 380f) {
@@ -57,7 +77,7 @@ object Dialogs {
             card.addView(lp, LinearLayout.LayoutParams(-1, minOf(a.dpi(46f) * wrapped.size + a.dpi(8f), a.dpi(360f))))
             lp.post { lp.focusRow(wrapped.indexOfFirst { it.kind == Kind.ITEM }.coerceAtLeast(0)) }
         }
-        dlg.show()
+        dlg?.safeShow(a)
     }
 
     fun input(a: Activity, title: String, initial: String = "", hint: String = "", password: Boolean = false, onOk: (String) -> Unit) {
@@ -71,14 +91,20 @@ object Dialogs {
                 setPadding(a.dpi(14f), a.dpi(10f), a.dpi(14f), a.dpi(10f))
             }
             card.addView(et, LinearLayout.LayoutParams(-1, -2))
-            val ok = { dlg.dismiss(); onOk(et.text.toString().trim()) }
+            // Audit Dg3: the soft keyboard was never dismissed, so it
+            // stayed up over the UI after the dialog closed.
+            val hideIme = {
+                val imm = a.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                imm?.hideSoftInputFromWindow(et.windowToken, 0)
+            }
+            val ok = { hideIme(); dlg.dismiss(); onOk(et.text.toString().trim()) }
             et.setOnEditorActionListener { _, _, _ -> ok(); true }
             val lp = ListPanel(a)
-            lp.submit(listOf(Row("OK", accentTitle = true, onClick = { ok() }), Row("Cancel", onClick = { dlg.dismiss() })))
+            lp.submit(listOf(Row("OK", accentTitle = true, onClick = { ok() }), Row("Cancel", onClick = { hideIme(); dlg.dismiss() })))
             card.addView(lp, LinearLayout.LayoutParams(-1, a.dpi(100f)).also { it.topMargin = a.dpi(10f) })
         }
         d.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
-        d.show()
+        d.safeShow(a)
     }
 
     fun confirm(a: Activity, title: String, message: String, yes: String = "OK", onYes: () -> Unit) {
@@ -89,17 +115,30 @@ object Dialogs {
             card.addView(lp, LinearLayout.LayoutParams(-1, a.dpi(100f)))
             lp.post { lp.focusRow(1) }
         }
-        d.show()
+        d.safeShow(a)
     }
 
     fun message(a: Activity, title: String, message: String) {
         val d = shell(a, title) { card, dlg ->
-            card.addView(TextView(a).apply { text = message; textSize = 16f * Fonts.scale; setTextColor(Pal.textDim); setPadding(a.dpi(8f), 0, a.dpi(8f), a.dpi(12f)) })
+            // Audit Dg2: long messages were unscrollable and pushed
+            // the OK row off screen. Cap the text at 70% of the
+            // display height inside a ScrollView.
+            val tv = TextView(a).apply { text = message; textSize = 16f * Fonts.scale; setTextColor(Pal.textDim); setPadding(a.dpi(8f), 0, a.dpi(8f), a.dpi(12f)) }
+            val sv = ScrollView(a).apply { addView(tv) }
+            card.addView(sv, LinearLayout.LayoutParams(-1, -2))
+            val cap = (a.resources.displayMetrics.heightPixels * 0.7f).toInt()
+            sv.post {
+                if (sv.height > cap) {
+                    val lp2 = sv.layoutParams
+                    lp2.height = cap
+                    sv.layoutParams = lp2
+                }
+            }
             val lp = ListPanel(a); lp.submit(listOf(Row("OK", accentTitle = true, onClick = { dlg.dismiss() })))
             card.addView(lp, LinearLayout.LayoutParams(-1, a.dpi(54f)))
             lp.post { lp.focusRow(0) }
         }
-        d.show()
+        d.safeShow(a)
     }
 
     /** PIN entry: Up/Down changes a digit, Left/Right moves, OK confirms. Number keys also work. */
@@ -131,6 +170,6 @@ object Dialogs {
                 else -> false
             }
         }
-        dlg.show()
+        dlg.safeShow(a)
     }
 }
