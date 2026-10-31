@@ -3,6 +3,7 @@ package com.livetv.app.ui
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.*
+import android.text.TextPaint
 import android.text.TextUtils
 import android.view.KeyEvent
 import android.view.View
@@ -62,7 +63,8 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
     private fun rowDp() = when (prefs.guideRowSize) { "Small" -> 34f; "Large" -> 44f; else -> 39f }
 
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val tp = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Fonts.regular }
+    // TextPaint (a Paint subclass) so TextUtils.ellipsize accepts it.
+    private val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Fonts.regular }
     // Audit G2: onDraw used to allocate a RectF/Path per row and
     // per cell on every frame; these scratch shapes are reused.
     private val chanRect = RectF()
@@ -320,7 +322,7 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
 
     private fun initials(n: String) = n.split(' ', '-', '(').filter { it.isNotEmpty() && it[0].isLetterOrDigit() }.take(2).joinToString("") { it.take(1).uppercase() }
     @Suppress("FunctionName")
-    private fun TextUtils_ellipsize(s: String, paint: Paint, w: Float): String {
+    private fun TextUtils_ellipsize(s: String, paint: TextPaint, w: Float): String {
         // Audit G2: the old hand loop re-measured the string once
         // per character (quadratic per cell per frame). The platform
         // ellipsize binary-searches instead.
