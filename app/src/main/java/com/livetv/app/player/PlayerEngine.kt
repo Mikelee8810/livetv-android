@@ -147,6 +147,12 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     // now a first-class trigger.
     private var bufferingSinceMs = 0L
     private var consecutiveNetRecoveries = 0
+    // Uptime of the first STATE_READY since the last play() call. The
+    // net watchdog below is gated on it: before the first frame, long
+    // buffering is a slow tune, not a stuck stream, and resetting the
+    // tune is what turned 20 s of startup buffering into a 44 s first
+    // frame on device (2026-10-30).
+    private var firstReadyMs = 0L
 
     private fun resetWatchdogTracking(now: Long) {
         lastObservedPosition = -1L
@@ -154,6 +160,14 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         lastRenderedCount = -1
         lastRenderAdvanceMs = now
         positionAtRenderAdvance = -1L
+        // The net watchdog's clocks live here too. They used to survive
+        // play() and reprepare(), so the position window opened by a
+        // previous session (startPos 35.69 at the live edge) was later
+        // compared against a fresh session's position (10.46) and read
+        // as "stuck" on a healthy player (emulator bench, 2026-10-30).
+        netWindowStartMs = 0L
+        netWindowStartPos = 0L
+        bufferingSinceMs = 0L
     }
 
     /** Recovery rung 1: re-prepare the same media. No seek, no flush. */
@@ -162,6 +176,10 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             p.stop()
             p.prepare()
             p.playWhenReady = true
+            // A re-prepare is a fresh tune: the net watchdog re-gates
+            // on the next first READY, exactly as after play().
+            firstReadyMs = 0L
+            resetWatchdogTracking(android.os.SystemClock.uptimeMillis())
         } catch (e: Exception) {
             Log.w(TAG, "Re-prepare failed", e)
         }
@@ -201,6 +219,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             if (p != null) {
                 if (p.playbackState == Player.STATE_BUFFERING) {
                     if (bufferingSinceMs == 0L) bufferingSinceMs = now
+                    netWindowStartMs = 0L
                 } else {
                     bufferingSinceMs = 0L
                 }
@@ -240,15 +259,25 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                 // of this check cares whether the state is READY or
                 // BUFFERING, which is the point: the trap lives in the
                 // gap between the two.
-                if (now - playbackStartMs > 25000L && now - lastNetRecoveryMs > 60000L) {
-                    var stuck = bufferingSinceMs > 0L && now - bufferingSinceMs > 20000L
-                    if (netWindowStartMs == 0L) {
-                        netWindowStartMs = now
-                        netWindowStartPos = currentPos
-                    } else if (now - netWindowStartMs >= 20000L) {
-                        if (currentPos - netWindowStartPos < 2000L) stuck = true
-                        netWindowStartMs = now
-                        netWindowStartPos = currentPos
+                if (firstReadyMs == 0L && p.playbackState == Player.STATE_READY) {
+                    firstReadyMs = now
+                }
+                if (firstReadyMs > 0L && now - lastNetRecoveryMs > 60000L) {
+                    // 45 s, not 20: the live window itself is ~36 s, so
+                    // a stall the seat can absorb legitimately buffers
+                    // for tens of seconds. The net exists for the
+                    // loader-stuck state (BUFFERING for 87 s while the
+                    // loader sat idle), not for slow segments.
+                    var stuck = bufferingSinceMs > 0L && now - bufferingSinceMs > 45000L
+                    if (!buffering && p.playbackState == Player.STATE_READY) {
+                        if (netWindowStartMs == 0L) {
+                            netWindowStartMs = now
+                            netWindowStartPos = currentPos
+                        } else if (now - netWindowStartMs >= 20000L) {
+                            if (currentPos - netWindowStartPos < 2000L) stuck = true
+                            netWindowStartMs = now
+                            netWindowStartPos = currentPos
+                        }
                     }
                     if (stuck) {
                         consecutiveNetRecoveries++
@@ -266,9 +295,8 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                             consecutiveNetRecoveries = 0
                             play(currentItem!!, false)
                         } else {
-                            Log.w(TAG, "Stuck stream; net recovery #$consecutiveNetRecoveries, re-syncing to live edge")
-                            p.seekToDefaultPosition()
-                            p.prepare()
+                            Log.w(TAG, "Stuck stream; net recovery #$consecutiveNetRecoveries, re-preparing")
+                            reprepare(p)
                         }
                         mainHandler.postDelayed(this, 1000L)
                         return
@@ -283,11 +311,11 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                 // prepare just churns the recovery (seen on device,
                 // 2026-10-30).
                 if (!buffering && now - playbackStartMs > 12000L &&
-                    (currentPos < 0L || (p.isCurrentMediaItemLive && p.currentLiveOffset > 25000L))) {
-                    Log.w(TAG, "Timeline desync (pos=$currentPos, offset=${p.currentLiveOffset}); seek + prepare")
+                    p.isCurrentMediaItemLive && p.currentLiveOffset != C.TIME_UNSET &&
+                    p.currentLiveOffset > 25000L) {
+                    Log.w(TAG, "Live offset too large (offset=${p.currentLiveOffset}); seeking to default position")
                     resetWatchdogTracking(now)
                     p.seekToDefaultPosition()
-                    p.prepare()
                     mainHandler.postDelayed(this, 1000L)
                     return
                 }
@@ -622,6 +650,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         rebufferTimesMs.clear()
         lastPlayState = -1
         playbackStartMs = android.os.SystemClock.uptimeMillis()
+        firstReadyMs = 0L
         resetWatchdogTracking(playbackStartMs)
         val player = exoPlayer ?: initPlayer()
 
@@ -655,16 +684,17 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
 
         val uri = Uri.parse(streamUrl)
         val liveConfig = MediaItem.LiveConfiguration.Builder()
-            // DaddyLive windows measure ~36 s on device (about 6 segments)
-            // and the edge publishes in bursts while delivering segments
-            // at roughly real-time speed per connection. The only safe
-            // seat in that window is its back: a ~28 s target offset keeps
-            // ~5 segments of cushion against publisher stalls and slow
-            // fetches. The 10-18 s targets of earlier builds left 1-3
-            // segments of runway and starved on any hiccup.
-            .setTargetOffsetMs(28000L)
-            .setMinOffsetMs(20000L)
-            .setMaxOffsetMs(34000L)
+            // DaddyLive windows measure ~36 s on device (about 6
+            // segments). The offset is measured from the live EDGE, so
+            // the slack that keeps the playhead from being evicted off
+            // the back of the window is window minus offset. A 28 s
+            // offset left only ~6-8 s of that slack and one slow
+            // segment killed playback with BEHIND_LIVE_WINDOW 12 s in
+            // (2026-10-30). A ~16 s target leaves ~20 s of eviction
+            // slack; a stall then costs a rebuffer, not the stream.
+            .setTargetOffsetMs(16000L)
+            .setMinOffsetMs(10000L)
+            .setMaxOffsetMs(30000L)
             .setMinPlaybackSpeed(0.97f)
             .setMaxPlaybackSpeed(1.05f)
             .build()

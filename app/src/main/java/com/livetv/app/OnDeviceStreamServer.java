@@ -154,7 +154,10 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
         // than wait out the manifest retry policy (3 attempts, backoff
         // sleeps, 12 s reads - up to ~38 s for one segment, which drains
         // any buffer and reads on screen as a long freeze).
-        this.segmentClient = new OkHttpClient.Builder().connectTimeout(5L, TimeUnit.SECONDS).readTimeout(8L, TimeUnit.SECONDS).followRedirects(true).build();
+        okhttp3.Dispatcher segDispatcher = new okhttp3.Dispatcher();
+        segDispatcher.setMaxRequests(32);
+        segDispatcher.setMaxRequestsPerHost(12);
+        this.segmentClient = new OkHttpClient.Builder().connectTimeout(5L, TimeUnit.SECONDS).readTimeout(8L, TimeUnit.SECONDS).followRedirects(true).dispatcher(segDispatcher).build();
     }
 
     public static synchronized OnDeviceStreamServer ensureStarted() throws Exception {
@@ -532,14 +535,66 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             }
             java.util.regex.Matcher seqM = java.util.regex.Pattern.compile("#EXT-X-MEDIA-SEQUENCE:(\\d+)").matcher(manifestBody);
             Log.i("LiveProxyAudit", "manifest served id=" + id + " seq=" + (seqM.find() ? seqM.group(1) : "?"));
+            // Synthetic PDT for the first segment of this playlist.
+            String pdtLine = null;
+            if (id != null) {
+                java.util.regex.Matcher seqM2 = java.util.regex.Pattern.compile("#EXT-X-MEDIA-SEQUENCE:(\\d+)").matcher(manifestBody);
+                if (seqM2.find()) {
+                    int firstSeq = Integer.parseInt(seqM2.group(1));
+                    java.util.List<Double> durs = new ArrayList<>();
+                    for (String rawLine : manifestBody.split("\\r?\\n")) {
+                        String t = rawLine.trim();
+                        if (t.startsWith("#EXTINF:")) {
+                            try {
+                                durs.add(Double.parseDouble(t.substring(8, t.indexOf(','))));
+                            } catch (Exception ignored) {
+                            }
+                        }
+                    }
+                    if (!durs.isEmpty()) {
+                        String key = id + ":" + player;
+                        Map<Integer, Double> known = SEG_DURATIONS.computeIfAbsent(key, k -> new ConcurrentHashMap<>());
+                        for (int i = 0; i < durs.size(); i++) {
+                            known.put(firstSeq + i, durs.get(i));
+                        }
+                        known.keySet().removeIf(s -> s < firstSeq - 120);
+                        double totalDur = 0;
+                        for (double d : durs) totalDur += d;
+                        long nowMs = System.currentTimeMillis();
+                        long liveEdgeStartMs = nowMs - Math.round((totalDur - durs.get(0)) * 1000.0);
+                        long[] anchor = PDT_ANCHOR.get(key);
+                        if (anchor == null || firstSeq < anchor[1]) {
+                            anchor = new long[]{liveEdgeStartMs, firstSeq};
+                            PDT_ANCHOR.put(key, anchor);
+                        }
+                        double acc = 0;
+                        for (long s = anchor[1]; s < firstSeq; s++) {
+                            Double d = known.get((int) s);
+                            acc += (d != null ? d : durs.get(0));
+                        }
+                        long firstSegStartMs = anchor[0] + Math.round(acc * 1000.0);
+                        if (Math.abs(firstSegStartMs - liveEdgeStartMs) > 45000L) {
+                            anchor = new long[]{liveEdgeStartMs, firstSeq};
+                            PDT_ANCHOR.put(key, anchor);
+                            firstSegStartMs = liveEdgeStartMs;
+                        }
+                        pdtLine = "#EXT-X-PROGRAM-DATE-TIME:" + isoUtc(firstSegStartMs);
+                    }
+                }
+            }
             String base = effectiveUrl.substring(0, effectiveUrl.lastIndexOf('/') + 1);
             Pattern uriAttr = Pattern.compile("URI=\"([^\"]+)\"");
             StringBuilder output = new StringBuilder();
             List<String> segmentUrls = new ArrayList<>();
+            boolean pdtEmitted = false;
             for (String raw : manifestBody.split("\\r?\\n")) {
                 String line = raw.trim();
                 if (line.startsWith("#EXT-X-PROGRAM-DATE-TIME")) {
-                    continue; // Strip to prevent upstream wallclock drift from desyncing ExoPlayer's live timeline
+                    continue; // Upstream PDT drifts in bursts; replaced by the synthetic one below
+                }
+                if (pdtLine != null && !pdtEmitted && line.startsWith("#EXTINF:")) {
+                    output.append(pdtLine).append('\n');
+                    pdtEmitted = true;
                 }
                 if (line.contains("URI=\"")) {
                     Matcher key = uriAttr.matcher(line);
@@ -590,6 +645,23 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
     // position would plunge negative and never recover. Session state
     // is therefore never discarded on a manifest failure, and the
     // player rides out the failure on the last good playlist.
+    // Synthetic program-date-time state, per channel+route. The
+    // upstream PDT cannot be trusted (it advances in bursts, up to
+    // 1.25x wall clock), but stripping PDT entirely leaves Media3
+    // with no live offset at all: currentLiveOffset stayed TIME_UNSET
+    // on device, which disabled both the live-offset logic and the
+    // live playback speed control. So the proxy synthesizes a PDT
+    // from the media sequence and the real EXTINF durations it has
+    // served: monotonic, media-accurate, wall-clock anchored once.
+    private static final Map<String, long[]> PDT_ANCHOR = new ConcurrentHashMap<>();
+    private static final Map<String, Map<Integer, Double>> SEG_DURATIONS = new ConcurrentHashMap<>();
+
+    private static String isoUtc(long ms) {
+        java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US);
+        f.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+        return f.format(new java.util.Date(ms));
+    }
+
     private static final Map<String, String> LAST_GOOD_MANIFEST = new ConcurrentHashMap<>();
     private static final Map<String, Long> LAST_GOOD_MANIFEST_AT = new ConcurrentHashMap<>();
 
@@ -757,29 +829,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             // No usable HEAD: fall through to the range-probe flow.
         }
         if (total > CHUNK_SIZE) {
-            int chunkCount = (int) ((total + CHUNK_SIZE - 1) / CHUNK_SIZE);
-            byte[][] parts = new byte[chunkCount][];
-            List<java.util.concurrent.Future<?>> futures = new ArrayList<>();
-            for (int i = 0; i < chunkCount; i++) {
-                final int idx = i;
-                final long chunkStart = (long) i * CHUNK_SIZE;
-                final long chunkEnd = Math.min(total - 1L, chunkStart + CHUNK_SIZE - 1L);
-                futures.add(pool.submit(() -> {
-                    parts[idx] = fetchChunk(url, referer, chunkStart, chunkEnd);
-                    return null;
-                }));
-            }
-            for (java.util.concurrent.Future<?> f : futures) {
-                f.get(40L, TimeUnit.SECONDS);
-            }
-            ByteArrayOutputStream out = new ByteArrayOutputStream((int) total);
-            for (byte[] part : parts) {
-                if (part == null) {
-                    throw new Exception("segment chunk missing");
-                }
-                out.write(part);
-            }
-            return out.toByteArray();
+            return collectChunks(url, referer, pool, total, null);
         }
         // Small body or no HEAD: range-probe flow (first chunk doubles
         // as the probe), or a plain stream if ranges are refused.
@@ -806,53 +856,75 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             if (probedTotal <= first.length) {
                 return first;
             }
-            int chunkCount = (int) ((probedTotal + CHUNK_SIZE - 1) / CHUNK_SIZE);
-            byte[][] parts = new byte[chunkCount][];
-            parts[0] = first;
-            List<java.util.concurrent.Future<?>> futures = new ArrayList<>();
-            for (int i = 1; i < chunkCount; i++) {
-                final int idx = i;
-                final long chunkStart = (long) i * CHUNK_SIZE;
-                final long chunkEnd = Math.min(probedTotal - 1L, chunkStart + CHUNK_SIZE - 1L);
-                futures.add(pool.submit(() -> {
-                    parts[idx] = fetchChunk(url, referer, chunkStart, chunkEnd);
-                    return null;
-                }));
-            }
-            for (java.util.concurrent.Future<?> f : futures) {
-                f.get(40L, TimeUnit.SECONDS);
-            }
-            ByteArrayOutputStream out = new ByteArrayOutputStream((int) probedTotal);
-            for (byte[] part : parts) {
-                if (part == null) {
-                    throw new Exception("segment chunk missing");
-                }
-                out.write(part);
-            }
-            return out.toByteArray();
+            return collectChunks(url, referer, pool, probedTotal, first);
         }
     }
 
-    private byte[] fetchChunk(String url, String referer, long start, long end) throws Exception {
-        Exception last = null;
-        for (int attempt = 0; attempt < 2; attempt++) {
-            Request req = request(url, referer).header("Range", "bytes=" + start + "-" + end).build();
-            okhttp3.Call call = this.segmentClient.newCall(req);
-            call.timeout().timeout(8L, TimeUnit.SECONDS);
-            try (okhttp3.Response resp = call.execute()) {
-                if (!resp.isSuccessful() || resp.body() == null) {
-                    throw new Exception("chunk HTTP " + resp.code());
+    /**
+     * Fetch all chunks of one segment in parallel and assemble them.
+     * A chunk whose connection has not delivered in 3 s is hedged: a
+     * second connection races the same range and the winner is kept.
+     * On this CDN a stalled connection is routine, and waiting out an
+     * 8 s timeout per chunk was the difference between a 2 s segment
+     * and a 16 s one.
+     */
+    private byte[] collectChunks(String url, String referer, java.util.concurrent.ExecutorService pool, long total, byte[] firstChunk) throws Exception {
+        int chunkCount = (int) ((total + CHUNK_SIZE - 1) / CHUNK_SIZE);
+        byte[][] parts = new byte[chunkCount][];
+        int firstIdx = 0;
+        if (firstChunk != null) {
+            parts[0] = firstChunk;
+            firstIdx = 1;
+        }
+        List<java.util.concurrent.Future<byte[]>> futures = new ArrayList<>(chunkCount);
+        for (int i = 0; i < chunkCount; i++) {
+            futures.add(null);
+        }
+        for (int i = firstIdx; i < chunkCount; i++) {
+            final long chunkStart = (long) i * CHUNK_SIZE;
+            final long chunkEnd = Math.min(total - 1L, chunkStart + CHUNK_SIZE - 1L);
+            futures.set(i, pool.submit(() -> fetchChunkOnce(url, referer, chunkStart, chunkEnd)));
+        }
+        for (int i = firstIdx; i < chunkCount; i++) {
+            final long chunkStart = (long) i * CHUNK_SIZE;
+            final long chunkEnd = Math.min(total - 1L, chunkStart + CHUNK_SIZE - 1L);
+            try {
+                parts[i] = futures.get(i).get(3L, TimeUnit.SECONDS);
+            } catch (java.util.concurrent.TimeoutException te) {
+                java.util.concurrent.Future<byte[]> hedge = pool.submit(() -> fetchChunkOnce(url, referer, chunkStart, chunkEnd));
+                try {
+                    parts[i] = hedge.get(9L, TimeUnit.SECONDS);
+                    futures.get(i).cancel(true);
+                } catch (Exception hedgeFailed) {
+                    parts[i] = futures.get(i).get(12L, TimeUnit.SECONDS);
+                    hedge.cancel(true);
                 }
-                byte[] data = resp.body().bytes();
-                if (data.length != end - start + 1L) {
-                    throw new Exception("short chunk: " + data.length + " of " + (end - start + 1L));
-                }
-                return data;
-            } catch (Exception e) {
-                last = e;
             }
         }
-        throw last;
+        ByteArrayOutputStream out = new ByteArrayOutputStream((int) total);
+        for (byte[] part : parts) {
+            if (part == null) {
+                throw new Exception("segment chunk missing");
+            }
+            out.write(part);
+        }
+        return out.toByteArray();
+    }
+
+    private byte[] fetchChunkOnce(String url, String referer, long start, long end) throws Exception {
+        Request req = request(url, referer).header("Range", "bytes=" + start + "-" + end).build();
+        okhttp3.Call call = this.segmentClient.newCall(req);
+        call.timeout().timeout(8L, TimeUnit.SECONDS);
+        try (okhttp3.Response resp = call.execute()) {
+            if (!resp.isSuccessful() || resp.body() == null) {
+                throw new Exception("chunk HTTP " + resp.code());
+            }
+            byte[] data = resp.body().bytes();
+            if (data.length != end - start + 1L) {
+                throw new Exception("short chunk: " + data.length + " of " + (end - start + 1L));
+            }
+            return data;
+        }
     }
 
     private byte[] fetchSegmentBytes(String url, String referer, String channelId) throws Exception {
@@ -860,6 +932,13 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
     }
 
     private byte[] fetchSegmentBytes(String url, String referer, String channelId, boolean playerPriority) throws Exception {
+        long t0 = System.currentTimeMillis();
+        byte[] out = fetchSegmentBytesInner(url, referer, channelId, playerPriority);
+        Log.i("LiveProxyAudit", "seg id=" + channelId + " ms=" + (System.currentTimeMillis() - t0) + " bytes=" + out.length + " player=" + playerPriority);
+        return out;
+    }
+
+    private byte[] fetchSegmentBytesInner(String url, String referer, String channelId, boolean playerPriority) throws Exception {
         try {
             return unwrapPayload(downloadRaw(url, referer, playerPriority));
         } catch (HttpException h) {
