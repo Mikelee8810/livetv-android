@@ -715,7 +715,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
         @Override protected byte[] initialValue() { return new byte[16384]; }
     };
 
-    private static byte[] unwrapPayload(byte[] bytes) {
+    static byte[] unwrapPayload(byte[] bytes) {
         if (bytes == null || bytes.length < 16) {
             return bytes;
         }

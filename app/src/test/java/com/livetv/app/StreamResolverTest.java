@@ -79,6 +79,36 @@ public class StreamResolverTest {
     }
 
     @Test
+    public void unwrapsRealTiktikPngSegment() throws Exception {
+        // A real segment captured from channel 339's CDN on 2026-10-30:
+        // a 512x605 PNG whose IDAT payload unwraps to 929,096 bytes of
+        // MPEG-TS. If the unwrap breaks, every channel breaks, so this
+        // fixture guards it in CI from now on.
+        byte[] png;
+        try (java.io.InputStream in = getClass().getResourceAsStream("/tiktikpx-sample.png")) {
+            if (in == null) fail("fixture missing from test resources");
+            png = in.readAllBytes();
+        }
+        byte[] ts = OnDeviceStreamServer.unwrapPayload(png);
+        org.junit.Assert.assertNotNull(ts);
+        assertEquals(929096, ts.length);
+        assertEquals(0, ts.length % 188);
+        assertEquals(0x47, ts[0] & 0xFF);
+        java.util.zip.CRC32 crc = new java.util.zip.CRC32();
+        crc.update(ts);
+        assertEquals(0x546587c9L, crc.getValue());
+    }
+
+    @Test
+    public void unwrapLeavesPlainTsUntouched() {
+        byte[] ts = new byte[188 * 3];
+        for (int i = 0; i < ts.length; i += 188) ts[i] = 0x47;
+        byte[] out = OnDeviceStreamServer.unwrapPayload(ts);
+        assertEquals(ts.length, out.length);
+        assertEquals(0x47, out[0] & 0xFF);
+    }
+
+    @Test
     public void playerPageUrlUsesPrimaryDomain() {
         assertEquals("https://thedaddy.pk/stream/stream-51.php", OnDeviceStreamServer.playerPageUrl("51", 0));
         assertEquals("https://thedaddy.pk/watch/stream-51.php", OnDeviceStreamServer.playerPageUrl("51", 3));
