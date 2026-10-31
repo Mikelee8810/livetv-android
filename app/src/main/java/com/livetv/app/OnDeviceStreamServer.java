@@ -1529,13 +1529,13 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                     }
 
                     Inflater inflater = new Inflater();
+                    int inflated = 0;
                     try {
                         if (idatCount == 1) {
                             inflater.setInput(bytes, firstIdatOff, firstIdatLen);
                         } else {
                             inflater.setInput(zbuf, 0, totalIdatLen);
                         }
-                        int inflated = 0;
                         while (!inflater.finished() && inflated < rawSize) {
                             int count = inflater.inflate(raw, inflated, rawSize - inflated);
                             if (count <= 0) {
