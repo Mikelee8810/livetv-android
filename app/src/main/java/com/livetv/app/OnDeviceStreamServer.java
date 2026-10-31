@@ -119,6 +119,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                             session.renewAt = now + (ttl * 500L);
                             session.expiresAt = now + (ttl * 1000L) - 2000L;
                             Log.i(TAG, "Renewed playlist-token for channel " + channelId + " (valid for " + ttl + "s)");
+                            Log.i("LiveProxyAudit", "token renewed id=" + channelId + " force=" + force);
                             return session.token;
                         }
                     }
@@ -449,6 +450,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                             }
                         }
                         TOKEN_SESSIONS.put(id, new TokenSession(edge, chan, playerUrl, token, ttl));
+                        Log.i("LiveProxyAudit", "session created id=" + id + " edge=" + edge + " ttl=" + ttl);
                         Log.i(TAG, "resolved token channelId=" + id + " route=" + ROUTES[player]);
                         return new Resolved(manifestUrl, playerUrl, origin(playerUrl));
                     }
@@ -499,6 +501,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             if (!response.isSuccessful() || response.body() == null) {
                 int code = response.code();
                 response.close();
+                Log.w("LiveProxyAudit", "manifest FAILED id=" + id + " http=" + code + " - dropping session+resolve cache");
                 if (id != null) {
                     RESOLVE_CACHE.remove(id + ":" + player);
                     TOKEN_SESSIONS.remove(id);
@@ -512,12 +515,15 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             // disguise, and handing it to ExoPlayer just stalls playback.
             if (!manifestBody.trim().startsWith("#EXTM3U")) {
                 response.close();
+                Log.w("LiveProxyAudit", "manifest BAD BODY id=" + id + " - dropping session+resolve cache");
                 if (id != null) {
                     RESOLVE_CACHE.remove(id + ":" + player);
                     TOKEN_SESSIONS.remove(id);
                 }
                 throw new Exception("Upstream returned a non-playlist body for channel " + id);
             }
+            java.util.regex.Matcher seqM = java.util.regex.Pattern.compile("#EXT-X-MEDIA-SEQUENCE:(\\d+)").matcher(manifestBody);
+            Log.i("LiveProxyAudit", "manifest served id=" + id + " seq=" + (seqM.find() ? seqM.group(1) : "?"));
             String base = effectiveUrl.substring(0, effectiveUrl.lastIndexOf('/') + 1);
             Pattern uriAttr = Pattern.compile("URI=\"([^\"]+)\"");
             StringBuilder output = new StringBuilder();
