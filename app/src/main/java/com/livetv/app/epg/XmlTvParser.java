@@ -56,7 +56,6 @@ public final class XmlTvParser {
         } catch (Exception ignored) {
         }
         factory.setXIncludeAware(false);
-        factory.setExpandEntityReferences(false);
         factory.newSAXParser().parse(xml, handler);
         return handler.programs;
     }
