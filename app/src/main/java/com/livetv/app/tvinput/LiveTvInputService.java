@@ -38,6 +38,12 @@ public class LiveTvInputService extends TvInputService {
         private final Handler mHandler;
         private final String mInputId;
         private MediaPlayer mMediaPlayer;
+        private Runnable mStallWatchdog;
+        // Tune resolution runs off the main thread (audit V3): the
+        // ContentResolver query and JSON parse used to run inline in
+        // onTune, janking (and risking an ANR) on every zap.
+        private final android.os.HandlerThread mResolveThread = new android.os.HandlerThread("tif-resolve");
+        private android.os.Handler mResolveHandler;
         private int mRetryCount;
         private String mStreamUrl;
         private String mReconnectUrl;
@@ -50,6 +56,8 @@ public class LiveTvInputService extends TvInputService {
             this.mRetryCount = 0;
             this.mContext = context;
             this.mInputId = inputId;
+            this.mResolveThread.start();
+            this.mResolveHandler = new Handler(this.mResolveThread.getLooper());
         }
 
         @Override // android.media.tv.TvInputService.Session
@@ -58,6 +66,7 @@ public class LiveTvInputService extends TvInputService {
             // firing after release used to create a MediaPlayer on a
             // dead session (zombie playback, native leak).
             this.mHandler.removeCallbacksAndMessages(null);
+            this.mResolveThread.quitSafely();
             releasePlayer();
         }
 
@@ -79,16 +88,30 @@ public class LiveTvInputService extends TvInputService {
         }
 
         @Override // android.media.tv.TvInputService.Session
-        public boolean onTune(Uri channelUri) {
+        public boolean onTune(final Uri channelUri) {
             this.mCurrentChannelUri = channelUri;
             this.mRetryCount = 0;
             notifyVideoUnavailable(3);
-            this.mStreamUrl = resolveStreamUrl(channelUri);
-            if (this.mStreamUrl == null || this.mStreamUrl.isEmpty()) {
-                notifyVideoUnavailable(0);
-                return false;
-            }
-            playStream(this.mStreamUrl);
+            // Resolve on the worker thread, play on the main thread,
+            // and only if this tune is still the current one (V3).
+            this.mResolveHandler.post(new Runnable() {
+                @Override public void run() {
+                    final String url = resolveStreamUrl(channelUri);
+                    mHandler.post(new Runnable() {
+                        @Override public void run() {
+                            if (!channelUri.equals(mCurrentChannelUri)) {
+                                return;
+                            }
+                            mStreamUrl = url;
+                            if (url == null || url.isEmpty()) {
+                                notifyVideoUnavailable(0);
+                                return;
+                            }
+                            playStream(url);
+                        }
+                    });
+                }
+            });
             return true;
         }
 
@@ -150,6 +173,29 @@ public class LiveTvInputService extends TvInputService {
                         return lambda$playStream$1(mediaPlayer, i, i2);
                     }
                 });
+                // EOF and stalls were invisible before (audit V2):
+                // the proxy closing the stream left a frozen frame
+                // forever because the prepare watchdog is cancelled
+                // at onPrepared and nothing else watched the stream.
+                this.mMediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+                    @Override public void onCompletion(MediaPlayer mp) {
+                        Log.w(LiveTvInputService.TAG, "Stream ended (EOF); reconnecting");
+                        notifyVideoUnavailable(3);
+                        handleAutoReconnect();
+                    }
+                });
+                this.mMediaPlayer.setOnInfoListener(new MediaPlayer.OnInfoListener() {
+                    @Override public boolean onInfo(MediaPlayer mp, int what, int extra) {
+                        if (what == MediaPlayer.MEDIA_INFO_BUFFERING_START) {
+                            notifyVideoUnavailable(3);
+                            armStallWatchdog(mp);
+                        } else if (what == MediaPlayer.MEDIA_INFO_BUFFERING_END) {
+                            disarmStallWatchdog();
+                            notifyVideoAvailable();
+                        }
+                        return false;
+                    }
+                });
                 this.mMediaPlayer.prepareAsync();
                 // Prepare watchdog: prepareAsync against a stalled
                 // localhost proxy can hang forever - neither onPrepared
@@ -198,20 +244,55 @@ public class LiveTvInputService extends TvInputService {
             return true;
         }
 
+        private void armStallWatchdog(final MediaPlayer watched) {
+            disarmStallWatchdog();
+            this.mStallWatchdog = new Runnable() {
+                @Override public void run() {
+                    if (mMediaPlayer == watched) {
+                        boolean playing = false;
+                        try { playing = watched.isPlaying(); } catch (Exception ignored) { }
+                        if (!playing) {
+                            Log.w(LiveTvInputService.TAG, "Stream stalled for 15s; reconnecting");
+                            notifyVideoUnavailable(3);
+                            handleAutoReconnect();
+                        }
+                    }
+                }
+            };
+            this.mHandler.postDelayed(this.mStallWatchdog, 15000L);
+        }
+
+        private void disarmStallWatchdog() {
+            if (this.mStallWatchdog != null) {
+                this.mHandler.removeCallbacks(this.mStallWatchdog);
+                this.mStallWatchdog = null;
+            }
+        }
+
         private void handleAutoReconnect() {
-            if (this.mRetryCount < 5 && this.mStreamUrl != null) {
+            // The autoRetry setting governs this service too (audit
+            // V5): it used to be honoured only by the ExoPlayer side.
+            boolean autoRetry = true;
+            try {
+                autoRetry = new com.livetv.app.data.Prefs(this.mContext).getAutoRetry();
+            } catch (Exception ignored) {
+            }
+            if (autoRetry && this.mRetryCount < 5 && this.mStreamUrl != null) {
                 this.mRetryCount++;
                 // Capture the URL now: the runnable used to read the
                 // mutable mStreamUrl when it fired, so a stale reconnect
                 // could restart a NEW channel's player mid-prepare.
                 this.mReconnectUrl = this.mStreamUrl;
                 Log.i(LiveTvInputService.TAG, "Auto-reconnecting stream (attempt #" + this.mRetryCount + ")...");
+                // Exponential backoff (audit V5): a flat 2 s retry
+                // burned all five attempts in ten seconds.
+                long backoffMs = Math.min(30000L, 2000L << Math.min(this.mRetryCount, 4));
                 this.mHandler.postDelayed(new Runnable() { // from class: com.livetv.app.tvinput.LiveTvInputService$LiveTvSession$$ExternalSyntheticLambda2
                     @Override // java.lang.Runnable
                     public final void run() {
                         lambda$handleAutoReconnect$2();
                     }
-                }, ExoPlayer.DEFAULT_DETACH_SURFACE_TIMEOUT_MS);
+                }, backoffMs);
                 return;
             }
             notifyVideoUnavailable(0);
@@ -230,11 +311,17 @@ public class LiveTvInputService extends TvInputService {
 
         private void releasePlayer() {
             if (this.mMediaPlayer != null) {
+                // release() directly (audit V1): stop() first threw
+                // IllegalStateException in the Preparing and Error
+                // states, the empty catch swallowed it, and release()
+                // never ran - leaking the player and its hardware
+                // decoder on every zap-during-prepare and every
+                // error-triggered reconnect, until the decoders ran
+                // out.
                 try {
-                    this.mMediaPlayer.stop();
-                    this.mMediaPlayer.reset();
                     this.mMediaPlayer.release();
                 } catch (Exception e) {
+                    Log.w(LiveTvInputService.TAG, "MediaPlayer release failed", e);
                 }
                 this.mMediaPlayer = null;
             }
