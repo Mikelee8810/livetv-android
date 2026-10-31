@@ -81,9 +81,11 @@ public class StreamResolverTest {
     @Test
     public void unwrapsRealTiktikPngSegment() throws Exception {
         // A real segment captured from channel 339's CDN on 2026-10-30:
-        // a 512x605 PNG whose IDAT payload unwraps to 929,096 bytes of
-        // MPEG-TS. If the unwrap breaks, every channel breaks, so this
-        // fixture guards it in CI from now on.
+        // a 512x605 PNG whose pixels carry a "TIKTIKPX" header plus a
+        // 928,904-byte gzip that decompresses to 983,616 bytes of
+        // MPEG-TS (expected values derived by walking the format, not
+        // from the implementation). If the unwrap breaks, every channel
+        // breaks, so this fixture guards it in CI from now on.
         byte[] png;
         try (java.io.InputStream in = getClass().getResourceAsStream("/tiktikpx-sample.png")) {
             if (in == null) fail("fixture missing from test resources");
@@ -91,12 +93,12 @@ public class StreamResolverTest {
         }
         byte[] ts = OnDeviceStreamServer.unwrapPayload(png);
         org.junit.Assert.assertNotNull(ts);
-        assertEquals(929096, ts.length);
+        assertEquals(983616, ts.length);
         assertEquals(0, ts.length % 188);
         assertEquals(0x47, ts[0] & 0xFF);
         java.util.zip.CRC32 crc = new java.util.zip.CRC32();
         crc.update(ts);
-        assertEquals(0x546587c9L, crc.getValue());
+        assertEquals(0x6231ab71L, crc.getValue());
     }
 
     @Test
