@@ -194,7 +194,15 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                 if (upstream == null) {
                     upstream = resolved.url;
                 }
-                return proxyManifest(id, player, upstream, resolved);
+                try {
+                    return proxyManifest(id, player, upstream, resolved);
+                } catch (Exception manifestError) {
+                    NanoHTTPD.Response stale = staleManifest(id, player);
+                    if (stale != null) {
+                        return stale;
+                    }
+                    throw manifestError;
+                }
             }
             if (uri.endsWith("/resource") || uri.contains("resource")) {
                 return proxyResource(q.get("url"), q.get("referer"), q.get("id"));
@@ -501,10 +509,10 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             if (!response.isSuccessful() || response.body() == null) {
                 int code = response.code();
                 response.close();
-                Log.w("LiveProxyAudit", "manifest FAILED id=" + id + " http=" + code + " - dropping session+resolve cache");
-                if (id != null) {
-                    RESOLVE_CACHE.remove(id + ":" + player);
-                    TOKEN_SESSIONS.remove(id);
+                Log.w("LiveProxyAudit", "manifest FAILED id=" + id + " http=" + code + " - keeping session, trying last-good manifest");
+                NanoHTTPD.Response stale = staleManifest(id, player);
+                if (stale != null) {
+                    return stale;
                 }
                 throw new Exception("Manifest HTTP " + code);
             }
@@ -515,10 +523,10 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             // disguise, and handing it to ExoPlayer just stalls playback.
             if (!manifestBody.trim().startsWith("#EXTM3U")) {
                 response.close();
-                Log.w("LiveProxyAudit", "manifest BAD BODY id=" + id + " - dropping session+resolve cache");
-                if (id != null) {
-                    RESOLVE_CACHE.remove(id + ":" + player);
-                    TOKEN_SESSIONS.remove(id);
+                Log.w("LiveProxyAudit", "manifest BAD BODY id=" + id + " - keeping session, trying last-good manifest");
+                NanoHTTPD.Response stale2 = staleManifest(id, player);
+                if (stale2 != null) {
+                    return stale2;
                 }
                 throw new Exception("Upstream returned a non-playlist body for channel " + id);
             }
@@ -549,6 +557,10 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                 }
                 output.append(line).append('\n');
             }
+            if (id != null) {
+                LAST_GOOD_MANIFEST.put(id + ":" + player, output.toString());
+                LAST_GOOD_MANIFEST_AT.put(id + ":" + player, System.currentTimeMillis());
+            }
             NanoHTTPD.Response manifestResp = newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "application/vnd.apple.mpegurl", output.toString());
             manifestResp.addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
             manifestResp.addHeader("Pragma", "no-cache");
@@ -569,6 +581,33 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                 try { response.close(); } catch (Exception ignored) {}
             }
         }
+    }
+
+    // Last successfully rewritten manifest per channel+route. Served
+    // when the upstream manifest path fails transiently: a dropped
+    // token session used to force a full re-resolve whose new edge
+    // could carry a DIFFERENT playlist timeline, and the player's
+    // position would plunge negative and never recover. Session state
+    // is therefore never discarded on a manifest failure, and the
+    // player rides out the failure on the last good playlist.
+    private static final Map<String, String> LAST_GOOD_MANIFEST = new ConcurrentHashMap<>();
+    private static final Map<String, Long> LAST_GOOD_MANIFEST_AT = new ConcurrentHashMap<>();
+
+    private NanoHTTPD.Response staleManifest(String id, int player) {
+        if (id == null) {
+            return null;
+        }
+        String body = LAST_GOOD_MANIFEST.get(id + ":" + player);
+        Long at = LAST_GOOD_MANIFEST_AT.get(id + ":" + player);
+        if (body == null || at == null || System.currentTimeMillis() - at > 90000L) {
+            return null;
+        }
+        Log.w("LiveProxyAudit", "serving last-good manifest id=" + id + " ageMs=" + (System.currentTimeMillis() - at));
+        NanoHTTPD.Response resp = newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "application/vnd.apple.mpegurl", body);
+        resp.addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        resp.addHeader("Pragma", "no-cache");
+        resp.addHeader("Expires", "0");
+        return resp;
     }
 
     // -- Segment prefetch (bounded, player-first) --------------------------
@@ -610,7 +649,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
         }
         @Override public void run() {
             try {
-                byte[] bytes = server.fetchSegmentBytes(url, referer, channelId);
+                byte[] bytes = server.fetchSegmentBytes(url, referer, channelId, false);
                 synchronized (SEGMENT_CACHE) { SEGMENT_CACHE.put(url, bytes); }
                 future.complete(bytes);
             } catch (Exception e) {
@@ -673,32 +712,175 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
         return segmentResponse(bytes);
     }
 
-    private byte[] fetchSegmentBytes(String url, String referer, String channelId) throws Exception {
-        okhttp3.Response upstream = executeOnce(request(url, referer).build());
-        // Segments expire with the same token as the manifest. A 403 here used
-        // to kill playback mid-stream even though the manifest path already
-        // knew how to recover: force one token renewal and retry the segment
-        // with the fresh token, exactly like proxyManifest does.
-        if (upstream.code() == 403 && channelId != null) {
-            TokenSession session = TOKEN_SESSIONS.get(channelId);
-            if (session != null) {
-                upstream.close();
-                String freshToken = getOrRenewToken(channelId, session, true);
-                if (freshToken != null && !freshToken.isEmpty()) {
-                    String retryUrl = cleanPlaylistUrl(url);
-                    retryUrl += (retryUrl.contains("?") ? "&" : "?") + "t=" + URLEncoder.encode(freshToken, StandardCharsets.UTF_8.name()) + "&_=" + System.currentTimeMillis();
-                    upstream = executeOnce(request(retryUrl, referer).build());
+    private static final class HttpException extends Exception {
+        final int code;
+        HttpException(int c) { super("HTTP " + c); code = c; }
+    }
+
+    private static final int CHUNK_SIZE = 256 * 1024;
+    private static final java.util.concurrent.ExecutorService CHUNK_POOL = new java.util.concurrent.ThreadPoolExecutor(
+            6, 6, 0L, TimeUnit.MILLISECONDS, new java.util.concurrent.LinkedBlockingQueue<>(),
+            r -> { Thread t = new Thread(r, "seg-chunk"); t.setDaemon(true); return t; });
+    // Player-first chunks run on their own pool: the segment the player
+    // is waiting for must never sit in a queue behind prefetch chunks.
+    private static final java.util.concurrent.ExecutorService PLAYER_CHUNK_POOL = new java.util.concurrent.ThreadPoolExecutor(
+            6, 6, 0L, TimeUnit.MILLISECONDS, new java.util.concurrent.LinkedBlockingQueue<>(),
+            r -> { Thread t = new Thread(r, "seg-chunk-player"); t.setDaemon(true); return t; });
+
+    /**
+     * Download one segment body. Measured root problem (2026-10-30,
+     * bench-verified): the image CDN's per-connection delivery is a
+     * lottery - usually 2-7 s for a ~6 s segment, sometimes a mid-body
+     * stall of 40 s+. A sequential consumer drawing one connection at
+     * a time starves within minutes at 0.35-0.6x real time no matter
+     * where it sits in the window. The CDN honors Range requests
+     * (verified 206), so each segment is pulled as ~256 KB chunks over
+     * several parallel connections: no single stalled connection can
+     * hold a segment hostage, and a chunk that times out is re-issued
+     * once on a fresh connection while the others stand.
+     */
+    private byte[] downloadRaw(String url, String referer, boolean playerPriority) throws Exception {
+        java.util.concurrent.ExecutorService pool = playerPriority ? PLAYER_CHUNK_POOL : CHUNK_POOL;
+        long total = -1L;
+        okhttp3.Call head = this.segmentClient.newCall(request(url, referer).head().build());
+        head.timeout().timeout(6L, TimeUnit.SECONDS);
+        try (okhttp3.Response resp = head.execute()) {
+            if (resp.code() == 403) {
+                throw new HttpException(403);
+            }
+            if (resp.isSuccessful()) {
+                total = resp.header("Content-Length") != null ? Long.parseLong(resp.header("Content-Length")) : -1L;
+            }
+        } catch (HttpException h) {
+            throw h;
+        } catch (Exception ignored) {
+            // No usable HEAD: fall through to the range-probe flow.
+        }
+        if (total > CHUNK_SIZE) {
+            int chunkCount = (int) ((total + CHUNK_SIZE - 1) / CHUNK_SIZE);
+            byte[][] parts = new byte[chunkCount][];
+            List<java.util.concurrent.Future<?>> futures = new ArrayList<>();
+            for (int i = 0; i < chunkCount; i++) {
+                final int idx = i;
+                final long chunkStart = (long) i * CHUNK_SIZE;
+                final long chunkEnd = Math.min(total - 1L, chunkStart + CHUNK_SIZE - 1L);
+                futures.add(pool.submit(() -> {
+                    parts[idx] = fetchChunk(url, referer, chunkStart, chunkEnd);
+                    return null;
+                }));
+            }
+            for (java.util.concurrent.Future<?> f : futures) {
+                f.get(40L, TimeUnit.SECONDS);
+            }
+            ByteArrayOutputStream out = new ByteArrayOutputStream((int) total);
+            for (byte[] part : parts) {
+                if (part == null) {
+                    throw new Exception("segment chunk missing");
+                }
+                out.write(part);
+            }
+            return out.toByteArray();
+        }
+        // Small body or no HEAD: range-probe flow (first chunk doubles
+        // as the probe), or a plain stream if ranges are refused.
+        Request firstReq = request(url, referer).header("Range", "bytes=0-" + (CHUNK_SIZE - 1)).build();
+        try (okhttp3.Response resp = executeOnce(firstReq)) {
+            if (resp.code() == 403) {
+                throw new HttpException(403);
+            }
+            if (!resp.isSuccessful() || resp.body() == null) {
+                throw new HttpException(resp.code());
+            }
+            if (resp.code() == 200) {
+                return resp.body().bytes();
+            }
+            String cr = resp.header("Content-Range");
+            long probedTotal = -1L;
+            if (cr != null && cr.contains("/")) {
+                try {
+                    probedTotal = Long.parseLong(cr.substring(cr.indexOf('/') + 1).trim());
+                } catch (Exception ignored) {
                 }
             }
+            byte[] first = resp.body().bytes();
+            if (probedTotal <= first.length) {
+                return first;
+            }
+            int chunkCount = (int) ((probedTotal + CHUNK_SIZE - 1) / CHUNK_SIZE);
+            byte[][] parts = new byte[chunkCount][];
+            parts[0] = first;
+            List<java.util.concurrent.Future<?>> futures = new ArrayList<>();
+            for (int i = 1; i < chunkCount; i++) {
+                final int idx = i;
+                final long chunkStart = (long) i * CHUNK_SIZE;
+                final long chunkEnd = Math.min(probedTotal - 1L, chunkStart + CHUNK_SIZE - 1L);
+                futures.add(pool.submit(() -> {
+                    parts[idx] = fetchChunk(url, referer, chunkStart, chunkEnd);
+                    return null;
+                }));
+            }
+            for (java.util.concurrent.Future<?> f : futures) {
+                f.get(40L, TimeUnit.SECONDS);
+            }
+            ByteArrayOutputStream out = new ByteArrayOutputStream((int) probedTotal);
+            for (byte[] part : parts) {
+                if (part == null) {
+                    throw new Exception("segment chunk missing");
+                }
+                out.write(part);
+            }
+            return out.toByteArray();
         }
-        ResponseBody body = upstream.body();
-        if (!upstream.isSuccessful() || body == null) {
-            int code = upstream.code();
-            upstream.close();
-            throw new Exception("Resource HTTP " + code);
+    }
+
+    private byte[] fetchChunk(String url, String referer, long start, long end) throws Exception {
+        Exception last = null;
+        for (int attempt = 0; attempt < 2; attempt++) {
+            Request req = request(url, referer).header("Range", "bytes=" + start + "-" + end).build();
+            okhttp3.Call call = this.segmentClient.newCall(req);
+            call.timeout().timeout(8L, TimeUnit.SECONDS);
+            try (okhttp3.Response resp = call.execute()) {
+                if (!resp.isSuccessful() || resp.body() == null) {
+                    throw new Exception("chunk HTTP " + resp.code());
+                }
+                byte[] data = resp.body().bytes();
+                if (data.length != end - start + 1L) {
+                    throw new Exception("short chunk: " + data.length + " of " + (end - start + 1L));
+                }
+                return data;
+            } catch (Exception e) {
+                last = e;
+            }
         }
-        try (okhttp3.Response resp = upstream) {
-            return unwrapPayload(resp.body().bytes());
+        throw last;
+    }
+
+    private byte[] fetchSegmentBytes(String url, String referer, String channelId) throws Exception {
+        return fetchSegmentBytes(url, referer, channelId, true);
+    }
+
+    private byte[] fetchSegmentBytes(String url, String referer, String channelId, boolean playerPriority) throws Exception {
+        try {
+            return unwrapPayload(downloadRaw(url, referer, playerPriority));
+        } catch (HttpException h) {
+            // Segments can expire with the same token as the manifest. A
+            // 403 here used to kill playback mid-stream even though the
+            // manifest path already knew how to recover: force one token
+            // renewal and retry with the fresh token, like proxyManifest.
+            if (h.code != 403 || channelId == null) {
+                throw h;
+            }
+            TokenSession session = TOKEN_SESSIONS.get(channelId);
+            if (session == null) {
+                throw h;
+            }
+            String freshToken = getOrRenewToken(channelId, session, true);
+            if (freshToken == null || freshToken.isEmpty()) {
+                throw h;
+            }
+            String retryUrl = cleanPlaylistUrl(url);
+            retryUrl += (retryUrl.contains("?") ? "&" : "?") + "t=" + URLEncoder.encode(freshToken, StandardCharsets.UTF_8.name()) + "&_=" + System.currentTimeMillis();
+            return unwrapPayload(downloadRaw(retryUrl, referer, playerPriority));
         }
     }
 
