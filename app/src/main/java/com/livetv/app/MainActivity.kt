@@ -104,6 +104,7 @@ class MainActivity : Activity() {
             } else {
                 playerEngine.seekToProgramStart(startMs)
             }
+            true
         }
         ProgramDetailsDialog.liveHandler = { item ->
             if (playerEngine.currentItem?.key == item.key) playerEngine.returnToLive()
