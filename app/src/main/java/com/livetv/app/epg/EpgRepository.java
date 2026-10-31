@@ -16,6 +16,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -37,13 +38,22 @@ import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.GZIPInputStream;
 
 /* JADX INFO: loaded from: classes3.dex */
 public final class EpgRepository {
     private static final long FRESH_MILLIS = 21600000;
     private static final long MAX_COMPRESSED_BYTES = 67108864;
+    private static final long MAX_DECOMPRESSED_BYTES = 268435456L;
     private static final String TAG = "LiveTV-EPG";
+    // Audit E1: refreshes are process-wide serialized (callers build
+    // a fresh repository per call, so an instance guard is useless);
+    // a refresh requested mid-flight coalesces into one follow-up.
+    private static final AtomicBoolean REFRESHING = new AtomicBoolean(false);
+    private static final Object PENDING_LOCK = new Object();
+    private static Runnable pendingRefresh;
     private final Context context;
     private final List<String> sources;
 
@@ -66,6 +76,19 @@ public final class EpgRepository {
     }
 
     public void refresh(final List<Channel> channels, final Callback callback) {
+        final Runnable task = () -> doRefresh(channels, callback);
+        synchronized (PENDING_LOCK) {
+            if (REFRESHING.get()) {
+                // Coalesce: only the latest queued request runs next.
+                pendingRefresh = task;
+                return;
+            }
+            REFRESHING.set(true);
+        }
+        task.run();
+    }
+
+    private void doRefresh(final List<Channel> channels, final Callback callback) {
         final Handler main = new Handler(Looper.getMainLooper());
         new Thread(() -> {
             try {
@@ -76,6 +99,27 @@ public final class EpgRepository {
                 });
             } catch (Exception e) {
                 Log.w(TAG, "EPG refresh failed: " + safeMessage(e));
+                // Audit E7: a failed load must still reach the
+                // callback, or callers waiting on it (the "Update
+                // EPG now" dialog) hang forever.
+                if (callback != null) {
+                    List<Channel> safeChannels = channels == null ? Collections.<Channel>emptyList() : channels;
+                    EpgSnapshot empty = EpgSnapshot.map(safeChannels, Collections.<Program>emptyList(), defaultAliases());
+                    Report failure = new Report(this.sources.size(), 0, 0, this.sources.size(), 0L, 0, 0, safeChannels.size(), 0, 0);
+                    main.post(() -> callback.onLoaded(empty, failure));
+                }
+            } finally {
+                Runnable next;
+                synchronized (PENDING_LOCK) {
+                    next = pendingRefresh;
+                    pendingRefresh = null;
+                    if (next == null) {
+                        REFRESHING.set(false);
+                    }
+                }
+                if (next != null) {
+                    next.run();
+                }
             }
         }, "epg-refresh").start();
     }
@@ -114,6 +158,21 @@ public final class EpgRepository {
             targetChannels.add(alias.getKey());
             targetChannels.add(alias.getValue());
         }
+        // Audit E6: canonical name keys let the XMLTV parser accept
+        // programmes whose channel id differs from the display name.
+        final Set<String> canonicalTargets = new HashSet<>();
+        for (Channel ch : channels) {
+            if (ch != null) {
+                String byName = EpgSnapshot.canonical(ch.name);
+                if (!byName.isEmpty()) {
+                    canonicalTargets.add(byName);
+                }
+                String byId = EpgSnapshot.canonical(ch.tvgId);
+                if (!byId.isEmpty()) {
+                    canonicalTargets.add(byId);
+                }
+            }
+        }
 
         ExecutorService workers = Executors.newFixedThreadPool(1, r -> {
             Thread t = new Thread(r, "epg-worker");
@@ -124,7 +183,7 @@ public final class EpgRepository {
         for (final String source : this.sources) {
             completed.submit(() -> {
                 android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
-                return loadOne(source, channels, targetChannels, cacheDirectory, start, end, now);
+                return loadOne(source, channels, targetChannels, canonicalTargets, cacheDirectory, start, end, now);
             });
         }
         LoadOutcome result = outcome(channels, merge.snapshot(), now, 0, 0, 0, 0, 0);
@@ -133,10 +192,29 @@ public final class EpgRepository {
             while (done < this.sources.size()) {
                 SourceLoad loaded;
                 try {
-                    loaded = completed.take().get();
-                } catch (Exception interrupted) {
-                    Log.w(TAG, "parallel EPG load interrupted: " + safeMessage(interrupted));
+                    // Audit E3: a per-source deadline. One stuck
+                    // source used to stall the entire refresh; its
+                    // late result is simply consumed by a later poll.
+                    Future<SourceLoad> future = completed.poll(3L, TimeUnit.MINUTES);
+                    if (future == null) {
+                        done++;
+                        failed++;
+                        Log.w(TAG, "EPG source exceeded the 3 minute deadline");
+                        continue;
+                    }
+                    loaded = future.get();
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    Log.w(TAG, "parallel EPG load interrupted");
                     break;
+                } catch (Exception workerFailure) {
+                    // Audit E2: one worker's failure (including an
+                    // Error wrapped by the executor) must not drop
+                    // the remaining sources.
+                    done++;
+                    failed++;
+                    Log.w(TAG, "EPG worker failed: " + safeMessage(workerFailure));
+                    continue;
                 }
                 done++;
                 if (loaded.error != null) {
@@ -166,14 +244,14 @@ public final class EpgRepository {
         return result;
     }
 
-    private SourceLoad loadOne(String source, List channels, Set<String> targetChannels, File cacheDirectory, Instant start, Instant end, Instant now) throws Exception {
+    private SourceLoad loadOne(String source, List channels, Set<String> targetChannels, Set<String> canonicalTargets, File cacheDirectory, Instant start, Instant end, Instant now) {
         TitanTvSource.Result titan;
         try {
             if (TitanTvSource.supports(source)) {
                 if ("titantv://custom-complete".equals(source) || "titantv://directv-national".equals(source)) {
-                    titan = TitanTvSource.load(channels, source, readAsset("titan_custom_channels.json"));
+                    titan = TitanTvSource.load(channels, source, readAsset("titan_custom_channels.json"), this.context);
                 } else {
-                    titan = TitanTvSource.load(channels, source);
+                    titan = TitanTvSource.load(channels, source, null, this.context);
                 }
                 return new SourceLoad(source, new SourceOutcome(titan.programs, titan.bytes, false), null);
             }
@@ -181,8 +259,12 @@ public final class EpgRepository {
                 CdnLiveEpgSource.Result cdn = CdnLiveEpgSource.load(channels);
                 return new SourceLoad(source, new SourceOutcome(cdn.programs, cdn.bytes, false), null);
             }
-            return new SourceLoad(source, loadSource(cacheDirectory, source, start, end, now, targetChannels), null);
-        } catch (Exception error) {
+            return new SourceLoad(source, loadSource(cacheDirectory, source, start, end, now, targetChannels, canonicalTargets), null);
+        } catch (Throwable failure) {
+            // Audit E2: catch Throwable, not just Exception. An Error
+            // (OOM while parsing, say) used to escape as an
+            // ExecutionException and abort every remaining source.
+            Exception error = failure instanceof Exception ? (Exception) failure : new Exception(failure);
             return new SourceLoad(source, null, error);
         }
     }
@@ -206,18 +288,30 @@ public final class EpgRepository {
         }
     }
 
-    private SourceOutcome loadSource(File cacheDirectory, String source, Instant start, Instant end, Instant now, Set<String> targetChannels) throws Exception {
+    private SourceOutcome loadSource(File cacheDirectory, String source, Instant start, Instant end, Instant now, Set<String> targetChannels, Set<String> canonicalTargets) throws Exception {
         File cache = cacheFile(cacheDirectory, source);
+        // Audit E8: promote() rotates the old cache to .backup; if a
+        // crash landed between the renames, restore it before use.
+        File backup = new File(cacheDirectory, cache.getName() + ".backup");
+        if (!cache.isFile() && backup.isFile()) {
+            backup.renameTo(cache);
+        }
         if (cache.isFile() && !isStale(cache.lastModified(), now)) {
-            return new SourceOutcome(parse(cache, source, start, end, targetChannels), 0L, true);
+            try {
+                return new SourceOutcome(parse(cache, source, start, end, targetChannels, canonicalTargets), 0L, true);
+            } catch (Exception corruptCache) {
+                // Audit E5: a truncated cache with a fresh mtime used
+                // to fail this source on every refresh for 6 hours.
+                Log.w(TAG, "Cached EPG unreadable, re-downloading: " + safeMessage(corruptCache));
+                cache.delete();
+            }
         }
-        File temporary = new File(cacheDirectory, cache.getName() + ".download");
-        if (temporary.exists() && !temporary.delete()) {
-            throw new IOException("stale XMLTV temporary file cannot be replaced");
-        }
+        // Audit E1: unique temp name per run; two overlapping loads
+        // used to corrupt each other's shared ".download" file.
+        File temporary = new File(cacheDirectory, cache.getName() + "." + System.nanoTime() + ".download");
         try {
             long bytes = download(source, temporary);
-            List<Program> programs = parse(temporary, source, start, end, targetChannels);
+            List<Program> programs = parse(temporary, source, start, end, targetChannels, canonicalTargets);
             promote(temporary, cache);
             return new SourceOutcome(programs, bytes, false);
         } catch (Exception downloadFailure) {
@@ -226,7 +320,7 @@ public final class EpgRepository {
             }
             if (cache.isFile()) {
                 try {
-                    return new SourceOutcome(parse(cache, source, start, end, targetChannels), 0L, true);
+                    return new SourceOutcome(parse(cache, source, start, end, targetChannels, canonicalTargets), 0L, true);
                 } catch (Exception cacheFailure) {
                     downloadFailure.addSuppressed(cacheFailure);
                     throw downloadFailure;
@@ -239,7 +333,9 @@ public final class EpgRepository {
     private static long download(String source, File destination) throws Exception {
         HttpURLConnection connection = (HttpURLConnection) new URL(source).openConnection();
         connection.setConnectTimeout(8000);
-        connection.setReadTimeout(AccessibilityNodeInfoCompat.EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_MAX_LENGTH);
+        // Explicit 60 s read timeout (audit E3): the old value was an
+        // accessibility constant that happened to be in scope.
+        connection.setReadTimeout(60000);
         connection.setInstanceFollowRedirects(true);
         connection.setRequestProperty(HttpHeaders.ACCEPT_ENCODING, "identity");
         try {
@@ -314,12 +410,21 @@ public final class EpgRepository {
         }
     }
 
-    private static List<Program> parse(File file, String source, Instant start, Instant end, Set<String> targetChannels) throws Exception {
+    private static List<Program> parse(File file, String source, Instant start, Instant end, Set<String> targetChannels, Set<String> canonicalTargets) throws Exception {
         InputStream raw = new BufferedInputStream(new FileInputStream(file), 65536);
         try {
-            InputStream input = source.toLowerCase(Locale.ROOT).endsWith(".gz") ? new GZIPInputStream(raw, 65536) : raw;
+            // Audit E4: sniff the gzip magic bytes instead of trusting
+            // the URL suffix (a ".xml" URL can serve gzip and the
+            // reverse), and cap the DECOMPRESSED size: the old cap
+            // only bounded the compressed download.
+            raw.mark(2);
+            int first = raw.read();
+            int second = raw.read();
+            raw.reset();
+            InputStream decoded = first == 0x1f && second == 0x8b ? new GZIPInputStream(raw, 65536) : raw;
+            InputStream input = new BoundedInputStream(decoded, MAX_DECOMPRESSED_BYTES);
             try {
-                List<Program> list = new XmlTvParser().parse(input, start, end, targetChannels);
+                List<Program> list = new XmlTvParser().parse(input, start, end, targetChannels, canonicalTargets);
                 input.close();
                 raw.close();
                 return list;
@@ -338,6 +443,42 @@ public final class EpgRepository {
                 th3.addSuppressed(th4);
             }
             throw th3;
+        }
+    }
+
+    /* JADX INFO: Access modifiers changed from: private */
+    static final class BoundedInputStream extends FilterInputStream {
+        private final long limit;
+        private long seen;
+
+        BoundedInputStream(InputStream input, long limit) {
+            super(input);
+            this.limit = limit;
+        }
+
+        @Override // java.io.FilterInputStream, java.io.InputStream
+        public int read() throws IOException {
+            int value = super.read();
+            if (value != -1) {
+                count(1L);
+            }
+            return value;
+        }
+
+        @Override // java.io.FilterInputStream, java.io.InputStream
+        public int read(byte[] buffer, int offset, int length) throws IOException {
+            int read = super.read(buffer, offset, length);
+            if (read > 0) {
+                count(read);
+            }
+            return read;
+        }
+
+        private void count(long bytes) throws IOException {
+            this.seen += bytes;
+            if (this.seen > this.limit) {
+                throw new IOException("EPG decompressed content exceeds " + this.limit + " bytes");
+            }
         }
     }
 
