@@ -12,7 +12,9 @@ import java.util.regex.Pattern;
 /* JADX INFO: loaded from: classes6.dex */
 public final class ChannelClassifier {
     private static final Pattern PRIMARY_ENGLISH = Pattern.compile("\\b(english|usa|united states|uk|united kingdom|canada|australia|new zealand|ireland|bbc|cnn|fox news|discovery|history|animal planet|national geographic|espn|nba tv|nfl network|nhl network|mlb network|sky news)\\b");
-    private static final Pattern EXPLICIT_ADULT = Pattern.compile("(?:\\b18\\+|\\bporn\\b|\\bxxx\\b|\\bsex\\b|\\bplayer-\\d+\\b)");
+    // player-\\d+ was removed (audit F1): it silently excluded
+    // legitimate channels whose names contain a player number.
+    private static final Pattern EXPLICIT_ADULT = Pattern.compile("(?:\\b18\\+|\\bporn\\b|\\bxxx\\b|\\bsex\\b)");
     private static final Pattern STANDALONE_ADULT = Pattern.compile("\\badult\\b");
     private static final Pattern ADULT_SWIM = Pattern.compile("\\badult\\s+swim\\b");
 
@@ -23,6 +25,7 @@ public final class ChannelClassifier {
         for (Channel channel : parsed) {
             if (isAdult(channel)) {
                 adult++;
+                android.util.Log.i("ChannelClassifier", "Excluded by adult filter: " + channel.name);
             } else {
                 String key = channel.normalizedIdentity() + "|" + channel.id;
                 Channel ranked = channel.withRank(rank(channel));
@@ -49,6 +52,11 @@ public final class ChannelClassifier {
                 int groupComparison = String.CASE_INSENSITIVE_ORDER.compare(first.group, second.group);
                 if (groupComparison != 0) {
                     return groupComparison;
+                }
+                // The language rank the classifier computes must
+                // actually order the list (audit F2).
+                if (first.languageRank != second.languageRank) {
+                    return Integer.compare(first.languageRank, second.languageRank);
                 }
                 int o1 = originalOrder.getOrDefault(first.id, 0);
                 int o2 = originalOrder.getOrDefault(second.id, 0);

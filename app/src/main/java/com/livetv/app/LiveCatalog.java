@@ -45,6 +45,20 @@ public final class LiveCatalog {
     private LiveCatalog() {
     }
 
+    // One shared client (audit L4) and sweep discipline (audit L1):
+    // no overlapping sweeps, and a failed sweep backs off instead of
+    // being retried in full by every Repo.reload().
+    private static final OkHttpClient CLIENT = new OkHttpClient.Builder()
+            .connectTimeout(8, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .build();
+    private static final java.util.concurrent.atomic.AtomicBoolean IN_FLIGHT =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
+    private static volatile long lastAttemptMs = 0L;
+    private static final long FAIL_BACKOFF_MS = 15L * 60L * 1000L;
+
     /** Parses the 24-7 channels page into id -> name, in page order. */
     static Map<String, String> parseChannelsPage(String html) {
         Map<String, String> out = new LinkedHashMap<>();
@@ -54,12 +68,18 @@ public final class LiveCatalog {
         Matcher cards = CARD.matcher(html);
         while (cards.find()) {
             Matcher title = TITLE.matcher(cards.group(2));
-            String name = title.find() ? title.group(1).trim() : "";
+            String name = title.find() ? unescape(title.group(1).trim()) : "";
             if (!name.isEmpty()) {
                 out.put(cards.group(1), name);
             }
         }
         return out;
+    }
+
+    // The 24-7 page serves HTML-escaped titles (audit L2).
+    private static String unescape(String s) {
+        return s.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"")
+                .replace("&#39;", "'").replace("&apos;", "'").replace("&amp;", "&");
     }
 
     /** Channels from the disk cache that the bundled catalog does not have. */
@@ -95,11 +115,24 @@ public final class LiveCatalog {
         if (cache.exists() && System.currentTimeMillis() - cache.lastModified() < STALE_MS) {
             return false;
         }
-        OkHttpClient client = new OkHttpClient.Builder()
-                .connectTimeout(8, TimeUnit.SECONDS)
-                .readTimeout(15, TimeUnit.SECONDS)
-                .followRedirects(true)
-                .build();
+        if (!IN_FLIGHT.compareAndSet(false, true)) {
+            return false;
+        }
+        try {
+            return refreshSweep(context, cache);
+        } finally {
+            IN_FLIGHT.set(false);
+        }
+    }
+
+    private static boolean refreshSweep(Context context, File cache) {
+        // Backoff (audit L1): if the last full sweep failed recently,
+        // do not pay for another one yet.
+        if (!cache.exists() && System.currentTimeMillis() - lastAttemptMs < FAIL_BACKOFF_MS && lastAttemptMs > 0L) {
+            return false;
+        }
+        lastAttemptMs = System.currentTimeMillis();
+        OkHttpClient client = CLIENT;
         for (String base : StreamEndpoints.BASES) {
             try {
                 Request req = new Request.Builder()
@@ -157,7 +190,7 @@ public final class LiveCatalog {
     private static void writeCache(Context context, Map<String, String> live) throws Exception {
         StringBuilder sb = new StringBuilder();
         for (Map.Entry<String, String> e : live.entrySet()) {
-            sb.append(e.getKey()).append('\t').append(e.getValue().replace('\t', ' ')).append('\n');
+            sb.append(e.getKey()).append('\t').append(e.getValue().replaceAll("[\\t\\r\\n]+", " ")).append('\n');
         }
         // Write to a temp file and rename: truncating the live cache in
         // place meant a kill mid-write left a partial channel list with
@@ -169,9 +202,10 @@ public final class LiveCatalog {
             out.write(data);
         }
         if (!tmp.renameTo(cache)) {
-            try (FileOutputStream out = new FileOutputStream(cache)) {
-                out.write(data);
-            }
+            // Fail the write (audit L4): the old in-place fallback was
+            // the same truncation race the temp file exists to avoid.
+            tmp.delete();
+            throw new java.io.IOException("could not store live catalog cache");
         }
     }
 }

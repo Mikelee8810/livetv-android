@@ -62,15 +62,22 @@ class SettingsDrawer(
         push(Screen("Settings", ::buildRootMenu))
     }
 
+    // Audit Se1: focus position is remembered per screen and kept
+    // across in-place re-renders (every toggle used to throw focus
+    // back to the top row).
+    private val focusMemory = HashMap<String, Int>()
+    private var updatingPlaylists = false
+    private var updatingEpg = false
+
     private fun push(screen: Screen) {
         navStack.add(screen)
-        renderCurrent()
+        showScreen()
     }
 
     fun handleBack(): Boolean {
         if (navStack.size > 1) {
             navStack.removeAt(navStack.size - 1)
-            renderCurrent()
+            showScreen()
             return true
         } else {
             onClose()
@@ -78,11 +85,39 @@ class SettingsDrawer(
         }
     }
 
+    private fun showScreen() {
+        val cur = navStack.last()
+        titleView.text = cur.title
+        val rows = cur.rows()
+        val focus = focusMemory[cur.title]?.takeIf { it in rows.indices } ?: 0
+        listPanel.submit(rows, focus)
+    }
+
     private fun renderCurrent() {
         val cur = navStack.last()
         titleView.text = cur.title
         val rows = cur.rows()
-        listPanel.submit(rows, 0)
+        val live = listPanel.focusedIndex()
+        val focus = when {
+            live in rows.indices -> live
+            focusMemory[cur.title] in rows.indices -> focusMemory[cur.title]!!
+            else -> 0
+        }
+        focusMemory[cur.title] = focus
+        listPanel.submit(rows, focus)
+    }
+
+    // Audit Se8: theme/accent/font changes rebuild the row views but
+    // used to leave the drawer's own chrome in the old palette.
+    private fun applyChrome() {
+        background = GradientDrawable().apply {
+            setColor(Pal.panel)
+            cornerRadii = floatArrayOf(
+                dp(16f), dp(16f), 0f, 0f,
+                0f, 0f, dp(16f), dp(16f)
+            )
+        }
+        titleView.setTextColor(Pal.text)
     }
 
     // -------------------------------------------------------------
@@ -93,7 +128,13 @@ class SettingsDrawer(
             push(Screen("General", ::buildGeneralMenu))
         }),
         Row("Playlists", sub = "${prefs.playlists().size} configured", onClick = {
-            push(Screen("Playlists", ::buildPlaylistsMenu))
+            // Audit Se5: the "playlists" PIN scope existed but was
+            // never enforced anywhere.
+            if (prefs.pinEnabled && "playlists" in prefs.pinFor) {
+                checkPinThen { push(Screen("Playlists", ::buildPlaylistsMenu)) }
+            } else {
+                push(Screen("Playlists", ::buildPlaylistsMenu))
+            }
         }),
         Row("EPG", sub = "Sources, refresh & storage", onClick = {
             push(Screen("EPG", ::buildEpgMenu))
@@ -178,9 +219,14 @@ class SettingsDrawer(
             showAddPlaylistDialog()
         }))
         list.add(Row("Update all playlists", onClick = {
-            Repo.reload {
-                Dialogs.message(activity, "Playlists Updated", "Reloaded channels from all active playlists.")
-                renderCurrent()
+            // Audit Se3: no in-flight guard let taps stack reloads.
+            if (!updatingPlaylists) {
+                updatingPlaylists = true
+                Repo.reload {
+                    updatingPlaylists = false
+                    Dialogs.message(activity, "Playlists Updated", "Reloaded channels from all active playlists.")
+                    renderCurrent()
+                }
             }
         }))
         return list
@@ -233,19 +279,10 @@ class SettingsDrawer(
         Row("EPG sources", sub = "${Repo.epgSourceList().size} sources active", onClick = {
             push(Screen("EPG Sources", ::buildEpgSourcesMenu))
         }),
-        Row("Past days to keep EPG", value = "${prefs.epgKeepDays} days", onClick = {
-            val opts = listOf("1 day", "3 days", "5 days", "7 days", "14 days")
-            val vals = listOf(1, 3, 5, 7, 14)
-            val cur = vals.indexOf(prefs.epgKeepDays).coerceAtLeast(0)
-            Dialogs.choose(activity, "Keep EPG Days", opts, cur) {
-                prefs.epgKeepDays = vals[it]
-                renderCurrent()
-            }
-        }),
-        Row("Store program descriptions", checked = prefs.epgDescriptions, onClick = {
-            prefs.epgDescriptions = !prefs.epgDescriptions
-            renderCurrent()
-        }),
+        // Audit Se6: "Past days to keep EPG" and "Store program
+        // descriptions" rows were removed — nothing in the app ever
+        // read epgKeepDays or epgDescriptions, so both were dead
+        // settings that lied to the user.
         Row("UPDATE OPTIONS", kind = Kind.HEADER),
         Row("Update interval", value = if (prefs.epgIntervalHours == 0) "None" else "${prefs.epgIntervalHours} hours", onClick = {
             val opts = listOf("None", "2 hours", "4 hours", "8 hours", "12 hours", "24 hours")
@@ -266,9 +303,14 @@ class SettingsDrawer(
         }),
         Row("ACTIONS", kind = Kind.HEADER),
         Row("Update EPG now", accentTitle = true, onClick = {
-            Repo.refreshEpg(force = true) { status ->
-                Dialogs.message(activity, "EPG Update", status)
-                renderCurrent()
+            // Audit Se3: in-flight guard, same as playlists.
+            if (!updatingEpg) {
+                updatingEpg = true
+                Repo.refreshEpg(force = true) { status ->
+                    updatingEpg = false
+                    Dialogs.message(activity, "EPG Update", status)
+                    renderCurrent()
+                }
             }
         }),
         Row("Clear EPG cache", onClick = {
@@ -286,7 +328,13 @@ class SettingsDrawer(
         for (src in Repo.epgSourceList()) {
             list.add(Row(src, onClick = {
                 Dialogs.menu(activity, "EPG Source", listOf(
-                    Row("Copy / View URL", sub = src),
+                    // Audit Se4: this row had no action at all; it now
+                    // copies the URL to the clipboard.
+                    Row("Copy URL", sub = src, onClick = {
+                        val cm = activity.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        cm.setPrimaryClip(android.content.ClipData.newPlainText("EPG source", src))
+                        Dialogs.message(activity, "EPG Source", "Copied to clipboard:\n$src")
+                    }),
                     Row("Remove source", accentTitle = true, onClick = {
                         val current = prefs.epgSources().toMutableList()
                         current.remove(src)
@@ -298,12 +346,28 @@ class SettingsDrawer(
         }
         list.add(Row("Add custom EPG source", accentTitle = true, onClick = {
             Dialogs.input(activity, "Add EPG Source URL", "", "http://... or https://...") { url ->
-                if (url.isNotBlank()) {
-                    val current = prefs.epgSources().toMutableList()
-                    if (url !in current) current.add(url)
-                    prefs.saveEpgSources(current)
-                    renderCurrent()
+                // Audit Se4: validate before saving, and refresh so
+                // the new source takes effect immediately.
+                val trimmed = url.trim()
+                if (trimmed.isNotBlank()) {
+                    if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://") && !trimmed.startsWith("titantv://") && !trimmed.startsWith("cdnlive://")) {
+                        Dialogs.message(activity, "Invalid URL", "EPG sources must be http(s) URLs.")
+                    } else {
+                        val current = prefs.epgSources().toMutableList()
+                        if (trimmed !in current) current.add(trimmed)
+                        prefs.saveEpgSources(current)
+                        Repo.refreshEpg(force = true)
+                        renderCurrent()
+                    }
                 }
+            }
+        }))
+        // Audit Se4: a way back — clears the custom source list;
+        // bundled/catalog sources always apply on their own.
+        list.add(Row("Reset EPG sources", sub = "Removes all custom sources", onClick = {
+            Dialogs.confirm(activity, "Reset EPG Sources", "Remove all custom EPG sources? Bundled sources are unaffected.") {
+                prefs.saveEpgSources(emptyList())
+                renderCurrent()
             }
         }))
         return list
@@ -339,6 +403,7 @@ class SettingsDrawer(
             Dialogs.choose(activity, "Base Theme", opts, opts.indexOf(prefs.theme).coerceAtLeast(0)) {
                 prefs.theme = opts[it]
                 Pal.apply(prefs.theme, prefs.accent)
+                applyChrome()
                 renderCurrent()
             }
         }),
@@ -347,6 +412,7 @@ class SettingsDrawer(
             Dialogs.choose(activity, "Accent Color", opts, opts.indexOf(prefs.accent).coerceAtLeast(0)) {
                 prefs.accent = opts[it]
                 Pal.apply(prefs.theme, prefs.accent)
+                applyChrome()
                 renderCurrent()
             }
         }),
@@ -355,6 +421,7 @@ class SettingsDrawer(
             Dialogs.choose(activity, "Font Size", opts, opts.indexOf(prefs.fontSize).coerceAtLeast(0)) {
                 prefs.fontSize = opts[it]
                 Fonts.scale = when (prefs.fontSize) { "Small" -> 0.88f; "Large" -> 1.15f; else -> 1.0f }
+                applyChrome()
                 renderCurrent()
             }
         }),
@@ -364,7 +431,9 @@ class SettingsDrawer(
             val cur = if (prefs.sortMode == "A–Z") 1 else 0
             Dialogs.choose(activity, "Sort Mode", opts, cur) {
                 prefs.sortMode = if (it == 1) "A–Z" else "Playlist"
-                Repo.reload()
+                // Audit Se7: local re-sort; this used to re-download
+                // every playlist over the network.
+                Repo.resort()
                 renderCurrent()
             }
         }),
@@ -451,13 +520,24 @@ class SettingsDrawer(
             }
         }),
         Row("Long press OK in guide", value = prefs.guideLongOk, onClick = {
-            val opts = listOf("Channel menu", "Toggle favorite", "Show quick channels")
+            // Audit P4/G6: options are exactly the strings GuideView
+            // handles ("Show quick channels" was never implemented).
+            val opts = listOf("Channel menu", "Toggle favorite")
             Dialogs.choose(activity, "Guide Long OK Action", opts, opts.indexOf(prefs.guideLongOk).coerceAtLeast(0)) {
                 prefs.guideLongOk = opts[it]
                 renderCurrent()
             }
         }),
         Row("FULLSCREEN PLAYER ACTIONS", kind = Kind.HEADER),
+        // Audit P4: the playerOk setting existed in Prefs and was
+        // handled by PlayerOverlay but had no settings row at all.
+        Row("Press OK in player", value = prefs.playerOk, onClick = {
+            val opts = listOf("Channel list", "Pause", "TV Guide", "Info banner")
+            Dialogs.choose(activity, "Player OK", opts, opts.indexOf(prefs.playerOk).coerceAtLeast(0)) {
+                prefs.playerOk = opts[it]
+                renderCurrent()
+            }
+        }),
         Row("Press Up / Down in player", value = prefs.playerUpDown, onClick = {
             val opts = listOf("Switch channel", "Show channel list", "Show info banner")
             Dialogs.choose(activity, "Player Up / Down", opts, opts.indexOf(prefs.playerUpDown).coerceAtLeast(0)) {
@@ -466,14 +546,18 @@ class SettingsDrawer(
             }
         }),
         Row("Press Left in player", value = prefs.playerLeft, onClick = {
-            val opts = listOf("Channel list", "Rewind 10s", "Show quick EPG")
+            // Audit P4: these are exactly the strings PlayerOverlay
+            // handles by name. The old list ("Rewind 10s", "Show
+            // quick EPG", "Show channel list") silently fell through
+            // to defaults, so two of three choices did nothing.
+            val opts = listOf("Channel list", "TV Guide", "Program info")
             Dialogs.choose(activity, "Player Left", opts, opts.indexOf(prefs.playerLeft).coerceAtLeast(0)) {
                 prefs.playerLeft = opts[it]
                 renderCurrent()
             }
         }),
         Row("Press Right in player", value = prefs.playerRight, onClick = {
-            val opts = listOf("Program info", "Fast forward 10s", "Show channel list")
+            val opts = listOf("Program info", "Channel list", "TV Guide")
             Dialogs.choose(activity, "Player Right", opts, opts.indexOf(prefs.playerRight).coerceAtLeast(0)) {
                 prefs.playerRight = opts[it]
                 renderCurrent()
@@ -488,22 +572,39 @@ class SettingsDrawer(
     // -------------------------------------------------------------
     // 7. Parental Controls
     // -------------------------------------------------------------
+    // Audit Se5: a new PIN is confirmed by re-entry, and trivial
+    // PINs (all four digits the same, e.g. 0000) are rejected.
+    private fun setPinWithConfirm(onDone: () -> Unit) {
+        Dialogs.pin(activity, "Set 4-digit PIN") { first ->
+            if (first.length == 4 && first.all { it == first[0] }) {
+                Dialogs.message(activity, "PIN Too Simple", "Choose a PIN that is not four identical digits.")
+                return@pin
+            }
+            Dialogs.pin(activity, "Confirm PIN") { second ->
+                if (second == first) {
+                    prefs.pin = first
+                    onDone()
+                } else {
+                    Dialogs.message(activity, "PIN Mismatch", "The two entries did not match. PIN was not changed.")
+                }
+            }
+        }
+    }
+
     private fun buildParentalMenu(): List<Row> = listOf(
         Row("Parental controls active", checked = prefs.pinEnabled, onClick = {
             if (prefs.pinEnabled) {
                 prefs.pinEnabled = false
                 renderCurrent()
             } else {
-                Dialogs.pin(activity, "Set 4-digit PIN") { newPin ->
-                    prefs.pin = newPin
+                setPinWithConfirm {
                     prefs.pinEnabled = true
                     renderCurrent()
                 }
             }
         }),
         Row("Change PIN code", onClick = {
-            Dialogs.pin(activity, "Enter New PIN") { newPin ->
-                prefs.pin = newPin
+            setPinWithConfirm {
                 Dialogs.message(activity, "PIN Updated", "New parental PIN saved.")
             }
         }),
@@ -568,7 +669,11 @@ class SettingsDrawer(
             renderCurrent()
         }),
         Row("ABOUT", kind = Kind.HEADER),
-        Row("Live TV for Android TV", sub = "Version 4.3.0"),
+        // Audit Se2: the version string was hard-coded at 4.3.0 and
+        // already stale; read it from the installed package.
+        Row("Live TV for Android TV", sub = "Version " + try {
+            activity.packageManager.getPackageInfo(activity.packageName, 0).versionName ?: "?"
+        } catch (e: Exception) { "?" }),
         Row("Check for updates", sub = "Latest version comes from GitHub", onClick = {
             com.livetv.app.data.Updater.checkAndPrompt(activity, manual = true)
         }),

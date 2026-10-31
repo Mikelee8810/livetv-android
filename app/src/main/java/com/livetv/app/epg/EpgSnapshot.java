@@ -17,7 +17,10 @@ import java.util.function.Function;
 
 /* JADX INFO: loaded from: classes3.dex */
 public final class EpgSnapshot {
-    private static final Set<String> NOISE = Collections.unmodifiableSet(new HashSet(Arrays.asList("the", "usa", "us", "tv", "television", "channel", "network", "hd", "fhd", "east", "eastern", "west", "western", "feed")));
+    // Coast tokens (east/west/feed) removed (audit S3): stripping
+    // them mapped "HBO West" onto the East channel, putting its
+    // programmes three hours off.
+    private static final Set<String> NOISE = Collections.unmodifiableSet(new HashSet(Arrays.asList("the", "usa", "us", "tv", "television", "channel", "network", "hd", "fhd")));
     private static final Comparator<Program> PROGRAM_ORDER = new Comparator() { // from class: com.livetv.app.epg.EpgSnapshot$$ExternalSyntheticLambda0
         @Override // java.util.Comparator
         public final int compare(Object obj, Object obj2) {
@@ -74,10 +77,18 @@ public final class EpgSnapshot {
     public static EpgSnapshot mergePreferExisting(List<Channel> channels, List<EpgSnapshot> snapshots) {
         List<Channel> resultChannels = channels == null ? Collections.emptyList() : new ArrayList<>(channels);
         Map<String, List<Program>> merged = new HashMap<>();
+        // Audit S5: once a source covers "now" for a channel, that
+        // source owns the channel. Splicing fragments from several
+        // sources produced guides that matched no real schedule.
+        Instant now = Instant.now();
+        Set<String> lockedChannels = new HashSet<>();
         if (snapshots != null) {
             for (EpgSnapshot snapshot : snapshots) {
                 if (snapshot != null) {
                     for (Channel channel : resultChannels) {
+                        if (lockedChannels.contains(channel.id)) {
+                            continue;
+                        }
                         List<Program> programs = snapshot.programsFor(channel);
                         if (!programs.isEmpty()) {
                             List<Program> accepted = merged.computeIfAbsent(channel.id, new Function() { // from class: com.livetv.app.epg.EpgSnapshot$$ExternalSyntheticLambda1
@@ -87,8 +98,12 @@ public final class EpgSnapshot {
                                 }
                             });
                             for (Program candidate : programs) {
-                                if (!overlapsAny(candidate, accepted)) {
-                                    accepted.add(candidate);
+                                insertIfNoOverlap(candidate, accepted);
+                            }
+                            for (Program acceptedProgram : accepted) {
+                                if (!now.isBefore(acceptedProgram.start) && now.isBefore(acceptedProgram.end)) {
+                                    lockedChannels.add(channel.id);
+                                    break;
                                 }
                             }
                         }
@@ -103,13 +118,27 @@ public final class EpgSnapshot {
         return new ArrayList();
     }
 
-    private static boolean overlapsAny(Program candidate, List<Program> accepted) {
-        for (Program existing : accepted) {
-            if (candidate.start.isBefore(existing.end) && candidate.end.isAfter(existing.start)) {
-                return true;
+    private static boolean insertIfNoOverlap(Program candidate, List<Program> accepted) {
+        // Audit S1: `accepted` is kept sorted by PROGRAM_ORDER via
+        // insertion here, so only the two neighbours of the insertion
+        // point can overlap the candidate. The old linear scan over
+        // an ever-growing list made snapshot() quadratic per channel.
+        int idx = Collections.binarySearch(accepted, candidate, PROGRAM_ORDER);
+        int ins = idx >= 0 ? idx : -idx - 1;
+        if (ins > 0) {
+            Program prev = accepted.get(ins - 1);
+            if (candidate.start.isBefore(prev.end) && candidate.end.isAfter(prev.start)) {
+                return false;
             }
         }
-        return false;
+        if (ins < accepted.size()) {
+            Program next = accepted.get(ins);
+            if (candidate.start.isBefore(next.end) && candidate.end.isAfter(next.start)) {
+                return false;
+            }
+        }
+        accepted.add(ins, candidate);
+        return true;
     }
 
     public List<Channel> channels() {
@@ -182,7 +211,10 @@ public final class EpgSnapshot {
             this.exactIds = EpgSnapshot.uniqueIndex(channels, new ChannelKey() { // from class: com.livetv.app.epg.EpgSnapshot$MappingIndex$$ExternalSyntheticLambda0
                 @Override // com.livetv.app.epg.EpgSnapshot.ChannelKey
                 public final String get(Channel channel) {
-                    return channel.tvgId;
+                    // Audit S2: index keys are lowercased so id
+                    // matching is case-insensitive end to end (the
+                    // repository filter already lowercased its side).
+                    return channel.tvgId == null ? null : channel.tvgId.toLowerCase(Locale.ROOT);
                 }
             });
             this.exactNames = EpgSnapshot.uniqueIndex(channels, new ChannelKey() { // from class: com.livetv.app.epg.EpgSnapshot$MappingIndex$$ExternalSyntheticLambda1
@@ -226,12 +258,12 @@ public final class EpgSnapshot {
 
         Channel match(Program program, Map<String, String> aliases) {
             String alias;
-            Channel channel = this.exactIds.get(program.channelId);
+            Channel channel = this.exactIds.get(program.channelId.toLowerCase(Locale.ROOT));
             String displayName = program.channelDisplayName.isEmpty() ? program.channelId : program.channelDisplayName;
             if (channel == null) {
                 channel = this.exactNames.get(displayName);
             }
-            if (channel == null && aliases != null && (alias = aliases.get(program.channelId)) != null && (channel = this.exactIds.get(alias)) == null) {
+            if (channel == null && aliases != null && (alias = aliases.get(program.channelId)) != null && (channel = this.exactIds.get(alias.toLowerCase(Locale.ROOT))) == null) {
                 channel = this.exactNames.get(alias);
             }
             if (channel == null) {
@@ -247,15 +279,18 @@ public final class EpgSnapshot {
         String value;
         Channel existing;
         Map<String, Channel> values = new HashMap<>();
-        Set<String> ambiguous = new HashSet<>();
         for (Channel channel : channels) {
-            if (channel != null && (value = key.get(channel)) != null && !value.isEmpty() && !ambiguous.contains(value) && (existing = values.putIfAbsent(value, channel)) != null && (existing.isYoutubeVariant() || !channel.isYoutubeVariant())) {
-                if (existing.isYoutubeVariant() && !channel.isYoutubeVariant()) {
+            if (channel != null && (value = key.get(channel)) != null && !value.isEmpty()) {
+                existing = values.putIfAbsent(value, channel);
+                if (existing != null && existing.isYoutubeVariant() && !channel.isYoutubeVariant()) {
+                    // The one replacement rule kept: a playable
+                    // channel supersedes a YouTube variant.
                     values.put(value, channel);
-                } else {
-                    values.remove(value);
-                    ambiguous.add(value);
                 }
+                // Audit S4: on any other duplicate the FIRST channel
+                // wins. The old code removed BOTH channels from the
+                // index, so a shared tvgId left every channel with
+                // that id without any EPG.
             }
         }
         return values;

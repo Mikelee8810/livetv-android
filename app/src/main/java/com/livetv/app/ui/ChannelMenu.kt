@@ -58,11 +58,19 @@ object ChannelMenu {
                     "Display Number: ${item.number}\n" +
                     "Category: ${item.ch.category.label}\n" +
                     "Group: ${item.groups.joinToString(", ")}\n" +
-                    "Playback URL:\n${item.url}"
+                    "Playback URL:\n${maskedUrl(item.url)}"
                 )
             }
         ))
 
         Dialogs.menu(activity, item.name, rows, 420f)
+    }
+
+    // Audit (B2 ChannelMenu): never render credentials or tokens on
+    // screen — strip the query string (signed tokens live there) and
+    // any userinfo from the displayed playback URL.
+    private fun maskedUrl(url: String): String {
+        val noQuery = url.substringBefore('?').substringBefore('#')
+        return noQuery.replace(Regex("://[^/@\\s]+@"), "://")
     }
 }

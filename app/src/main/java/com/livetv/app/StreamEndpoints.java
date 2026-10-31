@@ -26,9 +26,10 @@ public final class StreamEndpoints {
     public static final List<String> MIRRORS = Collections.unmodifiableList(Arrays.asList(
             "https://dlhd.pk",
             "https://daddylive.at",
-            "https://daddylive.app",
-            "https://dlhd.st",
-            "https://dlstreams.st"
+            "https://daddylive.app"
+            // dlhd.st and dlstreams.st are gone (audit SE1): both
+            // 301-redirect to the primary, so sweeps fetched the same
+            // page three times and the S14 fallback gained nothing.
     ));
 
     /** Every base URL worth trying, primary first. */

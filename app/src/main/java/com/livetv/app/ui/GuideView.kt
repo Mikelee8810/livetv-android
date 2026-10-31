@@ -3,6 +3,8 @@ package com.livetv.app.ui
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.*
+import android.text.TextPaint
+import android.text.TextUtils
 import android.view.KeyEvent
 import android.view.View
 import android.view.animation.DecelerateInterpolator
@@ -24,7 +26,19 @@ class Cell(val start: Long, val end: Long, val program: Program?)
 class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
     enum class GuideFocus { CHANNEL, PROGRAM }
 
-    var rows: List<Item> = emptyList(); set(v) { field = v; cellCache.clear(); selRow = selRow.coerceIn(0, (v.size - 1).coerceAtLeast(0)); invalidate(); notifySel() }
+    var rows: List<Item> = emptyList(); set(v) {
+        // Audit G1: selection used to be kept by INDEX, so after a
+        // filter the cursor landed on a different channel; and
+        // scrollRow was never clamped, so the guide could render
+        // blank. Keep the selection by channel key, clamp scroll.
+        val keepKey = rows.getOrNull(selRow)?.key
+        field = v
+        cellCache.clear()
+        val idx = if (keepKey != null) v.indexOfFirst { it.key == keepKey } else -1
+        selRow = if (idx >= 0) idx else selRow.coerceIn(0, (v.size - 1).coerceAtLeast(0))
+        scrollRow = scrollRow.coerceIn(0f, maxOf(0, v.size - visibleRows()).toFloat())
+        invalidate(); notifySel()
+    }
     var playingKey: String? = null; set(v) { field = v; invalidate() }
     var focusCol: GuideFocus = GuideFocus.PROGRAM
     var onPlay: (Item) -> Unit = {}
@@ -49,7 +63,15 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
     private fun rowDp() = when (prefs.guideRowSize) { "Small" -> 34f; "Large" -> 44f; else -> 39f }
 
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val tp = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Fonts.regular }
+    // TextPaint (a Paint subclass) so TextUtils.ellipsize accepts it.
+    private val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Fonts.regular }
+    // Audit G2: onDraw used to allocate a RectF/Path per row and
+    // per cell on every frame; these scratch shapes are reused.
+    private val chanRect = RectF()
+    private val cellRect = RectF()
+    private val barRect = RectF()
+    private val logoRect = RectF()
+    private val playPath = Path()
     private var bgShader: LinearGradient? = null
     private var bgShaderKey: Int = 0
     private val timeFmt = SimpleDateFormat("hh:mm a", Locale.US)
@@ -61,7 +83,14 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
     override fun onAttachedToWindow() { super.onAttachedToWindow(); postDelayed(tick, 30_000) }
     override fun onDetachedFromWindow() { removeCallbacks(tick); super.onDetachedFromWindow() }
 
-    private fun floor30(t: Long) = t - (t % (30 * 60_000L)) - TimeZone.getDefault().getOffset(t).let { 0 }
+    // Audit G4: floor to the local :00/:30 boundary. The old code
+    // subtracted a dead `let { 0 }` instead of the zone offset, so
+    // the grid aligned to UTC half hours and broke in :15/:45 zones.
+    private fun floor30(t: Long): Long {
+        val offset = TimeZone.getDefault().getOffset(t).toLong()
+        val local = t + offset
+        return local - (local % (30 * 60_000L)) - offset
+    }
 
     fun selected(): Item? = rows.getOrNull(selRow.coerceIn(0, (rows.size - 1).coerceAtLeast(0)))
     fun selectedProgram(): Program? = selected()?.let { cellAt(it, selTime)?.program }
@@ -83,11 +112,16 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
     private fun notifySel() = onSelection(selected(), selectedProgram())
 
     // -- data ----------------------------------------------------------------------
+    private var cacheWindowFrom = Long.MIN_VALUE
+
     private fun cellsFor(item: Item): List<Cell> {
         val e = Repo.epg
-        if (e !== cacheEpg) { cellCache.clear(); cacheEpg = e }
+        // Audit G3: the cached window was anchored when first built
+        // and never re-keyed, so cells ran out ~30 h later and the
+        // guide drew filler forever. Rebuild when the window moves.
+        val from = floor30(System.currentTimeMillis()) - 6 * 3_600_000L
+        if (e !== cacheEpg || from != cacheWindowFrom) { cellCache.clear(); cacheEpg = e; cacheWindowFrom = from }
         return cellCache.getOrPut(item.key) {
-            val from = floor30(System.currentTimeMillis()) - 6 * 3_600_000L
             val to = from + 36 * 3_600_000L
             val out = ArrayList<Cell>()
             var cur = from
@@ -165,7 +199,7 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
 
         // Draw Channel Column card background: filled card with a subtle
         // edge, an accent edge on the selected row, and an accent ring on focus.
-        val chanRect = RectF(dp(8f), y + dp(1.5f), chanW - dp(8f), y + rowH - dp(2.5f))
+        chanRect.set(dp(8f), y + dp(1.5f), chanW - dp(8f), y + rowH - dp(2.5f))
         p.style = Paint.Style.FILL
         p.color = when {
             isChanFocused -> Pal.focusFill
@@ -201,10 +235,12 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
             if (bmp != null) {
                 val s = minOf(lw / bmp.width, lh / bmp.height)
                 val dw = bmp.width * s; val dh = bmp.height * s
-                c.drawBitmap(bmp, null, RectF(lx + (lw - dw) / 2, cy - dh / 2, lx + (lw + dw) / 2, cy + dh / 2), p)
+                logoRect.set(lx + (lw - dw) / 2, cy - dh / 2, lx + (lw + dw) / 2, cy + dh / 2)
+                c.drawBitmap(bmp, null, logoRect, p)
             } else {
                 p.color = if (isChanFocused) Pal.card else Pal.cardHi
-                c.drawRoundRect(RectF(lx + dp(4f), cy - lh / 2.4f, lx + lw - dp(4f), cy + lh / 2.4f), dp(5f), dp(5f), p)
+                logoRect.set(lx + dp(4f), cy - lh / 2.4f, lx + lw - dp(4f), cy + lh / 2.4f)
+                c.drawRoundRect(logoRect, dp(5f), dp(5f), p)
                 tp.textSize = sp(11f); tp.color = if (isChanFocused) Pal.text else Pal.textDim; tp.textAlign = Paint.Align.CENTER; tp.typeface = Fonts.medium
                 c.drawText(initials(it.name), lx + lw / 2, cy + sp(4f), tp)
             }
@@ -225,8 +261,9 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
         if (isPlaying) { // play triangle
             p.color = if (isChanFocused) Pal.focusText else Pal.accent
             val px = chanW - dp(16f); val s = dp(6f)
-            val path = Path().apply { moveTo(px - s, cy - s); lineTo(px + s * 0.8f, cy); lineTo(px - s, cy + s); close() }
-            c.drawPath(path, p)
+            playPath.reset()
+            playPath.moveTo(px - s, cy - s); playPath.lineTo(px + s * 0.8f, cy); playPath.lineTo(px - s, cy + s); playPath.close()
+            c.drawPath(playPath, p)
         }
 
         // Program Cells
@@ -235,7 +272,8 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
             val x1 = chanW + (cell.start - viewStart) / 60_000f * ppm
             val x2 = chanW + (cell.end - viewStart) / 60_000f * ppm
             if (x2 < chanW || x1 > width) continue
-            val rect = RectF(x1 + dp(1.5f), y + dp(1f), x2 - dp(1.5f), y + rowH - dp(2.5f))
+            cellRect.set(x1 + dp(1.5f), y + dp(1f), x2 - dp(1.5f), y + rowH - dp(2.5f))
+            val rect = cellRect
             val isCurrentTime = selTime >= cell.start && selTime < cell.end
             val focused = isSel && isCurrentTime && focusCol == GuideFocus.PROGRAM && hasFocus()
             val softSel = isSel && isCurrentTime
@@ -261,8 +299,8 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
                 c.drawRect(rect.left, rect.top, px, rect.bottom, p)
                 if (rect.width() > dp(44f) && px > rect.left + dp(10f)) {
                     p.color = if (focused) Pal.focusText else Pal.accent
-                    val bar = RectF(rect.left + dp(6f), rect.bottom - dp(5.5f), px - dp(4f), rect.bottom - dp(3f))
-                    c.drawRoundRect(bar, dp(1.5f), dp(1.5f), p)
+                    barRect.set(rect.left + dp(6f), rect.bottom - dp(5.5f), px - dp(4f), rect.bottom - dp(3f))
+                    c.drawRoundRect(barRect, dp(1.5f), dp(1.5f), p)
                 }
             }
 
@@ -284,10 +322,12 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
 
     private fun initials(n: String) = n.split(' ', '-', '(').filter { it.isNotEmpty() && it[0].isLetterOrDigit() }.take(2).joinToString("") { it.take(1).uppercase() }
     @Suppress("FunctionName")
-    private fun TextUtils_ellipsize(s: String, paint: Paint, w: Float): String {
+    private fun TextUtils_ellipsize(s: String, paint: TextPaint, w: Float): String {
+        // Audit G2: the old hand loop re-measured the string once
+        // per character (quadratic per cell per frame). The platform
+        // ellipsize binary-searches instead.
         if (paint.measureText(s) <= w) return s
-        var n = s.length; while (n > 1 && paint.measureText(s, 0, n) + paint.measureText("…") > w) n--
-        return s.substring(0, n).trimEnd() + "…"
+        return TextUtils.ellipsize(s, paint, w, TextUtils.TruncateAt.END).toString()
     }
     private fun Int.blend(o: Int, f: Float): Int = Color.rgb(
         (Color.red(this) * (1 - f) + Color.red(o) * f).toInt(), (Color.green(this) * (1 - f) + Color.green(o) * f).toInt(), (Color.blue(this) * (1 - f) + Color.blue(o) * f).toInt())
@@ -348,14 +388,13 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
                     val cells = cellsFor(cur)
                     val i = cells.indexOfFirst { selTime >= it.start && selTime < it.end }
                     val minStart = floor30(now) - 6 * 3_600_000L
-                    if (i <= 0 || (cells[i].start <= now && cells[i].end > now) || cells[i].start < viewStart + 60_000) {
-                        focusCol = GuideFocus.CHANNEL
-                        invalidate()
-                        notifySel()
-                        return true
-                    }
-                    val prevCell = cells[i - 1]
-                    if (prevCell.end <= minStart) {
+                    // Audit G5: being on the LIVE cell used to bounce
+                    // focus back to the channel column, so past
+                    // programmes could never be reached by D-pad.
+                    // Step into the previous cell down to the window
+                    // floor instead.
+                    val prevCell = if (i > 0) cells[i - 1] else null
+                    if (prevCell == null || prevCell.end <= minStart) {
                         focusCol = GuideFocus.CHANNEL
                     } else {
                         selTime = prevCell.start.coerceAtLeast(minStart)
@@ -403,7 +442,13 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
 
     override fun onKeyLongPress(code: Int, e: KeyEvent): Boolean {
         if (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER || code == KeyEvent.KEYCODE_NUMPAD_ENTER) {
-            selected()?.let { onMenu(it, selectedProgram()) }
+            // Audit G6: the guideLongOk setting was never read; long
+            // OK always opened the channel menu.
+            val cur = selected() ?: return true
+            when (prefs.guideLongOk) {
+                "Toggle favorite" -> { Repo.toggleFav(cur); invalidate() }
+                else -> onMenu(cur, selectedProgram())
+            }
             return true
         }
         return super.onKeyLongPress(code, e)

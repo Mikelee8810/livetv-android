@@ -66,9 +66,29 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
 
     private static final class CachedResolved {
         final Resolved resolved;
-        final long expiresAt;
+        // Sliding, not fixed (audit S2): every successful manifest
+        // serve pushes the expiry out, so a healthy stream never hits
+        // a mid-playback re-resolve cliff at T+15:00.
+        volatile long expiresAt;
         CachedResolved(Resolved r, long exp) { this.resolved = r; this.expiresAt = exp; }
     }
+
+    // Audit fix state (2026-10-31). Consecutive manifest failures per
+    // channel: after 2, the resolve cache entry is dropped so a dead
+    // edge is re-resolved instead of reused for 15 minutes (S1).
+    private static final Map<String, Integer> MANIFEST_FAIL_STREAK = new ConcurrentHashMap<>();
+    // Single-flight resolves + a short negative cache + last-good
+    // route memory, so a cold zap walks the routes once, not once per
+    // player retry (S13).
+    private static final Map<String, java.util.concurrent.CompletableFuture<Resolved>> RESOLVE_INFLIGHT = new ConcurrentHashMap<>();
+    private static final Map<String, Long> RESOLVE_NEGATIVE = new ConcurrentHashMap<>();
+    private static final Map<String, Integer> LAST_GOOD_ROUTE = new ConcurrentHashMap<>();
+    // Hosts where HEAD is refused (per-method signing); skipped for a
+    // while so a segment does not pay a doomed HEAD first (S15).
+    private static final Map<String, Long> HEAD_FAILED_HOSTS = new ConcurrentHashMap<>();
+    // External (sources-based) resolves are cached like numeric ones
+    // instead of re-walking embed pages on every poll (S19).
+    private static final Map<String, CachedResolved> EXT_CACHE = new ConcurrentHashMap<>();
 
     private static final class TokenSession {
         final String edge;
@@ -76,7 +96,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
         final String playerUrl;
         volatile String token;
         volatile long renewAt;
-        volatile long expiresAt;
+        volatile long lastRenewAttemptMs;
 
         TokenSession(String edge, String chan, String playerUrl, String token, long ttlSec) {
             this.edge = edge;
@@ -85,7 +105,6 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             this.token = token;
             long now = System.currentTimeMillis();
             this.renewAt = now + (ttlSec * 500L);
-            this.expiresAt = now + (ttlSec * 1000L) - 2000L;
         }
     }
 
@@ -102,6 +121,14 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             if (!force && session.token != null && now < session.renewAt) {
                 return session.token;
             }
+            // Forced-renew discipline (audit S8): if the token changed
+            // since the caller read it, or a renew was attempted in the
+            // last 5 s, the caller's 403 is already being answered -
+            // do not queue another network renew behind the lock.
+            if (force && session.token != null && now - session.lastRenewAttemptMs < 5000L) {
+                return session.token;
+            }
+            session.lastRenewAttemptMs = now;
             try {
                 String tokenUrl = session.edge + "/api/playlist-token?slug=" + URLEncoder.encode(session.chan, StandardCharsets.UTF_8.name());
                 okhttp3.Request req = request(tokenUrl, session.playerUrl).build();
@@ -117,7 +144,6 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                                 ttl = Math.max(20L, Long.parseLong(ttlM.group(1)));
                             }
                             session.renewAt = now + (ttl * 500L);
-                            session.expiresAt = now + (ttl * 1000L) - 2000L;
                             Log.i(TAG, "Renewed playlist-token for channel " + channelId + " (valid for " + ttl + "s)");
                             Log.i("LiveProxyAudit", "token renewed id=" + channelId + " force=" + force);
                             return session.token;
@@ -126,6 +152,10 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                 }
             } catch (Exception e) {
                 Log.w(TAG, "Failed to renew token for channel " + channelId + ": " + e.getMessage());
+                // Back off on failure (audit S8): without this every
+                // poll retries the renew and a dead channel pays a
+                // forced renew plus retry on every manifest request.
+                session.renewAt = System.currentTimeMillis() + 5000L;
             }
             return session.token;
         }
@@ -154,10 +184,16 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
         // than wait out the manifest retry policy (3 attempts, backoff
         // sleeps, 12 s reads - up to ~38 s for one segment, which drains
         // any buffer and reads on screen as a long freeze).
-        okhttp3.Dispatcher segDispatcher = new okhttp3.Dispatcher();
-        segDispatcher.setMaxRequests(32);
-        segDispatcher.setMaxRequestsPerHost(12);
-        this.segmentClient = new OkHttpClient.Builder().connectTimeout(5L, TimeUnit.SECONDS).readTimeout(8L, TimeUnit.SECONDS).followRedirects(true).dispatcher(segDispatcher).build();
+        // HTTP/1.1 with a real connection pool (audit S17): the
+        // parallel-chunk design needs parallel TCP connections, and
+        // HTTP/2 would multiplex every chunk over ONE connection - a
+        // single stall would then stall the whole segment. Dispatcher
+        // limits are gone: they only govern async enqueue(), and every
+        // call here is a blocking execute().
+        this.segmentClient = new OkHttpClient.Builder().connectTimeout(5L, TimeUnit.SECONDS).readTimeout(8L, TimeUnit.SECONDS).followRedirects(true)
+                .protocols(java.util.Collections.singletonList(okhttp3.Protocol.HTTP_1_1))
+                .connectionPool(new okhttp3.ConnectionPool(16, 5L, TimeUnit.MINUTES))
+                .build();
     }
 
     public static synchronized OnDeviceStreamServer ensureStarted() throws Exception {
@@ -177,19 +213,33 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                 return newFixedLengthResponse("ok");
             }
             Map<String, String> q = session.getParms();
-            Log.i(TAG, "Request: uri=" + uri + ", id=" + q.get("id") + ", sources=" + q.get("sources") + ", url=" + q.get("url"));
+            // Never log raw url=/sources= params: they can carry
+            // tokens (audit S24).
+            Log.i(TAG, "Request: uri=" + uri + ", id=" + q.get("id"));
             if (uri.endsWith("manifest.m3u8") || uri.contains("/manifest")) {
                 String id = q.get("id");
                 int player = parseInt(q.get("player"), 0);
                 String upstream = q.get("url");
                 String sources = q.get("sources");
                 if (upstream == null) {
-                    if (id != null && !id.trim().isEmpty() && id.trim().matches("\\d+")) {
-                        resolved = resolve(id.trim(), player);
-                    } else if (sources != null && !sources.trim().isEmpty()) {
-                        resolved = resolveExternal(sources, player);
-                    } else {
-                        throw new IllegalArgumentException("Missing id or sources");
+                    // A failed re-resolve must not kill a playing
+                    // stream (audit S2): fall back to the last good
+                    // manifest, then to the expired cache entry, and
+                    // only then surface the error.
+                    try {
+                        if (id != null && !id.trim().isEmpty() && id.trim().matches("\\d+")) {
+                            resolved = resolve(id.trim(), player);
+                        } else if (sources != null && !sources.trim().isEmpty()) {
+                            resolved = resolveExternal(sources, player);
+                        } else {
+                            throw new IllegalArgumentException("Missing id or sources");
+                        }
+                    } catch (Exception resolveError) {
+                        NanoHTTPD.Response staleR = staleManifest(id, player);
+                        if (staleR != null) {
+                            return staleR;
+                        }
+                        throw resolveError;
                     }
                 } else {
                     resolved = new Resolved(upstream, q.get("referer"), "");
@@ -200,6 +250,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                 try {
                     return proxyManifest(id, player, upstream, resolved);
                 } catch (Exception manifestError) {
+                    noteManifestFailure(id, "proxyManifest threw");
                     NanoHTTPD.Response stale = staleManifest(id, player);
                     if (stale != null) {
                         return stale;
@@ -218,6 +269,26 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
     }
 
     private Resolved resolveExternal(String packedSources, int preferred) throws Exception {
+        // Cached like numeric resolves (audit S19): non-numeric ids
+        // used to re-walk embed pages on every manifest poll.
+        String cacheKey = packedSources + ":" + preferred;
+        CachedResolved hit = EXT_CACHE.get(cacheKey);
+        if (hit != null && System.currentTimeMillis() < hit.expiresAt) {
+            return hit.resolved;
+        }
+        try {
+            Resolved r = resolveExternalWalk(packedSources, preferred);
+            EXT_CACHE.put(cacheKey, new CachedResolved(r, System.currentTimeMillis() + 900_000L));
+            return r;
+        } catch (Exception e) {
+            if (hit != null) {
+                return hit.resolved;
+            }
+            throw e;
+        }
+    }
+
+    private Resolved resolveExternalWalk(String packedSources, int preferred) throws Exception {
         String[] sources = packedSources.split("\\|");
         if (sources.length == 0) {
             throw new Exception("No external feeds");
@@ -398,21 +469,75 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             throw new IllegalArgumentException("Invalid channel");
         }
         String cacheKey = id + ":" + preferred;
+        long now = System.currentTimeMillis();
         CachedResolved cached = RESOLVE_CACHE.get(cacheKey);
-        if (cached != null && System.currentTimeMillis() < cached.expiresAt) {
+        if (cached != null && now < cached.expiresAt) {
             return cached.resolved;
         }
+        // Negative cache (audit S13): a channel that just failed to
+        // resolve does not get a fresh multi-route walk on every poll.
+        Long negAt = RESOLVE_NEGATIVE.get(cacheKey);
+        if (cached == null && negAt != null && now - negAt < 10_000L) {
+            throw new Exception("Resolve recently failed for channel " + id);
+        }
+        // Single-flight (audit S13): concurrent polls for the same
+        // channel share one walk instead of spawning their own.
+        java.util.concurrent.CompletableFuture<Resolved> mine = new java.util.concurrent.CompletableFuture<>();
+        java.util.concurrent.CompletableFuture<Resolved> existing = RESOLVE_INFLIGHT.putIfAbsent(cacheKey, mine);
+        if (existing != null) {
+            try {
+                return existing.get(60L, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                if (cached != null) {
+                    return cached.resolved;
+                }
+                throw new Exception("Shared resolve failed for channel " + id, e);
+            }
+        }
+        try {
+            Resolved res = resolveWalk(id, preferred, cacheKey);
+            mine.complete(res);
+            return res;
+        } catch (Exception e) {
+            mine.completeExceptionally(e);
+            if (cached == null) {
+                RESOLVE_NEGATIVE.put(cacheKey, System.currentTimeMillis());
+            } else {
+                // Keep the expired entry rather than erroring the
+                // poll (audit S2): its manifest may still serve.
+                return cached.resolved;
+            }
+            throw e;
+        } finally {
+            RESOLVE_INFLIGHT.remove(cacheKey, mine);
+        }
+    }
 
+    private Resolved resolveWalk(String id, int preferred, String cacheKey) throws Exception {
+        // Route memory (audit S13): start from the route that worked
+        // last time for this channel instead of always from route 0.
+        Integer lastGood = LAST_GOOD_ROUTE.get(id);
+        int start = lastGood != null ? lastGood : preferred;
+        long walkStart = System.currentTimeMillis();
         Exception lastError = null;
         for (int i = 0; i < ROUTES.length; i++) {
-            int player = (preferred + i) % ROUTES.length;
+            int player = (start + i) % ROUTES.length;
+            // Overall walk deadline: the old worst case was 8 routes
+            // times minutes of retries (audit S13).
+            if (i > 0 && System.currentTimeMillis() - walkStart > 45_000L) {
+                break;
+            }
             try {
                 Resolved res = resolveSingle(id, player);
-                // 15 minutes. The playlist token itself is renewed separately
-                // by TokenSession, and a failed manifest fetch drops the cache
-                // entry, so a longer resolve cache is safe and makes zapping
-                // back to a recent channel fast instead of re-walking embeds.
+                // 15 minutes, sliding on every successful serve. The
+                // playlist token is renewed separately by TokenSession,
+                // and repeated manifest failures drop the entry (S1),
+                // so a long cache is safe and zapping back to a recent
+                // channel stays fast instead of re-walking embeds.
                 RESOLVE_CACHE.put(cacheKey, new CachedResolved(res, System.currentTimeMillis() + 900_000L));
+                LAST_GOOD_ROUTE.put(id, player);
+                RESOLVE_NEGATIVE.remove(cacheKey);
+                pruneCaches(id);
                 return res;
             } catch (Exception e) {
                 lastError = e;
@@ -422,10 +547,77 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
         throw (lastError != null ? lastError : new Exception("All routes failed for " + id));
     }
 
+    // Failure/success bookkeeping for the resolve cache (audit S1).
+    private void noteManifestFailure(String id, String why) {
+        if (id == null) {
+            return;
+        }
+        int streak = MANIFEST_FAIL_STREAK.merge(id, 1, Integer::sum);
+        Log.w("LiveProxyAudit", "manifest failure id=" + id + " streak=" + streak + " (" + why + ")");
+        if (streak >= 2) {
+            // The cached edge/src is dead: drop it so the next poll
+            // re-resolves. TOKEN_SESSIONS is deliberately kept - its
+            // timeline continuity is what the stale manifest protects.
+            RESOLVE_CACHE.keySet().removeIf(k -> k.startsWith(id + ":"));
+            MANIFEST_FAIL_STREAK.remove(id);
+        }
+    }
+
+    private void noteManifestSuccess(String id) {
+        if (id != null) {
+            MANIFEST_FAIL_STREAK.remove(id);
+        }
+    }
+
+    // Opportunistic eviction so the static caches cannot grow forever
+    // (audit S22).
+    private void pruneCaches(String keepId) {
+        long now = System.currentTimeMillis();
+        if (RESOLVE_CACHE.size() > 64) {
+            RESOLVE_CACHE.entrySet().removeIf(e -> now > e.getValue().expiresAt);
+        }
+        if (TOKEN_SESSIONS.size() > 64) {
+            TOKEN_SESSIONS.entrySet().removeIf(e -> !e.getKey().equals(keepId) && now > e.getValue().renewAt + 1_800_000L);
+        }
+        if (LAST_GOOD_MANIFEST.size() > 48) {
+            LAST_GOOD_MANIFEST.keySet().removeIf(k -> !k.startsWith(keepId + ":"));
+            LAST_GOOD_MANIFEST_AT.keySet().removeIf(k -> !k.startsWith(keepId + ":"));
+            PDT_ANCHOR.keySet().removeIf(k -> !k.startsWith(keepId + ":"));
+            SEG_DURATIONS.keySet().removeIf(k -> !k.startsWith(keepId + ":"));
+        }
+    }
+
     private Resolved resolveSingle(String id, int player) throws Exception {
+        // A fresh resolve must not inherit a token session minted on
+        // another route (audit S9): its token would be appended to
+        // this route's manifest URL.
+        TOKEN_SESSIONS.remove(id);
         String embed = playerPageUrl(id, player);
         String watch = (player == 0) ? StreamEndpoints.NTVS_WATCH + id : StreamEndpoints.watchUrl(StreamEndpoints.PRIMARY, id);
-        String embedHtml = getText(embed, watch);
+        String embedHtml;
+        try {
+            embedHtml = getText(embed, watch);
+        } catch (Exception firstFailure) {
+            // The primary host is not the only base (audit S14): the
+            // domain has hopped before, so walk the mirror bases for
+            // the embed page before giving up on this route.
+            embedHtml = null;
+            for (String base : StreamEndpoints.BASES) {
+                if (embed.startsWith(base)) {
+                    continue;
+                }
+                String alt = playerPageUrlOn(base, id, player);
+                try {
+                    embedHtml = getText(alt, watch);
+                    embed = alt;
+                    break;
+                } catch (Exception ignored) {
+                }
+            }
+            if (embedHtml == null) {
+                throw firstFailure;
+            }
+        }
         Matcher frame = IFRAME.matcher(embedHtml);
         if (!frame.find()) {
             throw new Exception("player page unavailable on " + ROUTES[player]);
@@ -453,7 +645,10 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                         if (ttlM.find()) {
                             ttl = Math.max(20L, Long.parseLong(ttlM.group(1)));
                         }
-                        String manifestUrl = src + (src.contains("?") ? "&" : "?") + "t=" + token + "&_=" + System.currentTimeMillis();
+                        // Encode the token here exactly as everywhere
+                        // else (audit S26): a raw + / = in it made
+                        // this route test fail spuriously.
+                        String manifestUrl = src + (src.contains("?") ? "&" : "?") + "t=" + URLEncoder.encode(token, StandardCharsets.UTF_8.name()) + "&_=" + System.currentTimeMillis();
                         okhttp3.Request testReq = request(manifestUrl, playerUrl).build();
                         try (okhttp3.Response testResp = this.client.newCall(testReq).execute()) {
                             if (!testResp.isSuccessful()) {
@@ -512,6 +707,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             if (!response.isSuccessful() || response.body() == null) {
                 int code = response.code();
                 response.close();
+                noteManifestFailure(id, "HTTP " + code);
                 Log.w("LiveProxyAudit", "manifest FAILED id=" + id + " http=" + code + " - keeping session, trying last-good manifest");
                 NanoHTTPD.Response stale = staleManifest(id, player);
                 if (stale != null) {
@@ -526,6 +722,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             // disguise, and handing it to ExoPlayer just stalls playback.
             if (!manifestBody.trim().startsWith("#EXTM3U")) {
                 response.close();
+                noteManifestFailure(id, "non-playlist body");
                 Log.w("LiveProxyAudit", "manifest BAD BODY id=" + id + " - keeping session, trying last-good manifest");
                 NanoHTTPD.Response stale2 = staleManifest(id, player);
                 if (stale2 != null) {
@@ -540,20 +737,28 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             if (id != null) {
                 java.util.regex.Matcher seqM2 = java.util.regex.Pattern.compile("#EXT-X-MEDIA-SEQUENCE:(\\d+)").matcher(manifestBody);
                 if (seqM2.find()) {
-                    int firstSeq = Integer.parseInt(seqM2.group(1));
+                    // Long, not int (audit S12): media sequences pass
+                    // 2^31 on long-lived channels and parseInt threw
+                    // the whole manifest away.
+                    long firstSeq = Long.parseLong(seqM2.group(1));
                     java.util.List<Double> durs = new ArrayList<>();
                     for (String rawLine : manifestBody.split("\\r?\\n")) {
                         String t = rawLine.trim();
                         if (t.startsWith("#EXTINF:")) {
                             try {
-                                durs.add(Double.parseDouble(t.substring(8, t.indexOf(','))));
+                                // A comma-less EXTINF still carries a
+                                // duration (audit S12): dropping it
+                                // desynchronised durations from
+                                // sequence numbers.
+                                int comma = t.indexOf(',');
+                                durs.add(Double.parseDouble(t.substring(8, comma < 0 ? t.length() : comma)));
                             } catch (Exception ignored) {
                             }
                         }
                     }
                     if (!durs.isEmpty()) {
                         String key = id + ":" + player;
-                        Map<Integer, Double> known = SEG_DURATIONS.computeIfAbsent(key, k -> new ConcurrentHashMap<>());
+                        Map<Long, Double> known = SEG_DURATIONS.computeIfAbsent(key, k -> new ConcurrentHashMap<>());
                         for (int i = 0; i < durs.size(); i++) {
                             known.put(firstSeq + i, durs.get(i));
                         }
@@ -568,12 +773,23 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                             PDT_ANCHOR.put(key, anchor);
                         }
                         double acc = 0;
-                        for (long s = anchor[1]; s < firstSeq; s++) {
-                            Double d = known.get((int) s);
-                            acc += (d != null ? d : durs.get(0));
+                        if (firstSeq - anchor[1] > 1000L) {
+                            // Timeline jump (audit S12): never spin
+                            // summing a billion phantom segments on
+                            // the request thread - just re-anchor.
+                            anchor = new long[]{liveEdgeStartMs, firstSeq};
+                            PDT_ANCHOR.put(key, anchor);
+                        } else {
+                            for (long s = anchor[1]; s < firstSeq; s++) {
+                                Double d = known.get(s);
+                                acc += (d != null ? d : durs.get(0));
+                            }
                         }
                         long firstSegStartMs = anchor[0] + Math.round(acc * 1000.0);
-                        if (Math.abs(firstSegStartMs - liveEdgeStartMs) > 45000L) {
+                        // 20 s, not 45 (audit S12): a bigger jump
+                        // exceeds the ~36 s window and made PDT
+                        // non-monotonic.
+                        if (Math.abs(firstSegStartMs - liveEdgeStartMs) > 20000L) {
                             anchor = new long[]{liveEdgeStartMs, firstSeq};
                             PDT_ANCHOR.put(key, anchor);
                             firstSegStartMs = liveEdgeStartMs;
@@ -582,7 +798,15 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                     }
                 }
             }
-            String base = effectiveUrl.substring(0, effectiveUrl.lastIndexOf('/') + 1);
+            // Resolve relatives against the URL that actually
+            // answered (audit S10): the requested URL still carries
+            // the t=/_= query and the pre-redirect host.
+            String finalUrl = response.request().url().toString();
+            int qIdx = finalUrl.indexOf('?');
+            if (qIdx >= 0) {
+                finalUrl = finalUrl.substring(0, qIdx);
+            }
+            String base = finalUrl.substring(0, finalUrl.lastIndexOf('/') + 1);
             Pattern uriAttr = Pattern.compile("URI=\"([^\"]+)\"");
             StringBuilder output = new StringBuilder();
             List<String> segmentUrls = new ArrayList<>();
@@ -599,7 +823,14 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                 if (line.contains("URI=\"")) {
                     Matcher key = uriAttr.matcher(line);
                     if (key.find()) {
-                        line = key.replaceFirst("URI=\"" + Matcher.quoteReplacement(resourceUrl(absolute(base, key.group(1)), resolved.referer, id)) + "\"");
+                        String target = absolute(base, key.group(1));
+                        // A URI attribute can point at another
+                        // playlist (EXT-X-MEDIA, I-FRAME): proxy it as
+                        // a manifest, not as a video segment (S11).
+                        String proxied = target.contains(".m3u8")
+                                ? manifestUrl(id, player, target, resolved.referer)
+                                : resourceUrl(target, resolved.referer, id);
+                        line = key.replaceFirst("URI=\"" + Matcher.quoteReplacement(proxied) + "\"");
                     }
                 } else if (!line.isEmpty() && !line.startsWith("#")) {
                     String absolute = absolute(base, line);
@@ -615,6 +846,12 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             if (id != null) {
                 LAST_GOOD_MANIFEST.put(id + ":" + player, output.toString());
                 LAST_GOOD_MANIFEST_AT.put(id + ":" + player, System.currentTimeMillis());
+                noteManifestSuccess(id);
+                // Sliding resolve TTL (audit S2).
+                CachedResolved cr = RESOLVE_CACHE.get(id + ":" + player);
+                if (cr != null) {
+                    cr.expiresAt = System.currentTimeMillis() + 900_000L;
+                }
             }
             NanoHTTPD.Response manifestResp = newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "application/vnd.apple.mpegurl", output.toString());
             manifestResp.addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
@@ -623,12 +860,11 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             // Warm the segment prefetch cache for the channel actually
             // being watched (see the prefetch block above proxyResource).
             if (id != null && !segmentUrls.isEmpty()) {
-                if (activeChannelId == null) {
-                    activeChannelId = id;
-                }
-                if (id.equals(activeChannelId)) {
-                    prefetchTail(segmentUrls, resolved.referer, id);
-                }
+                // The newest manifest served IS the channel being
+                // watched (audit S21): the old first-come-sticky id
+                // left zapped-to channels with no prefetch at all.
+                activeChannelId = id;
+                prefetchTail(segmentUrls, resolved.referer, id);
             }
             return manifestResp;
         } finally {
@@ -654,7 +890,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
     // from the media sequence and the real EXTINF durations it has
     // served: monotonic, media-accurate, wall-clock anchored once.
     private static final Map<String, long[]> PDT_ANCHOR = new ConcurrentHashMap<>();
-    private static final Map<String, Map<Integer, Double>> SEG_DURATIONS = new ConcurrentHashMap<>();
+    private static final Map<String, Map<Long, Double>> SEG_DURATIONS = new ConcurrentHashMap<>();
 
     private static String isoUtc(long ms) {
         java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US);
@@ -671,7 +907,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
         }
         String body = LAST_GOOD_MANIFEST.get(id + ":" + player);
         Long at = LAST_GOOD_MANIFEST_AT.get(id + ":" + player);
-        if (body == null || at == null || System.currentTimeMillis() - at > 90000L) {
+        if (body == null || at == null || System.currentTimeMillis() - at > 25000L) {
             return null;
         }
         Log.w("LiveProxyAudit", "serving last-good manifest id=" + id + " ageMs=" + (System.currentTimeMillis() - at));
@@ -724,7 +960,12 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                 byte[] bytes = server.fetchSegmentBytes(url, referer, channelId, false);
                 synchronized (SEGMENT_CACHE) { SEGMENT_CACHE.put(url, bytes); }
                 future.complete(bytes);
-            } catch (Exception e) {
+            } catch (Throwable e) {
+                // Catch Throwable, not Exception (audit S18): an
+                // OutOfMemoryError inside unwrap used to leave this
+                // future uncompleted forever, and the player blocked
+                // on it for the full wait.
+                Log.w(TAG, "Prefetch failed for channel " + channelId, e);
                 future.completeExceptionally(e);
             } finally {
                 SEGMENT_INFLIGHT.remove(url, future);
@@ -735,8 +976,20 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
     private void prefetchTail(List<String> segmentUrls, String referer, String channelId) {
         int from = Math.max(0, segmentUrls.size() - PREFETCH_AHEAD);
         java.util.Set<String> wanted = new java.util.HashSet<>(segmentUrls.subList(from, segmentUrls.size()));
-        // Drop queued warming for segments the live window has passed.
-        PREFETCH_QUEUE.removeIf(t -> t instanceof PrefetchTask && !wanted.contains(((PrefetchTask) t).url));
+        // Drop queued warming for segments the live window has
+        // passed - and unregister them (audit S3): a purged task used
+        // to leave its future in SEGMENT_INFLIGHT forever, so the
+        // player blocked its full wait on a future that could never
+        // complete, exactly when the pool was stalled.
+        PREFETCH_QUEUE.removeIf(t -> {
+            if (t instanceof PrefetchTask && !wanted.contains(((PrefetchTask) t).url)) {
+                PrefetchTask pt = (PrefetchTask) t;
+                SEGMENT_INFLIGHT.remove(pt.url, pt.future);
+                pt.future.cancel(true);
+                return true;
+            }
+            return false;
+        });
         // Cached segments outside the window are dead weight.
         synchronized (SEGMENT_CACHE) {
             SEGMENT_CACHE.keySet().removeIf(k -> !segmentUrls.contains(k));
@@ -752,9 +1005,10 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
     }
 
     private NanoHTTPD.Response segmentResponse(byte[] bytes) {
-        Response outResp = newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "video/mp2t", new ByteArrayInputStream(bytes), bytes.length);
-        outResp.addHeader("Accept-Ranges", "bytes");
-        return outResp;
+        // No Accept-Ranges header (audit S20): Range requests are not
+        // honoured here, and advertising them breaks BYTERANGE
+        // playlists.
+        return newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "video/mp2t", new ByteArrayInputStream(bytes), bytes.length);
     }
 
     private NanoHTTPD.Response proxyResource(String url, String referer, String channelId) throws Exception {
@@ -767,21 +1021,56 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             return segmentResponse(hit);
         }
         java.util.concurrent.CompletableFuture<byte[]> pending = SEGMENT_INFLIGHT.get(url);
-        if (pending != null) {
+        if (pending != null && !pending.isDone() && !pending.isCancelled()) {
             try {
-                byte[] bytes = pending.get(12L, TimeUnit.SECONDS);
+                // 4 s, not 12 (audit S3): past that, fetching inline
+                // beats waiting on a possibly stalled prefetch.
+                byte[] bytes = pending.get(4L, TimeUnit.SECONDS);
                 if (bytes != null && bytes.length > 0) {
                     return segmentResponse(bytes);
                 }
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
             } catch (Exception e) {
                 // The warmed copy failed or is too slow; fetch directly.
             }
         }
         // Player-first: fetch on this request thread, never queued
-        // behind prefetch work.
-        byte[] bytes = fetchSegmentBytes(url, referer, channelId);
-        synchronized (SEGMENT_CACHE) { SEGMENT_CACHE.put(url, bytes); }
-        return segmentResponse(bytes);
+        // behind prefetch work - and register the fetch (audit S7) so
+        // a duplicate request joins it instead of starting a second
+        // full parallel download of the same segment.
+        java.util.concurrent.CompletableFuture<byte[]> mine = new java.util.concurrent.CompletableFuture<>();
+        java.util.concurrent.CompletableFuture<byte[]> raced = SEGMENT_INFLIGHT.putIfAbsent(url, mine);
+        if (raced != null && !raced.isDone() && !raced.isCancelled()) {
+            try {
+                byte[] bytes = raced.get(4L, TimeUnit.SECONDS);
+                if (bytes != null && bytes.length > 0) {
+                    return segmentResponse(bytes);
+                }
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                // Joining failed; fall through and fetch inline.
+            }
+        }
+        boolean registered = raced == null;
+        try {
+            byte[] bytes = fetchSegmentBytes(url, referer, channelId);
+            synchronized (SEGMENT_CACHE) { SEGMENT_CACHE.put(url, bytes); }
+            if (registered) {
+                mine.complete(bytes);
+            }
+            return segmentResponse(bytes);
+        } catch (Exception e) {
+            if (registered) {
+                mine.completeExceptionally(e);
+            }
+            throw e;
+        } finally {
+            if (registered) {
+                SEGMENT_INFLIGHT.remove(url, mine);
+            }
+        }
     }
 
     private static final class HttpException extends Exception {
@@ -814,19 +1103,26 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
     private byte[] downloadRaw(String url, String referer, boolean playerPriority) throws Exception {
         java.util.concurrent.ExecutorService pool = playerPriority ? PLAYER_CHUNK_POOL : CHUNK_POOL;
         long total = -1L;
-        okhttp3.Call head = this.segmentClient.newCall(request(url, referer).head().build());
-        head.timeout().timeout(6L, TimeUnit.SECONDS);
-        try (okhttp3.Response resp = head.execute()) {
-            if (resp.code() == 403) {
-                throw new HttpException(403);
+        // HEAD discipline (audit S15): a CDN that signs per method
+        // 403s HEAD - that used to be fatal and triggered a token
+        // renew plus another doomed HEAD. HEAD failure now means "no
+        // usable HEAD", the host is remembered, and the segment goes
+        // straight to the range probe.
+        String host = hostOf(url);
+        Long headFailedAt = HEAD_FAILED_HOSTS.get(host);
+        boolean skipHead = headFailedAt != null && System.currentTimeMillis() - headFailedAt < 600_000L;
+        if (!skipHead) {
+            okhttp3.Call head = this.segmentClient.newCall(request(url, referer).head().build());
+            head.timeout().timeout(6L, TimeUnit.SECONDS);
+            try (okhttp3.Response resp = head.execute()) {
+                if (resp.code() >= 400) {
+                    HEAD_FAILED_HOSTS.put(host, System.currentTimeMillis());
+                } else if (resp.isSuccessful()) {
+                    total = resp.header("Content-Length") != null ? Long.parseLong(resp.header("Content-Length")) : -1L;
+                }
+            } catch (Exception ignored) {
+                // No usable HEAD: fall through to the range-probe flow.
             }
-            if (resp.isSuccessful()) {
-                total = resp.header("Content-Length") != null ? Long.parseLong(resp.header("Content-Length")) : -1L;
-            }
-        } catch (HttpException h) {
-            throw h;
-        } catch (Exception ignored) {
-            // No usable HEAD: fall through to the range-probe flow.
         }
         if (total > CHUNK_SIZE) {
             return collectChunks(url, referer, pool, total, null);
@@ -853,6 +1149,22 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                 }
             }
             byte[] first = resp.body().bytes();
+            if (probedTotal < 0L) {
+                // The probe could not report a total (audit S5): this
+                // body may be only the first 256 KB of the segment,
+                // and returning it as complete poisoned the cache.
+                // Re-issue a plain GET for the whole body.
+                Request fullReq = request(url, referer).build();
+                try (okhttp3.Response full = executeOnce(fullReq)) {
+                    if (full.code() == 403) {
+                        throw new HttpException(403);
+                    }
+                    if (!full.isSuccessful() || full.body() == null) {
+                        throw new HttpException(full.code());
+                    }
+                    return full.body().bytes();
+                }
+            }
             if (probedTotal <= first.length) {
                 return first;
             }
@@ -868,6 +1180,81 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
      * 8 s timeout per chunk was the difference between a 2 s segment
      * and a 16 s one.
      */
+    /** Thrown when a server answers a Range request with 200: ranges
+     * are ignored there, so the segment must be fetched whole (S16). */
+    private static final class RangeIgnoredException extends Exception {
+    }
+
+    /** One chunk fetch with its Call exposed, so a loser can be
+     * cancelled at the socket (audit S6): Future.cancel(true) alone
+     * cannot interrupt a blocking OkHttp read. */
+    private final class ChunkFetch implements java.util.concurrent.Callable<byte[]> {
+        final String url;
+        final String referer;
+        final long start;
+        final long end;
+        final long startedAt = System.currentTimeMillis();
+        volatile okhttp3.Call call;
+
+        ChunkFetch(String u, String r, long s, long e) {
+            url = u; referer = r; start = s; end = e;
+        }
+
+        void cancelCall() {
+            okhttp3.Call c = call;
+            if (c != null) {
+                c.cancel();
+            }
+        }
+
+        @Override public byte[] call() throws Exception {
+            Request req = request(url, referer).header("Range", "bytes=" + start + "-" + end).build();
+            okhttp3.Call c = segmentClient.newCall(req);
+            call = c;
+            c.timeout().timeout(8L, TimeUnit.SECONDS);
+            try (okhttp3.Response resp = c.execute()) {
+                // 403 must stay an HttpException so the token-refresh
+                // path in fetchSegmentBytesInner runs (audit S16).
+                if (resp.code() == 403) {
+                    throw new HttpException(403);
+                }
+                if (resp.code() == 200) {
+                    throw new RangeIgnoredException();
+                }
+                if (!resp.isSuccessful() || resp.body() == null) {
+                    throw new HttpException(resp.code());
+                }
+                byte[] data = resp.body().bytes();
+                if (data.length != end - start + 1L) {
+                    throw new Exception("short chunk: " + data.length + " of " + (end - start + 1L));
+                }
+                return data;
+            }
+        }
+    }
+
+    private byte[] plainGetSegment(String url, String referer) throws Exception {
+        Request req = request(url, referer).build();
+        try (okhttp3.Response resp = executeOnce(req)) {
+            if (resp.code() == 403) {
+                throw new HttpException(403);
+            }
+            if (!resp.isSuccessful() || resp.body() == null) {
+                throw new HttpException(resp.code());
+            }
+            return resp.body().bytes();
+        }
+    }
+
+    private static String hostOf(String url) {
+        try {
+            String h = new URL(url).getHost();
+            return h != null ? h : url;
+        } catch (Exception e) {
+            return url;
+        }
+    }
+
     private byte[] collectChunks(String url, String referer, java.util.concurrent.ExecutorService pool, long total, byte[] firstChunk) throws Exception {
         int chunkCount = (int) ((total + CHUNK_SIZE - 1) / CHUNK_SIZE);
         byte[][] parts = new byte[chunkCount][];
@@ -876,28 +1263,66 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             parts[0] = firstChunk;
             firstIdx = 1;
         }
+        List<ChunkFetch> jobs = new ArrayList<>(chunkCount);
         List<java.util.concurrent.Future<byte[]>> futures = new ArrayList<>(chunkCount);
         for (int i = 0; i < chunkCount; i++) {
+            jobs.add(null);
             futures.add(null);
         }
         for (int i = firstIdx; i < chunkCount; i++) {
-            final long chunkStart = (long) i * CHUNK_SIZE;
-            final long chunkEnd = Math.min(total - 1L, chunkStart + CHUNK_SIZE - 1L);
-            futures.set(i, pool.submit(() -> fetchChunkOnce(url, referer, chunkStart, chunkEnd)));
+            ChunkFetch job = new ChunkFetch(url, referer, (long) i * CHUNK_SIZE, Math.min(total - 1L, (long) i * CHUNK_SIZE + CHUNK_SIZE - 1L));
+            jobs.set(i, job);
+            futures.set(i, pool.submit(job));
         }
-        for (int i = firstIdx; i < chunkCount; i++) {
-            final long chunkStart = (long) i * CHUNK_SIZE;
-            final long chunkEnd = Math.min(total - 1L, chunkStart + CHUNK_SIZE - 1L);
-            try {
-                parts[i] = futures.get(i).get(3L, TimeUnit.SECONDS);
-            } catch (java.util.concurrent.TimeoutException te) {
-                java.util.concurrent.Future<byte[]> hedge = pool.submit(() -> fetchChunkOnce(url, referer, chunkStart, chunkEnd));
+        try {
+            for (int i = firstIdx; i < chunkCount; i++) {
+                ChunkFetch job = jobs.get(i);
+                // The hedge clock starts when the chunk STARTS, not
+                // when this loop reaches it (audit S6): queued chunks
+                // used to look instantly "stalled" and spawn duplicate
+                // hedges behind the same queue.
+                long waitMs = Math.max(1L, job.startedAt + 3000L - System.currentTimeMillis());
                 try {
-                    parts[i] = hedge.get(9L, TimeUnit.SECONDS);
-                    futures.get(i).cancel(true);
-                } catch (Exception hedgeFailed) {
+                    parts[i] = futures.get(i).get(waitMs, TimeUnit.MILLISECONDS);
+                } catch (java.util.concurrent.TimeoutException te) {
+                    ChunkFetch hedgeJob = new ChunkFetch(url, referer, job.start, job.end);
+                    java.util.concurrent.Future<byte[]> hedge = pool.submit(hedgeJob);
+                    try {
+                        parts[i] = hedge.get(9L, TimeUnit.SECONDS);
+                        futures.get(i).cancel(true);
+                        job.cancelCall();
+                    } catch (Exception hedgeFailed) {
+                        hedge.cancel(true);
+                        hedgeJob.cancelCall();
+                        parts[i] = futures.get(i).get(12L, TimeUnit.SECONDS);
+                    }
+                } catch (java.util.concurrent.ExecutionException ee) {
+                    if (ee.getCause() instanceof RangeIgnoredException) {
+                        // Ranges are ignored on this host: one plain
+                        // GET for the whole segment (audit S16).
+                        return plainGetSegment(url, referer);
+                    }
+                    if (ee.getCause() instanceof HttpException) {
+                        throw (HttpException) ee.getCause();
+                    }
+                    // A quick chunk failure gets one retry instead of
+                    // killing the segment outright (audit S6).
+                    ChunkFetch retry = new ChunkFetch(url, referer, job.start, job.end);
+                    jobs.set(i, retry);
+                    futures.set(i, pool.submit(retry));
                     parts[i] = futures.get(i).get(12L, TimeUnit.SECONDS);
-                    hedge.cancel(true);
+                }
+            }
+        } finally {
+            // Win or lose, no chunk connection outlives its segment.
+            for (int i = 0; i < jobs.size(); i++) {
+                java.util.concurrent.Future<byte[]> f = futures.get(i);
+                if (f != null && !f.isDone()) {
+                    f.cancel(true);
+                    ChunkFetch j = jobs.get(i);
+                    if (j != null) {
+                        j.cancelCall();
+                    }
                 }
             }
         }
@@ -909,22 +1334,6 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             out.write(part);
         }
         return out.toByteArray();
-    }
-
-    private byte[] fetchChunkOnce(String url, String referer, long start, long end) throws Exception {
-        Request req = request(url, referer).header("Range", "bytes=" + start + "-" + end).build();
-        okhttp3.Call call = this.segmentClient.newCall(req);
-        call.timeout().timeout(8L, TimeUnit.SECONDS);
-        try (okhttp3.Response resp = call.execute()) {
-            if (!resp.isSuccessful() || resp.body() == null) {
-                throw new Exception("chunk HTTP " + resp.code());
-            }
-            byte[] data = resp.body().bytes();
-            if (data.length != end - start + 1L) {
-                throw new Exception("short chunk: " + data.length + " of " + (end - start + 1L));
-            }
-            return data;
-        }
     }
 
     private byte[] fetchSegmentBytes(String url, String referer, String channelId) throws Exception {
@@ -957,9 +1366,12 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             if (freshToken == null || freshToken.isEmpty()) {
                 throw h;
             }
-            String retryUrl = cleanPlaylistUrl(url);
-            retryUrl += (retryUrl.contains("?") ? "&" : "?") + "t=" + URLEncoder.encode(freshToken, StandardCharsets.UTF_8.name()) + "&_=" + System.currentTimeMillis();
-            return unwrapPayload(downloadRaw(retryUrl, referer, playerPriority));
+            // Retry the SAME url (audit S16): segment URLs are signed
+            // CDN URLs, and appending the manifest token (t=) can
+            // break the signature. The renewal still happens - the
+            // manifest path benefits - but the segment URL is left
+            // exactly as the playlist issued it.
+            return unwrapPayload(downloadRaw(url, referer, playerPriority));
         }
     }
 
@@ -976,9 +1388,17 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
         @Override protected byte[] initialValue() { return new byte[16384]; }
     };
 
+    /** A payload that cannot be unwrapped into a transport stream.
+     * Thrown instead of returning the original bytes (audit S4): the
+     * old fall-through SERVED the undecodable PNG as video/mp2t and
+     * cached it, so the bad segment replayed forever. */
+    static final class UnwrapException extends RuntimeException {
+        UnwrapException(String m) { super(m); }
+    }
+
     static byte[] unwrapPayload(byte[] bytes) {
         if (bytes == null || bytes.length < 16) {
-            return bytes;
+            throw new UnwrapException("segment body too small to be a transport stream");
         }
         if (bytes[0] == 0x47 && (bytes.length <= 188 || bytes[188] == 0x47)) {
             return bytes;
@@ -1091,8 +1511,16 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                     }
 
                     int bpp = ctype == 6 ? 4 : 3;
-                    int stride = w * bpp;
-                    int rawSize = h * (1 + stride);
+                    // Bound the geometry with long math (audit S18):
+                    // a crafted header could overflow int here and
+                    // size a multi-GB allocation.
+                    long strideL = (long) w * bpp;
+                    long rawSizeL = (long) h * (1L + strideL);
+                    if (w > 20000 || h > 20000 || rawSizeL > 64_000_000L) {
+                        throw new UnwrapException("implausible PNG geometry " + w + "x" + h);
+                    }
+                    int stride = (int) strideL;
+                    int rawSize = (int) rawSizeL;
 
                     byte[] raw = RAW_BUF.get();
                     if (raw.length < rawSize) {
@@ -1101,13 +1529,13 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                     }
 
                     Inflater inflater = new Inflater();
+                    int inflated = 0;
                     try {
                         if (idatCount == 1) {
                             inflater.setInput(bytes, firstIdatOff, firstIdatLen);
                         } else {
                             inflater.setInput(zbuf, 0, totalIdatLen);
                         }
-                        int inflated = 0;
                         while (!inflater.finished() && inflated < rawSize) {
                             int count = inflater.inflate(raw, inflated, rawSize - inflated);
                             if (count <= 0) {
@@ -1117,6 +1545,12 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                         }
                     } finally {
                         inflater.end();
+                    }
+                    // Rows past `inflated` hold the PREVIOUS segment's
+                    // data in the reused buffer (audit S4): a truncated
+                    // inflate must fail, never un-filter stale rows.
+                    if (inflated < rawSize) {
+                        throw new UnwrapException("truncated PNG payload: inflated " + inflated + " of " + rawSize);
                     }
 
                     byte[] prevRecon = ROW_PREV.get();
@@ -1138,6 +1572,9 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                     for (int y = 0; y < h; y++) {
                         if (src + 1 + stride > rawSize) break;
                         int filter = raw[src++] & 0xFF;
+                        if (filter > 4) {
+                            throw new UnwrapException("invalid PNG filter type " + filter);
+                        }
 
                         if (filter == 0) {
                             System.arraycopy(raw, src, currRecon, 0, stride);
@@ -1230,7 +1667,8 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
 
                     if (gz != null && gzOffset >= gzTargetLen) {
                         byte[] ts = gunzip(gz);
-                        if (ts != null && ts.length > 0 && ts[0] == 0x47) {
+                        if (ts != null && ts.length > 0 && ts[0] == 0x47 &&
+                                (ts.length <= 188 || ts[188] == 0x47)) {
                             return ts;
                         }
                     }
@@ -1240,7 +1678,10 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             }
         }
 
-        return bytes;
+        // Nothing matched: this is not a transport stream, and
+        // serving the raw bytes as one (the old fall-through) cached
+        // garbage as a segment (audit S4).
+        throw new UnwrapException("payload is not a transport stream");
     }
 
     private static int paeth(int a, int b, int c) {
@@ -1370,6 +1811,10 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
 
     static String playerPageUrl(String id, int player) {
         return player == 0 ? StreamEndpoints.streamUrl(StreamEndpoints.PRIMARY, id) : StreamEndpoints.streamUrl(StreamEndpoints.PRIMARY, ROUTES[player], id);
+    }
+
+    private static String playerPageUrlOn(String base, String id, int player) {
+        return player == 0 ? StreamEndpoints.streamUrl(base, id) : StreamEndpoints.streamUrl(base, ROUTES[player], id);
     }
 
     private static String resourceUrl(String url, String referer) {

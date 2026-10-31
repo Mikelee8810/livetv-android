@@ -45,11 +45,26 @@ public class ChannelSyncHelper {
         syncChannels(context, inputId, (EpgSnapshot) null, callback);
     }
 
+    // One sync at a time (audit H2): two overlapping syncs used to
+    // interleave their deletes and inserts destructively.
+    private static final java.util.concurrent.atomic.AtomicBoolean SYNCING =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
+
     public static void syncChannels(final Context context, final String inputId, final EpgSnapshot epg, final SyncCallback callback) {
+        if (!SYNCING.compareAndSet(false, true)) {
+            if (callback != null) {
+                callback.onError(new IllegalStateException("Channel sync already running"));
+            }
+            return;
+        }
         new Thread(new Runnable() { // from class: com.livetv.app.tvinput.ChannelSyncHelper$$ExternalSyntheticLambda1
             @Override // java.lang.Runnable
             public final void run() {
-                ChannelSyncHelper.lambda$syncChannels$0(context, inputId, epg, callback);
+                try {
+                    ChannelSyncHelper.lambda$syncChannels$0(context, inputId, epg, callback);
+                } finally {
+                    SYNCING.set(false);
+                }
             }
         }).start();
     }
@@ -58,31 +73,82 @@ public class ChannelSyncHelper {
         try {
             List<Channel> catalog = ChannelCatalog.load(context);
             List<ContentValues> channelList = parseBundledChannels(catalog, inputId);
+            // An empty catalog aborts BEFORE any delete (audit H3):
+            // the old flow wiped the system guide and then reported
+            // "Synced 0 channels" as a success.
+            if (channelList.isEmpty()) {
+                throw new Exception("Catalog is empty; keeping the existing system guide");
+            }
             ContentResolver resolver = context.getContentResolver();
-            int deletedPrograms = deleteProgramsForInput(resolver, inputId);
-            resolver.delete(TvContract.buildChannelsUriForInput(inputId), null, null);
-            int i = 0;
-            int inserted = resolver.bulkInsert(TvContract.Channels.CONTENT_URI, (ContentValues[]) channelList.toArray(new ContentValues[0]));
-            int programs = epg == null ? 0 : syncPrograms(resolver, inputId, catalog, epg);
-            int logos = syncChannelLogos(resolver, inputId);
+            // Upsert by internal_provider_id (audit H1): the old
+            // delete-all + bulkInsert regenerated every channel _id
+            // per sync, and a kill mid-sync left the guide empty.
+            Map<String, Long> existing = new HashMap<>();
+            try (Cursor c = resolver.query(TvContract.buildChannelsUriForInput(inputId), new String[]{"_id", "internal_provider_id"}, null, null, null)) {
+                if (c != null) {
+                    int idCol = c.getColumnIndex("_id");
+                    int pidCol = c.getColumnIndex("internal_provider_id");
+                    while (c.moveToNext()) {
+                        String pid = pidCol >= 0 ? c.getString(pidCol) : null;
+                        if (pid != null) {
+                            existing.put(pid, Long.valueOf(c.getLong(idCol)));
+                        }
+                    }
+                }
+            }
+            java.util.Set<String> wanted = new java.util.HashSet<>();
+            List<ContentValues> toInsert = new ArrayList<>();
+            int updated = 0;
+            for (ContentValues row : channelList) {
+                String pid = row.getAsString("internal_provider_id");
+                wanted.add(pid);
+                Long existingId = existing.get(pid);
+                if (existingId != null) {
+                    resolver.update(TvContract.buildChannelUri(existingId.longValue()), row, null, null);
+                    updated++;
+                } else {
+                    toInsert.add(row);
+                }
+            }
+            int inserted = toInsert.isEmpty() ? 0 : resolver.bulkInsert(TvContract.Channels.CONTENT_URI, (ContentValues[]) toInsert.toArray(new ContentValues[0]));
+            int staleDeleted = 0;
+            for (Map.Entry<String, Long> e : existing.entrySet()) {
+                if (!wanted.contains(e.getKey())) {
+                    staleDeleted += resolver.delete(TvContract.buildChannelUri(e.getValue().longValue()), null, null);
+                }
+            }
+            // Programs are only touched when an EPG snapshot was
+            // actually supplied (audit H4): the old flow deleted all
+            // programs and inserted none when epg was null.
+            int deletedPrograms = 0;
+            int programs = 0;
+            if (epg != null) {
+                deletedPrograms = deleteProgramsForInput(resolver, inputId);
+                programs = syncPrograms(resolver, inputId, catalog, epg);
+            }
+            int synced = inserted + updated;
             EpgSnapshot.Diagnostics diagnostics = epg != null ? epg.diagnostics(Instant.now()) : null;
-            StringBuilder sbAppend = new StringBuilder().append("syncComplete channels=").append(inserted).append(" logos=").append(logos).append(" mappedChannels=");
-            if (diagnostics != null) {
-                i = diagnostics.mappedChannels;
-            }
-            Log.i(TAG, sbAppend.append(i).append(" programs=").append(programs).append(" deletedPrograms=").append(deletedPrograms).toString());
+            int mapped = diagnostics != null ? diagnostics.mappedChannels : 0;
+            Log.i(TAG, "syncComplete channels=" + synced + " (new=" + inserted + ", updated=" + updated + ", staleDeleted=" + staleDeleted + ") mappedChannels=" + mapped + " programs=" + programs + " deletedPrograms=" + deletedPrograms);
             if (callback != null) {
-                callback.onComplete(inserted);
+                callback.onComplete(synced);
             }
-        } catch (Exception e) {
+            // Logos are decoration (audit H5): they no longer gate
+            // completion - the old sequential waits had a ~105 minute
+            // worst case holding the setup screen hostage.
+            final ContentResolver logoResolver = resolver;
+            new Thread(new Runnable() {
+                @Override public void run() {
+                    syncChannelLogos(logoResolver, inputId);
+                }
+            }, "logo-sync").start();
+        } catch (Throwable e) {
+            // Throwable, not Exception (audit H9): an Error used to
+            // leave the callback uncalled and the setup screen hung.
             if (callback != null) {
-                callback.onError(e);
+                callback.onError(e instanceof Exception ? (Exception) e : new Exception(e));
             }
         }
-    }
-
-    public static void syncChannels(Context context, String inputId, String serverUrl, SyncCallback callback) {
-        syncChannels(context, inputId, callback);
     }
 
     private static List<ContentValues> parseBundledChannels(List<Channel> catalog, String inputId) throws Exception {
@@ -91,6 +157,8 @@ public class ChannelSyncHelper {
         for (Channel channel : catalog) {
             ContentValues row = new ContentValues();
             row.put("input_id", inputId);
+            // The stable identity the upsert keys on (audit H1, H8).
+            row.put("internal_provider_id", channel.id);
             int number2 = number + 1;
             row.put("display_number", String.valueOf(number));
             row.put("display_name", channel.name);
@@ -112,18 +180,29 @@ public class ChannelSyncHelper {
 
     private static int syncPrograms(ContentResolver resolver, String inputId, List<Channel> catalog, EpgSnapshot epg) throws Exception {
         List<ContentValues> rows = new ArrayList<>();
+        // Match by the stable provider id (audit H7): display names
+        // collide, and every row keyed by name could inherit another
+        // channel's programmes. Name matching survives only as a
+        // fallback for rows synced before provider ids existed.
+        Map<String, Channel> byId = new HashMap<>();
         Map<String, Channel> byName = new HashMap<>();
         for (Channel channel : catalog) {
+            byId.put(channel.id, channel);
             byName.put(channel.name, channel);
         }
-        try (Cursor cursor = resolver.query(TvContract.buildChannelsUriForInput(inputId), new String[]{"_id", "display_name"}, null, null, null)) {
+        try (Cursor cursor = resolver.query(TvContract.buildChannelsUriForInput(inputId), new String[]{"_id", "display_name", "internal_provider_id"}, null, null, null)) {
             if (cursor == null) {
                 return 0;
             }
             int idCol = cursor.getColumnIndex("_id");
             int nameCol = cursor.getColumnIndex("display_name");
+            int pidCol = cursor.getColumnIndex("internal_provider_id");
             while (cursor.moveToNext()) {
-                Channel match = byName.get(cursor.getString(nameCol));
+                String pid = pidCol >= 0 ? cursor.getString(pidCol) : null;
+                Channel match = pid != null ? byId.get(pid) : null;
+                if (match == null) {
+                    match = byName.get(cursor.getString(nameCol));
+                }
                 if (match == null) continue;
                 for (Program program : epg.programsFor(match)) {
                     ContentValues row = new ContentValues();
@@ -197,125 +276,6 @@ public class ChannelSyncHelper {
         return sizes;
     }
 
-    private static List<ContentValues> parseChannelsFromApi(String serverUrl, String inputId) throws Exception {
-        Throwable th;
-        List<ContentValues> channels = new ArrayList<>();
-        URL url = new URL(serverUrl.replaceAll("/$", "") + "/api/proxy/m3u/1");
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setConnectTimeout(8000);
-        conn.setReadTimeout(12000);
-        StringBuilder body = new StringBuilder();
-        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-        while (true) {
-            try {
-                String line = reader.readLine();
-                if (line == null) {
-                    break;
-                }
-                try {
-                    body.append(line);
-                } catch (Throwable th2) {
-                    th = th2;
-                    try {
-                        reader.close();
-                        throw th;
-                    } catch (Throwable th3) {
-                        th.addSuppressed(th3);
-                        throw th;
-                    }
-                }
-            } catch (Throwable th4) {
-                th = th4;
-            }
-        }
-        reader.close();
-        JSONArray channelArray = new JSONObject(body.toString()).optJSONArray("channels");
-        if (channelArray == null) {
-            return channels;
-        }
-        int i = 0;
-        while (i < channelArray.length()) {
-            JSONObject channel = channelArray.getJSONObject(i);
-            String name = channel.optString("name", channel.optString("tvgName", "Channel " + (i + 1)));
-            String group = channel.optString("groupTitle", "Live TV");
-            String stream = channel.optString("url", channel.optString("stream_url", ""));
-            if (!stream.isEmpty()) {
-                String logo = channel.optString("tvgLogo", channel.optString("stream_icon", ""));
-                ContentValues values = new ContentValues();
-                values.put("input_id", inputId);
-                values.put("display_number", String.valueOf(i + 1));
-                values.put("display_name", name);
-                values.put("network_affiliation", group);
-                values.put("type", "TYPE_OTHER");
-                JSONObject providerData = new JSONObject();
-                providerData.put("streamUrl", stream);
-                if (!logo.isEmpty()) {
-                    providerData.put("logoUrl", logo);
-                }
-                values.put("internal_provider_data", providerData.toString());
-                values.put("searchable", (Integer) 1);
-                channels.add(values);
-            }
-            i++;
-            channelArray = channelArray;
-            url = url;
-        }
-        return channels;
-    }
-
-    private static boolean isEnglishChannel(String name, String group) {
-        String text = ((name == null ? "" : name) + " " + (group != null ? group : "")).toLowerCase();
-        if (text.matches(".*(english|usa|\\bus\\b|uk|united kingdom|canada|australia|new zealand|ireland|bbc|cnn|fox news|discovery|history|animal planet|national geographic|espn|nba tv|nfl network|nhl network|mlb network|sky news).*")) {
-            return true;
-        }
-        return !text.matches(".*(arabic|\\barab\\b|france|french|spain|spanish|espa[nñ]ol|mexico|\\bmx\\b|portugal|portuguese|brasil|brazil|turkey|turkish|serbia|serbian|croatia|croatian|poland|polish|bulgaria|bulgarian|germany|german|\\bde\\b|italy|italian|romania|romanian|russia|russian|ukraine|ukrainian|greece|greek|denmark|danish|sweden|swedish|norway|norwegian|netherlands|dutch|israel|hebrew|japan|japanese|korea|korean|china|chinese|india|hindi|pakistan|malaysia|indonesia|qatar|uae|mena|afrique|africa).*");
-    }
-
-    private static List<ContentValues> parseM3uFromUrl(String m3uUrl, String inputId) throws Exception {
-        List<ContentValues> channels = new ArrayList<>();
-        URL url = new URL(m3uUrl);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setConnectTimeout(8000);
-        conn.setReadTimeout(12000);
-        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-        String currentName = null;
-        String currentLogo = null;
-        String currentGroup = null;
-        int channelNum = 1;
-        while (true) {
-            String line = reader.readLine();
-            if (line != null) {
-                String line2 = line.trim();
-                if (line2.startsWith("#EXTINF:")) {
-                    currentName = parseAttribute(line2, ",");
-                    currentLogo = parseAttribute(line2, "tvg-logo=\"");
-                    currentGroup = parseAttribute(line2, "group-title=\"");
-                } else if (!line2.startsWith("#") && !line2.isEmpty() && currentName != null) {
-                    ContentValues values = new ContentValues();
-                    values.put("input_id", inputId);
-                    int channelNum2 = channelNum + 1;
-                    values.put("display_number", String.valueOf(channelNum));
-                    values.put("display_name", currentName);
-                    values.put("network_affiliation", currentGroup);
-                    values.put("type", "TYPE_OTHER");
-                    JSONObject providerData = new JSONObject();
-                    providerData.put("streamUrl", line2);
-                    if (currentLogo != null && !currentLogo.isEmpty()) {
-                        providerData.put("logoUrl", currentLogo);
-                    }
-                    values.put("internal_provider_data", providerData.toString());
-                    values.put("searchable", (Integer) 1);
-                    channels.add(values);
-                    currentName = null;
-                    channelNum = channelNum2;
-                }
-            } else {
-                reader.close();
-                return channels;
-            }
-        }
-    }
-
     private static int syncChannelLogos(final ContentResolver resolver, String inputId) {
         List<LogoJob> jobs = new ArrayList<>();
         try {
@@ -351,9 +311,17 @@ public class ChannelSyncHelper {
                         }));
                     }
                     int count = 0;
+                    // One overall deadline (audit H5): the old loop
+                    // waited up to 7 s PER LOGO in sequence.
+                    long deadline = System.currentTimeMillis() + 60_000L;
                     for (Future<Boolean> future : futures) {
+                        long remaining = deadline - System.currentTimeMillis();
+                        if (remaining <= 0L) {
+                            future.cancel(true);
+                            continue;
+                        }
                         try {
-                            if (future.get(7L, TimeUnit.SECONDS).booleanValue()) {
+                            if (future.get(remaining, TimeUnit.MILLISECONDS).booleanValue()) {
                                 count++;
                             }
                         } catch (Exception e) {
@@ -405,6 +373,12 @@ public class ChannelSyncHelper {
             if (connection.getResponseCode() != 200) {
                 return false;
             }
+            // Any 200 body used to be written as the logo (audit
+            // H6): require an image content type and cap the size.
+            String contentType = connection.getContentType();
+            if (contentType == null || !contentType.startsWith("image/")) {
+                return false;
+            }
             try (java.io.InputStream input = connection.getInputStream();
                  java.io.OutputStream output = resolver.openOutputStream(TvContract.buildChannelLogoUri(channelId))) {
                 if (output == null) {
@@ -412,7 +386,12 @@ public class ChannelSyncHelper {
                 }
                 byte[] buffer = new byte[8192];
                 int read;
+                long total = 0L;
                 while ((read = input.read(buffer)) != -1) {
+                    total += read;
+                    if (total > 512L * 1024L) {
+                        return false;
+                    }
                     output.write(buffer, 0, read);
                 }
             }
@@ -425,24 +404,4 @@ public class ChannelSyncHelper {
         }
     }
 
-    private static String parseAttribute(String line, String key) {
-        int start;
-        int end;
-        try {
-            if (key.equals(",")) {
-                int comma = line.lastIndexOf(44);
-                if (comma != -1) {
-                    return line.substring(comma + 1).trim();
-                }
-                return null;
-            }
-            int start2 = line.indexOf(key);
-            if (start2 != -1 && (end = line.indexOf("\"", (start = start2 + key.length()))) != -1) {
-                return line.substring(start, end);
-            }
-            return null;
-        } catch (Exception e) {
-            return null;
-        }
-    }
 }

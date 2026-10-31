@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
@@ -15,6 +17,7 @@ import android.widget.TextView
 import com.livetv.app.data.Item
 import com.livetv.app.data.Prefs
 import com.livetv.app.data.Repo
+import java.util.concurrent.Executors
 
 class SearchPanel(
     private val activity: Activity,
@@ -26,6 +29,15 @@ class SearchPanel(
     private val input = EditText(activity)
     private val resultsList = ListPanel(activity)
     private val emptyNotice = TextView(activity)
+
+    // Audit Sr1: search used to run synchronously on the main thread
+    // on EVERY keystroke over ~900 channels and ~36k programmes.
+    // Now: 250 ms debounce, a background executor, and a generation
+    // counter so stale results can never land.
+    private val searchHandler = Handler(Looper.getMainLooper())
+    private var searchExecutor = Executors.newSingleThreadExecutor()
+    private var pendingSearch: Runnable? = null
+    private var searchGeneration = 0
 
     init {
         orientation = VERTICAL
@@ -108,15 +120,48 @@ class SearchPanel(
         input.requestFocus()
     }
 
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        if (searchExecutor.isShutdown) {
+            searchExecutor = Executors.newSingleThreadExecutor()
+        }
+    }
+
+    override fun onDetachedFromWindow() {
+        pendingSearch?.let { searchHandler.removeCallbacks(it) }
+        pendingSearch = null
+        searchGeneration++
+        searchExecutor.shutdownNow()
+        super.onDetachedFromWindow()
+    }
+
     private fun performSearch(query: String) {
         val q = query.trim()
+        pendingSearch?.let { searchHandler.removeCallbacks(it) }
+        pendingSearch = null
         if (q.isEmpty()) {
+            searchGeneration++
+            emptyNotice.text = "Enter a search term above to find live channels or guide listings."
             emptyNotice.visibility = View.VISIBLE
             resultsList.visibility = View.GONE
             return
         }
 
-        val hits = Repo.search(q)
+        val generation = ++searchGeneration
+        val task = Runnable {
+            searchExecutor.execute {
+                val hits = Repo.search(q)
+                searchHandler.post {
+                    if (generation != searchGeneration) return@post
+                    renderHits(q, hits)
+                }
+            }
+        }
+        pendingSearch = task
+        searchHandler.postDelayed(task, 250)
+    }
+
+    private fun renderHits(q: String, hits: List<Repo.Hit>) {
         if (hits.isEmpty()) {
             emptyNotice.text = "No channels or programs found matching \"$q\"."
             emptyNotice.visibility = View.VISIBLE
@@ -140,6 +185,12 @@ class SearchPanel(
                 )
             }
             resultsList.submit(rows)
+        }
+        // Audit Sr2: the panel took a Prefs handle but never used it;
+        // search terms are now recorded ( honouring the history
+        // toggle) so "Clear search history" has something to clear.
+        if (prefs.searchHistory) {
+            prefs.searchTerms = (listOf(q) + prefs.searchTerms.filter { it != q }).take(8)
         }
     }
 }

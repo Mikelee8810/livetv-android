@@ -9,13 +9,19 @@ import org.json.JSONObject
 class Prefs(ctx: Context) {
     val sp: SharedPreferences = ctx.getSharedPreferences("livetv", Context.MODE_PRIVATE)
 
-    fun str(k: String, d: String) = sp.getString(k, d) ?: d
-    fun bool(k: String, d: Boolean) = sp.getBoolean(k, d)
-    fun int(k: String, d: Int) = sp.getInt(k, d)
+    // Typed getters degrade to the default when a key's stored type
+    // drifted between app versions (audit P2): a ClassCastException
+    // here used to crash whatever screen read the setting first.
+    fun str(k: String, d: String) = try { sp.getString(k, d) ?: d } catch (e: ClassCastException) { d }
+    fun bool(k: String, d: Boolean) = try { sp.getBoolean(k, d) } catch (e: ClassCastException) { d }
+    fun int(k: String, d: Int) = try { sp.getInt(k, d) } catch (e: ClassCastException) { d }
     fun put(k: String, v: Any) = sp.edit().apply {
-        when (v) { is String -> putString(k, v); is Boolean -> putBoolean(k, v); is Int -> putInt(k, v); is Long -> putLong(k, v); is Set<*> -> putStringSet(k, v.map { it.toString() }.toSet()) }
+        when (v) { is String -> putString(k, v); is Boolean -> putBoolean(k, v); is Int -> putInt(k, v); is Long -> putLong(k, v); is Set<*> -> putStringSet(k, v.map { it.toString() }.toSet())
+            // No silent drops (audit P1): an unsupported type is a
+            // programming error and must be visible in the log.
+            else -> android.util.Log.w("Prefs", "Dropping unsupported value type for $k: ${v.javaClass.simpleName}") }
     }.apply()
-    fun set(k: String): MutableSet<String> = (sp.getStringSet(k, emptySet()) ?: emptySet()).toMutableSet()
+    fun set(k: String): MutableSet<String> = try { (sp.getStringSet(k, emptySet()) ?: emptySet()).toMutableSet() } catch (e: ClassCastException) { mutableSetOf() }
 
     // General
     var autoStartBoot get() = bool("autoStartBoot", false); set(v) = put("autoStartBoot", v)
@@ -35,7 +41,7 @@ class Prefs(ctx: Context) {
     var epgOnStart get() = bool("epgOnStart", true); set(v) = put("epgOnStart", v)
     var autoUpdate get() = bool("autoUpdate", true); set(v) = put("autoUpdate", v)
     var epgOnPlaylist get() = bool("epgOnPlaylist", true); set(v) = put("epgOnPlaylist", v)
-    var epgLastUpdate get() = sp.getLong("epgLastUpdate", 0L); set(v) = put("epgLastUpdate", v)
+    var epgLastUpdate get() = try { sp.getLong("epgLastUpdate", 0L) } catch (e: ClassCastException) { 0L }; set(v) = put("epgLastUpdate", v)
     var epgLastStatus get() = str("epgLastStatus", "—"); set(v) = put("epgLastStatus", v)
 
     // Appearance
@@ -91,7 +97,9 @@ class Prefs(ctx: Context) {
     var seekStepSec get() = int("seekStepSec", 10); set(v) = put("seekStepSec", v)
     var numberZap get() = bool("numberZap", true); set(v) = put("numberZap", v)
 
-    // Parental
+    // Parental. The PIN and playlist URLs live in plaintext prefs
+    // (audit P3, accepted and documented): this is a local TV app
+    // with no account backend; the PIN guards screens, not data.
     var pinEnabled get() = bool("pinEnabled", false); set(v) = put("pinEnabled", v)
     var pin get() = str("pin", ""); set(v) = put("pin", v)
     var pinMethod get() = str("pinMethod", "Picker"); set(v) = put("pinMethod", v)

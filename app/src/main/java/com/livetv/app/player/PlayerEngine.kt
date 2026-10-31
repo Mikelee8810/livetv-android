@@ -153,6 +153,36 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     // tune is what turned 20 s of startup buffering into a 44 s first
     // frame on device (2026-10-30).
     private var firstReadyMs = 0L
+    private val tlWindow = androidx.media3.common.Timeline.Window()
+    private var lastTuneRecoveryMs = 0L
+    private var tuneRecoveryCount = 0
+    private var lastDesyncSeekMs = 0L
+    private val behindLiveWindowTimesMs = mutableListOf<Long>()
+    private var userBehindLive = false
+    private var userPaused = false
+    private var routeSaved = false
+    private var retryRunnable: Runnable? = null
+    @Volatile private var released = false
+    private var flipCountThisChannel = 0
+
+    // Absolute media position (audit P1). currentPosition is relative
+    // to the live window's start; at the live edge the window slides
+    // forward at ~1x, so the relative position hovers roughly CONSTANT
+    // during perfectly healthy playback. Any "did the position move"
+    // verdict computed from the relative position declares healthy
+    // playback stuck - the v4.3.2 net did exactly that about every
+    // 60-80 s. The window anchor (positionInFirstPeriodMs) grows as
+    // segments fall off the back, so anchor + relative position climbs
+    // at 1x while playing and stays flat only when truly stuck.
+    private fun absPos(p: ExoPlayer): Long {
+        val tl = p.currentTimeline
+        if (tl.isEmpty) return p.currentPosition
+        return try {
+            tl.getWindow(p.currentMediaItemIndex, tlWindow).positionInFirstPeriodMs + p.currentPosition
+        } catch (e: Exception) {
+            p.currentPosition
+        }
+    }
 
     private fun resetWatchdogTracking(now: Long) {
         lastObservedPosition = -1L
@@ -170,24 +200,49 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         bufferingSinceMs = 0L
     }
 
-    /** Recovery rung 1: re-prepare the same media. No seek, no flush. */
+    /** Recovery rung 1: re-prepare the same media at the live seat. */
     private fun reprepare(p: ExoPlayer) {
         try {
             p.stop()
+            // Seek before prepare (audit P3): stop()+prepare() alone
+            // resumes at the old window-relative position on a brand-new
+            // timeline, which can land behind the window.
+            p.seekToDefaultPosition()
             p.prepare()
             p.playWhenReady = true
-            // A re-prepare is a fresh tune: the net watchdog re-gates
-            // on the next first READY, exactly as after play().
+            // A re-prepare is a fresh tune: every clock the watchdogs
+            // read restarts here, and the net re-gates on the next
+            // first READY exactly as after play() (audit P2, P3, P4).
+            playbackStartMs = android.os.SystemClock.uptimeMillis()
+            lastPlayState = -1
             firstReadyMs = 0L
-            resetWatchdogTracking(android.os.SystemClock.uptimeMillis())
+            resetWatchdogTracking(playbackStartMs)
         } catch (e: Exception) {
-            Log.w(TAG, "Re-prepare failed", e)
+            // A failed re-prepare must not be the end (audit P20).
+            Log.w(TAG, "Re-prepare failed; replaying instead", e)
+            currentItem?.let { play(it, false) }
         }
     }
 
     /** Recovery rung 2: rebuild the player on the other decoder and replay. */
     private fun flipDecoderAndReload() {
         val item = currentItem ?: return
+        // A flip only helps when there IS another decoder to flip to
+        // (audit P9): with an explicit Hardware/Software preference, or
+        // off the Streamer where the ladder collapses, a "rebuild on
+        // the other decoder" rebuilds into the same broken decoder.
+        val explicitPref = prefs.videoDecoder == "Hardware" || prefs.videoDecoder == "Software"
+        val isStreamer = Build.MODEL.contains("Google TV Streamer", ignoreCase = true) ||
+            Build.HARDWARE.contains("mt8696", ignoreCase = true)
+        flipCountThisChannel++
+        if (explicitPref || !isStreamer || flipCountThisChannel > 2) {
+            Log.w(TAG, "Decoder flip not applicable or capped; replaying on the next route")
+            routeAttempt++
+            play(item, false)
+            mainHandler.removeCallbacks(healthCheckRunnable)
+            mainHandler.postDelayed(healthCheckRunnable, 1000L)
+            return
+        }
         decoderEscalation++
         decoderEscalationsTotal++
         val sv = attachedSurfaceView
@@ -214,7 +269,12 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             ) {
                 retryCount = 0
                 consecutiveNetRecoveries = 0
-                currentItem?.let { prefs.put("route_" + it.ch.id, routeAttempt % ROUTE_COUNT) }
+                decoderRebuildsSinceReady = 0
+                decoderEscalation = 0
+                if (!routeSaved) {
+                    routeSaved = true
+                    currentItem?.let { prefs.put("route_" + it.ch.id, routeAttempt % ROUTE_COUNT) }
+                }
             }
             if (p != null) {
                 if (p.playbackState == Player.STATE_BUFFERING) {
@@ -226,8 +286,38 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             }
 
             if (p != null && p.playWhenReady && p.playbackState != Player.STATE_IDLE) {
-                val currentPos = p.currentPosition
+                val currentPos = absPos(p)
                 val buffering = p.playbackState == Player.STATE_BUFFERING || isBuffering
+
+                if (firstReadyMs == 0L && p.playbackState == Player.STATE_READY) {
+                    firstReadyMs = now
+                    tuneRecoveryCount = 0
+                }
+                // Tune deadline (audit P2): the net below is gated on
+                // first READY, so a tune whose loader hangs forever in
+                // BUFFERING (the 87 s idle-loader case) needs its own
+                // verdict. 45 s without a first READY: re-prepare once,
+                // then change route.
+                if (firstReadyMs == 0L && playbackStartMs > 0L &&
+                    now - playbackStartMs > 45000L && now - lastTuneRecoveryMs > 60000L &&
+                    currentItem != null
+                ) {
+                    tuneRecoveryCount++
+                    lastTuneRecoveryMs = now
+                    playbackStartMs = now
+                    resetWatchdogTracking(now)
+                    if (tuneRecoveryCount >= 2) {
+                        tuneRecoveryCount = 0
+                        Log.w(TAG, "Tune deadline missed twice; switching resolver route")
+                        routeAttempt++
+                        play(currentItem!!, false)
+                    } else {
+                        Log.w(TAG, "Tune deadline: no READY in 45 s; re-preparing")
+                        reprepare(p)
+                    }
+                    mainHandler.postDelayed(this, 1000L)
+                    return
+                }
 
                 // Starvation-loop tracking: count READY -> BUFFERING falls.
                 if (lastPlayState == Player.STATE_READY && p.playbackState == Player.STATE_BUFFERING) {
@@ -259,9 +349,6 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                 // of this check cares whether the state is READY or
                 // BUFFERING, which is the point: the trap lives in the
                 // gap between the two.
-                if (firstReadyMs == 0L && p.playbackState == Player.STATE_READY) {
-                    firstReadyMs = now
-                }
                 if (firstReadyMs > 0L && now - lastNetRecoveryMs > 60000L) {
                     // 45 s, not 20: the live window itself is ~36 s, so
                     // a stall the seat can absorb legitimately buffers
@@ -310,10 +397,12 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                 // resets, and chasing that reading with another seek +
                 // prepare just churns the recovery (seen on device,
                 // 2026-10-30).
-                if (!buffering && now - playbackStartMs > 12000L &&
+                if (!buffering && !userBehindLive && now - playbackStartMs > 12000L &&
+                    now - lastDesyncSeekMs > 15000L &&
                     p.isCurrentMediaItemLive && p.currentLiveOffset != C.TIME_UNSET &&
                     p.currentLiveOffset > 25000L) {
                     Log.w(TAG, "Live offset too large (offset=${p.currentLiveOffset}); seeking to default position")
+                    lastDesyncSeekMs = now
                     resetWatchdogTracking(now)
                     p.seekToDefaultPosition()
                     mainHandler.postDelayed(this, 1000L)
@@ -362,10 +451,13 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                         resetWatchdogTracking(now)
                         if (freezeRecoveries >= 2) {
                             freezeRecoveries = 0
+                            // initPlayer() posts its own health tick;
+                            // returning without re-posting keeps exactly
+                            // one health chain alive (audit P15).
                             flipDecoderAndReload()
-                        } else {
-                            reprepare(p)
+                            return
                         }
+                        reprepare(p)
                         mainHandler.postDelayed(this, 1000L)
                         return
                     }
@@ -413,6 +505,10 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             val (minBuffer, maxBuffer) = when (prefs.buffer) {
                 "Small" -> Pair(5000, 10000)
                 "Normal" -> Pair(20000, 34000)
+                // "Large" and "Very large" intentionally equal
+                // "Normal": the ~36 s live window caps the useful
+                // buffer, so a bigger setting could never be honoured
+                // for live playback anyway (audit P17).
                 "Large" -> Pair(20000, 34000)
                 "Very large" -> Pair(20000, 34000)
                 else -> Pair(20000, 34000)
@@ -449,8 +545,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                 val decoders = MediaCodecUtil.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
                 if (mimeType.startsWith("video/")) {
                     val isGoogleTvStreamer = Build.MODEL.contains("Google TV Streamer", ignoreCase = true) ||
-                                             Build.HARDWARE.contains("mt8696", ignoreCase = true) ||
-                                             Build.HARDWARE.contains("mt", ignoreCase = true)
+                                             Build.HARDWARE.contains("mt8696", ignoreCase = true)
                     // Hardware first on the Streamer: its software AVC decoder
                     // cannot keep up with HD and drops frames in bursts of
                     // hundreds (measured on device, v4.2.2). The old freeze
@@ -479,8 +574,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         val trackSelector = DefaultTrackSelector(context).apply {
             setParameters(
                 buildUponParameters()
-                    .setPreferredAudioLanguages("en", "eng")
-                    .setPreferredAudioLanguage(prefs.preferAudioLang.ifBlank { "eng" })
+                    .setPreferredAudioLanguages(prefs.preferAudioLang.ifBlank { "eng" }, "en", "eng")
             )
         }
 
@@ -557,9 +651,11 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
 
                 if (playbackState == Player.STATE_READY) {
                     readySinceMs = android.os.SystemClock.uptimeMillis()
-                    decoderRebuildsSinceReady = 0
-                    // The route is remembered later, by the health
-                    // check, only after 30 s of continuous READY.
+                    // decoderRebuildsSinceReady is NOT reset here
+                    // (audit P7): a decoder that reaches READY on audio
+                    // and then fails DECODING_FAILED would rebuild
+                    // forever. The budget resets in the health check
+                    // after 30 s of stable READY.
                 }
                 onStateChanged?.invoke()
             }
@@ -572,9 +668,24 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             override fun onPlayerError(error: PlaybackException) {
                 Log.w(TAG, "Playback error: ${error.errorCodeName} (${error.errorCode}) - ${error.message}")
                 if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
-                    Log.i(TAG, "Behind live window! Re-syncing to live edge...")
-                    player.seekToDefaultPosition()
-                    player.prepare()
+                    // Bounded (audit P14): a seek fixes a one-off; a
+                    // stream that keeps falling out of the window is a
+                    // route problem, so the third in a minute changes
+                    // route instead of looping seeks forever.
+                    val nowMs = android.os.SystemClock.uptimeMillis()
+                    behindLiveWindowTimesMs.removeAll { nowMs - it > 60000L }
+                    behindLiveWindowTimesMs.add(nowMs)
+                    playbackStartMs = nowMs
+                    resetWatchdogTracking(nowMs)
+                    if (behindLiveWindowTimesMs.size >= 3 && currentItem != null) {
+                        behindLiveWindowTimesMs.clear()
+                        Log.w(TAG, "Behind live window 3x in a minute; switching resolver route")
+                        routeAttempt++
+                        play(currentItem!!, false)
+                    } else {
+                        Log.i(TAG, "Behind live window! Re-syncing to live edge...")
+                        player.seekToDefaultPosition()
+                    }
                     return
                 }
                 if ((error.errorCode == PlaybackException.ERROR_CODE_DECODING_FAILED ||
@@ -600,9 +711,9 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                     // to the next route on every second consecutive failure.
                     if (retryCount % 2 == 0) routeAttempt++
                     Log.i(TAG, "Auto-retrying stream (attempt $retryCount of $maxRetries, route ${routeAttempt % ROUTE_COUNT})...")
-                    mainHandler.postDelayed({
-                        currentItem?.let { play(it, false) }
-                    }, 2500L)
+                    val r = Runnable { currentItem?.let { play(it, false) } }
+                    retryRunnable = r
+                    mainHandler.postDelayed(r, 2500L)
                 } else {
                     onError?.invoke(error.localizedMessage ?: "Playback error: ${error.errorCodeName}")
                 }
@@ -619,6 +730,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             }
         })
 
+        mainHandler.removeCallbacks(healthCheckRunnable)
         mainHandler.postDelayed(healthCheckRunnable, 2000L)
         exoPlayer = player
         return player
@@ -639,11 +751,25 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     }
 
     fun play(item: Item, resetRetry: Boolean = true) {
+        if (released) return
+        retryRunnable?.let { mainHandler.removeCallbacks(it) }
+        retryRunnable = null
         if (resetRetry) {
             retryCount = 0
             routeAttempt = prefs.int("route_" + item.ch.id, 0)
+            consecutiveNetRecoveries = 0
+            lastNetRecoveryMs = 0L
+            lastStarvationEscalationMs = 0L
+            decoderRebuildsSinceReady = 0
+            decoderEscalation = 0
+            flipCountThisChannel = 0
+            behindLiveWindowTimesMs.clear()
         }
         currentItem = item
+        userBehindLive = false
+        userPaused = false
+        routeSaved = false
+        tuneRecoveryCount = 0
         freezeRecoveries = 0
         netWindowStartMs = 0L
         bufferingSinceMs = 0L
@@ -724,9 +850,12 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                     override fun getRetryDelayMsFor(
                         loadErrorInfo: androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo
                     ): Long {
-                        return if (loadErrorInfo.errorCount <= 2) 500L else C.TIME_UNSET
+                        return if (loadErrorInfo.errorCount <= 3) 500L else C.TIME_UNSET
                     }
-                    override fun getMinimumLoadableRetryCount(dataType: Int): Int = 1
+                    // 1 here made Loader.maybeThrowError throw after
+                    // ~2 consecutive failures, so a local-proxy blip
+                    // cost a full error plus re-tune (audit P13).
+                    override fun getMinimumLoadableRetryCount(dataType: Int): Int = 3
                     override fun getFallbackSelectionFor(
                         fallbackOptions: androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.FallbackOptions,
                         loadErrorInfo: androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo
@@ -784,8 +913,14 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         val p = exoPlayer ?: return false
         val behindMs = System.currentTimeMillis() - programStartMs
         if (behindMs < 0L) return false
-        val target = p.currentPosition - behindMs
+        // The programme start in window coordinates: the playhead plus
+        // its distance behind the live edge, minus how far the start
+        // is behind now (audit P21 - the old math assumed the playhead
+        // sat exactly at the edge).
+        val offset = if (p.isCurrentMediaItemLive && p.currentLiveOffset != C.TIME_UNSET) p.currentLiveOffset else 0L
+        val target = p.currentPosition + offset - behindMs
         if (target < 0L) return false
+        userBehindLive = true
         p.seekTo(target)
         p.play()
         return true
@@ -793,20 +928,41 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
 
     /** Jump back to the live edge after watching behind live. */
     fun returnToLive() {
+        userBehindLive = false
         exoPlayer?.seekToDefaultPosition()
         exoPlayer?.play()
     }
 
     fun pause() {
+        userPaused = true
         exoPlayer?.pause()
     }
 
+    /** User-initiated resume (the overlay's play action). */
     fun resume() {
+        userPaused = false
+        exoPlayer?.play()
+    }
+
+    // Lifecycle pause: not a user pause, so it does not set userPaused.
+    fun pauseFromLifecycle() {
+        exoPlayer?.pause()
+    }
+
+    // Lifecycle resume (audit P22): an onResume must not override a
+    // pause the user chose, or replay a stream that already errored.
+    // A long lifecycle pause leaves the playhead behind the sliding
+    // window, so re-seat at the live edge instead of erroring out
+    // through BEHIND_LIVE_WINDOW (audit M4).
+    fun resumeFromLifecycle() {
+        if (userPaused) return
+        exoPlayer?.seekToDefaultPosition()
         exoPlayer?.play()
     }
 
     fun seekRelative(seconds: Int) {
         exoPlayer?.let { p ->
+            if (seconds < 0) userBehindLive = true
             val cur = p.currentPosition
             val target = (cur + seconds * 1000L).coerceAtLeast(0L)
             p.seekTo(target)
@@ -927,7 +1083,8 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         }
     }
 
-    fun release() {
+    fun release(terminal: Boolean = false) {
+        if (terminal) released = true
         mainHandler.removeCallbacksAndMessages(null)
         exoPlayer?.release()
         exoPlayer = null

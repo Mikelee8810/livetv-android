@@ -38,6 +38,18 @@ class MainActivity : Activity() {
     private lateinit var playerEngine: PlayerEngine
     private val mainHandler = Handler(Looper.getMainLooper())
     private var lastBackPress = 0L
+    // Stored so it can be removed in onDestroy (audit M2): an anonymous
+    // listener added in onCreate would leak one Activity per recreate.
+    private val repoListener: () -> Unit = {
+        updateGroups()
+        updateGuideRows()
+    }
+    private var closingSettings = false
+    private val prewarmClient = okhttp3.OkHttpClient.Builder()
+        .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+        .build()
+    @Volatile private var prewarmCall: okhttp3.Call? = null
 
     // Top-level containers
     private lateinit var rootContainer: FrameLayout
@@ -83,8 +95,16 @@ class MainActivity : Activity() {
         // live programme or watch a past one from its start while it is
         // still inside the stream's DVR window.
         ProgramDetailsDialog.catchUpHandler = { item, prog ->
-            if (playerEngine.currentItem?.key != item.key) playChannel(item)
-            playerEngine.seekToProgramStart(prog.start.toEpochMilli())
+            val startMs = prog.start.toEpochMilli()
+            if (playerEngine.currentItem?.key != item.key) {
+                playChannel(item)
+                // A fresh tune has no position to seek from yet; wait
+                // for playback before seeking to the start (audit M8).
+                seekToProgramWhenReady(startMs, 20)
+            } else {
+                playerEngine.seekToProgramStart(startMs)
+            }
+            true
         }
         ProgramDetailsDialog.liveHandler = { item ->
             if (playerEngine.currentItem?.key == item.key) playerEngine.returnToLive()
@@ -93,10 +113,7 @@ class MainActivity : Activity() {
         buildUI()
 
         // Listen for Repo updates
-        Repo.listeners.add {
-            updateGroups()
-            updateGuideRows()
-        }
+        Repo.listeners.add(repoListener)
 
         // Initial Data Load
         Repo.reload {
@@ -669,6 +686,7 @@ class MainActivity : Activity() {
             val lp = FrameLayout.LayoutParams(dpi(440f), FrameLayout.LayoutParams.MATCH_PARENT, Gravity.END)
             rootContainer.addView(settingsDrawer, lp)
         }
+        closingSettings = false
         settingsDrawer?.apply {
             visibility = View.VISIBLE
             translationX = dp(440f)
@@ -678,13 +696,19 @@ class MainActivity : Activity() {
     }
 
     private fun closeSettings() {
+        if (closingSettings) return
+        closingSettings = true
         settingsDrawer?.let { drawer ->
             drawer.animate().translationX(dp(440f)).setDuration(200).withEndAction {
+                // A reopen during the close animation cancels this:
+                // never remove the freshly reopened drawer (audit M7).
+                if (!closingSettings) return@withEndAction
+                closingSettings = false
                 rootContainer.removeView(drawer)
                 settingsDrawer = null
                 guideView.requestFocus()
             }.start()
-        }
+        } ?: run { closingSettings = false }
     }
 
     private fun showSearch() {
@@ -754,18 +778,21 @@ class MainActivity : Activity() {
     private fun schedulePrewarm(item: Item?) {
         prewarmRunnable?.let { prewarmHandler.removeCallbacks(it) }
         prewarmRunnable = null
+        prewarmCall?.cancel()
+        prewarmCall = null
         if (item == null) return
         if (item.key == playerEngine.currentItem?.key) return
         if (!item.url.startsWith("/")) return
+        // Never fight the playing stream for the resolver or the pipe
+        // (audit M3): no prewarm while buffering or while fullscreen.
+        if (playerEngine.isBuffering || isFullscreen) return
         val url = "http://127.0.0.1:48913" + item.url
         val r = Runnable {
             kotlin.concurrent.thread(name = "prewarm") {
                 try {
-                    val client = okhttp3.OkHttpClient.Builder()
-                        .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
-                        .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-                        .build()
-                    client.newCall(okhttp3.Request.Builder().url(url).build()).execute().use { resp ->
+                    val call = prewarmClient.newCall(okhttp3.Request.Builder().url(url).build())
+                    prewarmCall = call
+                    call.execute().use { resp ->
                         resp.body?.close()
                     }
                 } catch (e: Exception) { /* prewarm is best-effort */ }
@@ -773,6 +800,19 @@ class MainActivity : Activity() {
         }
         prewarmRunnable = r
         prewarmHandler.postDelayed(r, 600)
+    }
+
+    // M8 helper: poll briefly for playback, then seek to a programme start.
+    private fun seekToProgramWhenReady(startMs: Long, attemptsLeft: Int) {
+        if (playerEngine.isPlaying) {
+            playerEngine.seekToProgramStart(startMs)
+            return
+        }
+        if (attemptsLeft <= 0) {
+            playerEngine.seekToProgramStart(startMs)
+            return
+        }
+        mainHandler.postDelayed({ seekToProgramWhenReady(startMs, attemptsLeft - 1) }, 500)
     }
 
     private fun updateGuideRows() {
@@ -812,6 +852,14 @@ class MainActivity : Activity() {
     }
 
     fun playChannel(item: Item) {
+        // OK on the channel that is already playing healthily is a
+        // no-op, not a re-tune (audit M1).
+        if (playerEngine.currentItem?.key == item.key &&
+            (playerEngine.isPlaying || playerEngine.isBuffering)) {
+            guideView.playingKey = item.key
+            if (isFullscreen) playerOverlay.showBottomBar()
+            return
+        }
         android.util.Log.i("MainActivity", "playChannel: " + item.name + ", key=" + item.key + ", url=" + item.url)
         prefs.lastChannel = item.key
         guideView.playingKey = item.key
@@ -853,21 +901,40 @@ class MainActivity : Activity() {
         guideView.requestFocus()
     }
 
+    override fun onNewIntent(newIntent: android.content.Intent?) {
+        super.onNewIntent(newIntent)
+        setIntent(newIntent)
+        // Reminder tap while the Activity is already alive (audit M6).
+        val key = newIntent?.getStringExtra("channelKey")
+        if (!key.isNullOrBlank()) {
+            Repo.byKey(key)?.let { playChannel(it) }
+        }
+    }
+
     override fun onResume() {
         super.onResume()
-        playerEngine.resume()
+        playerEngine.resumeFromLifecycle()
     }
 
     override fun onPause() {
         super.onPause()
         if (!isInPictureInPictureMode) {
-            playerEngine.pause()
+            playerEngine.pauseFromLifecycle()
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        playerEngine.release()
+        // Audit Dg1: dialogs are tracked centrally; dismiss them all
+        // so none leak a window past the activity.
+        com.livetv.app.ui.Dialogs.dismissAll()
+        Repo.listeners.remove(repoListener)
+        ProgramDetailsDialog.catchUpHandler = null
+        ProgramDetailsDialog.liveHandler = null
+        prewarmCall?.cancel()
+        prewarmRunnable?.let { prewarmHandler.removeCallbacks(it) }
+        mainHandler.removeCallbacksAndMessages(null)
+        playerEngine.release(terminal = true)
     }
 
     override fun onUserLeaveHint() {
@@ -879,7 +946,9 @@ class MainActivity : Activity() {
                         .setAspectRatio(Rational(16, 9))
                         .build()
                 )
-            } catch (e: Exception) {}
+            } catch (e: Exception) {
+                android.util.Log.w("MainActivity", "PiP entry failed", e)
+            }
         }
     }
 
