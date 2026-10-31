@@ -123,7 +123,7 @@ object Repo {
     fun parseM3u(plId: String, text: String): List<Channel> {
         val out = ArrayList<Channel>()
         val attr = Regex("([\\w-]+)=\"([^\"]*)\"")
-        var name = ""; var group = ""; var logo = ""; var tvg = 
+        var name = ""; var group = ""; var logo = ""; var tvg = ""
         for (raw in text.lineSequence()) {
             val line = raw.trim()
             if (line.startsWith("#EXTM3U")) { m3uEpg[plId] = ChannelCatalog.parseEpgSources(line) }
