@@ -42,9 +42,12 @@ public final class Channel {
         this.feedCount = Math.max(1, feedCount);
     }
 
+    /** The one home of the loopback proxy address (audit H2). */
+    public static final String PROXY_BASE = "http://127.0.0.1:48913";
+
     public String playbackUrl() {
         if (this.playbackPath == null || this.playbackPath.isEmpty()) {
-            return "http://127.0.0.1:48913/live/manifest.m3u8?id=" + this.id;
+            return PROXY_BASE + "/live/manifest.m3u8?id=" + this.id;
         }
         return this.playbackPath;
     }
@@ -66,7 +69,10 @@ public final class Channel {
                 Collections.sort(ordered, new Comparator() { // from class: com.livetv.app.Channel$$ExternalSyntheticLambda0
                     @Override // java.util.Comparator
                     public final int compare(Object obj, Object obj2) {
-                        return Boolean.compare(!Channel.isYouTubeSource((String) obj), !Channel.isYouTubeSource((String) obj2));
+                        // Non-YouTube first (audit H1): the local
+                        // proxy cannot resolve YouTube entries, so a
+                        // playable standard source must lead the list.
+                        return Boolean.compare(!Channel.isYouTubeSource((String) obj2), !Channel.isYouTubeSource((String) obj));
                     }
                 });
                 return ordered;

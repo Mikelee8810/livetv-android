@@ -38,10 +38,16 @@ data class Reminder(val startMs: Long, val channelKey: String, val channelName: 
 object Reminders {
     private const val KEY = "reminders"
 
-    fun all(prefs: Prefs): List<Reminder> =
-        prefs.set(KEY).mapNotNull { Reminder.decode(it) }
-            .filter { it.startMs > System.currentTimeMillis() - 60_000L }
-            .sortedBy { it.startMs }
+    fun all(prefs: Prefs): List<Reminder> {
+        val decoded = prefs.set(KEY).mapNotNull { Reminder.decode(it) }
+        val kept = decoded.filter { it.startMs > System.currentTimeMillis() - 60_000L }
+        // Purge the expired ones (audit M2): filtering alone left
+        // them in prefs forever.
+        if (kept.size != decoded.size) {
+            prefs.put(KEY, kept.map { it.encode() }.toSet())
+        }
+        return kept.sortedBy { it.startMs }
+    }
 
     fun add(ctx: Context, prefs: Prefs, reminder: Reminder) {
         val entries = prefs.set(KEY).toMutableSet()
@@ -77,8 +83,15 @@ object Reminders {
     }
 
     private fun schedule(ctx: Context, prefs: Prefs, reminder: Reminder) {
-        val fireAt = reminder.startMs - prefs.remindLeadMinutes * 60_000L
-        if (fireAt <= System.currentTimeMillis()) return
+        var fireAt = reminder.startMs - prefs.remindLeadMinutes * 60_000L
+        val now = System.currentTimeMillis()
+        if (fireAt <= now) {
+            // Inside the lead window is not a reason to never fire
+            // (audit M3): a programme that has not started yet gets
+            // its reminder in a second.
+            if (reminder.startMs <= now) return
+            fireAt = now + 1000L
+        }
         val am = ctx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val pi = pendingIntent(ctx, reminder, prefs.remindAutoSwitch)
         try {
@@ -129,6 +142,13 @@ class ReminderReceiver : BroadcastReceiver() {
             context, reminderId, open,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        // Auto-switch (audit M1): the setting used to be plumbed
+        // into this intent and never read. When it is on, a fired
+        // reminder also opens the app on that channel.
+        if (intent.getBooleanExtra("autoSwitch", false) &&
+            !intent.getStringExtra("channelKey").isNullOrBlank()) {
+            try { context.startActivity(open) } catch (e: Exception) { }
+        }
         val notification = NotificationCompat.Builder(context, "reminders")
             .setSmallIcon(R.drawable.ic_alarm)
             .setContentTitle(title)

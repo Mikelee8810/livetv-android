@@ -29,45 +29,67 @@ object Repo {
     lateinit var app: Context
     lateinit var prefs: Prefs
     private val main = Handler(Looper.getMainLooper())
-    private val http = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).followRedirects(true).build()
+    private val http = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).callTimeout(45, TimeUnit.SECONDS).followRedirects(true).build()
 
     @Volatile var items: List<Item> = emptyList(); private set
     @Volatile var epg: EpgSnapshot? = null; private set
-    val listeners = mutableListOf<() -> Unit>()
+    // CopyOnWriteArrayList (audit R9): fire() iterates while other
+    // threads add and remove listeners.
+    val listeners = java.util.concurrent.CopyOnWriteArrayList<() -> Unit>()
     @Volatile private var catalogEpg: List<String> = emptyList()
     // ConcurrentHashMap: written from reload/addPlaylist threads and
     // iterated from the main thread in epgSourceList(); a plain HashMap
     // raced into ConcurrentModificationException crashes.
     private val m3uEpg = java.util.concurrent.ConcurrentHashMap<String, List<String>>()
-    private var epgChannels: List<Channel> = emptyList()
+    // Reload sequencing (audit R1): only the newest reload may commit.
+    private val reloadSeq = java.util.concurrent.atomic.AtomicInteger(0)
+    private val epgRefreshRunnable = Runnable { if (prefs.epgOnStart) refreshEpg() }
+    private val epgRunning = java.util.concurrent.atomic.AtomicBoolean(false)
 
     fun init(ctx: Context) { app = ctx.applicationContext; prefs = Prefs(app) }
     private fun fire() = main.post { listeners.toList().forEach { it() } }
 
     // -- channels ----------------------------------------------------------------
     fun reload(done: (() -> Unit)? = null) {
+        val mySeq = reloadSeq.incrementAndGet()
         thread(name = "reload") {
+        m3uEpg.clear()
+        val enabled = prefs.playlists().filter { it.enabled }
+        // Builtin first, published on its own (audit R3): a slow or
+        // trickling user playlist must not hold up the main guide.
+        val ordered = enabled.sortedBy { if (it.id == "builtin") 0 else 1 }
         val out = ArrayList<Item>()
         var n = 1
-        for (pl in prefs.playlists().filter { it.enabled }) {
+        for ((pass, pl) in ordered.withIndex()) {
             val chans: List<Channel> = try {
                 if (pl.id == "builtin") ChannelCatalog.loadWithReport(app).also { catalogEpg = it.epgSources }.channels
                 else parseM3u(pl.id, fetch(pl.url))
             } catch (e: Exception) {
+                android.util.Log.e("Repo", "Playlist ${pl.id} failed to load", e)
                 // A playlist that fails this pass keeps its previous
                 // channels: a transient fetch error must not silently
                 // delete them from the guide.
                 items.filter { it.playlistId == pl.id }.map { it.ch }
             }
             for (c in chans) out.add(Item(c, pl.id, n++, splitGroups(c.group)))
+            if (pass == 0 && ordered.size > 1) {
+                if (mySeq != reloadSeq.get()) return@thread
+                val partial = sortItems(ArrayList(out))
+                if (partial.isNotEmpty() || items.isEmpty()) items = partial
+            }
         }
+        // A superseded reload commits nothing (audit R1): a slow older
+        // pass finishing last used to overwrite newer items.
+        if (mySeq != reloadSeq.get()) return@thread
         // A bad reload must never blank the guide: if this pass produced no
         // channels at all but we already have some, keep the ones we have.
         val newItems = sortItems(out)
         if (newItems.isNotEmpty() || items.isEmpty()) items = newItems
         // EPG waits 15 s: its ~25 MB of downloads and parsing used to fight
-        // the first playback for CPU right at app start.
-        main.post { done?.invoke(); fire(); if (prefs.epgOnStart) main.postDelayed({ if (prefs.epgOnStart) refreshEpg() }, 15000) }
+        // the first playback for CPU right at app start. A single
+        // posted runnable, cancelled and reposted per reload, so
+        // reloads cannot stack refreshes (audit R2).
+        main.post { done?.invoke(); fire(); if (prefs.epgOnStart) { main.removeCallbacks(epgRefreshRunnable); main.postDelayed(epgRefreshRunnable, 15000) } }
         // Background: refresh the live DaddyLive channel list when its cache
         // is stale, then reload once so new channels appear without a restart.
         thread(name = "live-catalog") {
@@ -86,13 +108,22 @@ object Repo {
 
     private fun fetch(url: String): String {
         val r = http.newCall(Request.Builder().url(url).header("User-Agent", prefs.userAgent.ifBlank { "LiveTV/4.0 (Android TV)" }).build()).execute()
-        r.use { if (!it.isSuccessful) throw java.io.IOException("HTTP ${it.code}"); return it.body!!.string() }
+        r.use {
+            if (!it.isSuccessful) throw java.io.IOException("HTTP ${it.code}")
+            val body = it.body ?: throw java.io.IOException("Empty response body")
+            // Size cap (audit R8): a hostile or broken playlist URL
+            // must not be able to OOM the app.
+            if (body.contentLength() > 20_000_000L) throw java.io.IOException("Playlist too large")
+            val text = body.string()
+            if (text.length > 20_000_000) throw java.io.IOException("Playlist too large")
+            return text
+        }
     }
 
     fun parseM3u(plId: String, text: String): List<Channel> {
         val out = ArrayList<Channel>()
         val attr = Regex("([\\w-]+)=\"([^\"]*)\"")
-        var name = ""; var group = ""; var logo = ""; var tvg = ""; var idx = 0
+        var name = ""; var group = ""; var logo = ""; var tvg = 
         for (raw in text.lineSequence()) {
             val line = raw.trim()
             if (line.startsWith("#EXTM3U")) { m3uEpg[plId] = ChannelCatalog.parseEpgSources(line) }
@@ -103,7 +134,11 @@ object Repo {
                 name = line.substringAfterLast(',').trim().ifBlank { name }
             } else if (line.startsWith("#EXTGRP:")) group = line.removePrefix("#EXTGRP:").trim()
             else if (line.isNotEmpty() && !line.startsWith("#") && name.isNotEmpty()) {
-                out.add(Channel("$plId-${idx++}", tvg, name, group, logo, line, 1)); name = ""
+                // Stable ids (audit R7): positional ids remapped
+                // favorites, hidden and recents whenever the provider
+                // reordered its list.
+                val stableId = "$plId-" + Integer.toHexString((line.hashCode() * 31 + name.hashCode()) and 0x7fffffff)
+                out.add(Channel(stableId, tvg, name, group, logo, line, 1)); name = ""
             }
         }
         return out
@@ -111,16 +146,18 @@ object Repo {
 
     fun addPlaylist(name: String, url: String, onDone: (String?) -> Unit) = thread {
         try {
-            val txt = fetch(url); val ch = parseM3u("probe", txt)
-            if (ch.isEmpty()) throw java.io.IOException("No channels found in playlist")
+            // Parse under the real id (audit R4): parsing as "probe"
+            // polluted m3uEpg with entries no playlist owned.
             val id = "pl" + System.currentTimeMillis()
+            val txt = fetch(url); val ch = parseM3u(id, txt)
+            if (ch.isEmpty()) throw java.io.IOException("No channels found in playlist")
             prefs.savePlaylists(prefs.playlists() + PlaylistDef(id, name, url, "", true))
             main.post { reload { onDone(null) } }
         } catch (e: Exception) { main.post { onDone(e.message ?: "Failed") } }
     }
-    fun removePlaylist(id: String) { prefs.savePlaylists(prefs.playlists().filter { it.id != id }); reload() }
+    fun removePlaylist(id: String) { m3uEpg.remove(id); prefs.savePlaylists(prefs.playlists().filter { it.id != id }); reload() }
     fun renamePlaylist(id: String, name: String) { prefs.savePlaylists(prefs.playlists().map { if (it.id == id) it.copy(name = name) else it }); fire() }
-    fun togglePlaylist(id: String) { prefs.savePlaylists(prefs.playlists().map { if (it.id == id) it.copy(enabled = !it.enabled) else it }); reload() }
+    fun togglePlaylist(id: String) { val nowDisabled = prefs.playlists().firstOrNull { it.id == id }?.enabled == true; if (nowDisabled) m3uEpg.remove(id); prefs.savePlaylists(prefs.playlists().map { if (it.id == id) it.copy(enabled = !it.enabled) else it }); reload() }
     fun channelCount(plId: String) = items.count { it.playlistId == plId }
 
     // -- groups ------------------------------------------------------------------
@@ -171,19 +208,25 @@ object Repo {
     // -- EPG ---------------------------------------------------------------------
     fun epgSourceList(): List<String> = (catalogEpg + m3uEpg.values.flatten() + prefs.epgSources()).distinct()
     fun refreshEpg(force: Boolean = false, done: ((String) -> Unit)? = null) {
+        // One refresh at a time (audit R2): stacked ~25 MB downloads
+        // in the proxy's process were an OOM risk to the stream.
+        if (!epgRunning.compareAndSet(false, true)) { done?.invoke("EPG refresh already running"); return }
         val chans = items.map { it.ch }
-        epgChannels = chans
         val sources = epgSourceList()
-        if (sources.isEmpty()) { prefs.epgLastStatus = "No EPG sources"; done?.invoke(prefs.epgLastStatus); return }
-        if (force) java.io.File(app.cacheDir, "xmltv").deleteRecursively()
+        if (sources.isEmpty()) { epgRunning.set(false); prefs.epgLastStatus = "No EPG sources"; done?.invoke(prefs.epgLastStatus); return }
+        if (!force && epg != null && System.currentTimeMillis() - prefs.epgLastUpdate < 30 * 60_000L) {
+            epgRunning.set(false); done?.invoke(prefs.epgLastStatus); return
+        }
+        if (force) thread(name = "epg-clear") { java.io.File(app.cacheDir, "xmltv").deleteRecursively() }
         EpgRepository(app, sources).refresh(chans) { snap, report ->
             epg = snap
             prefs.epgLastUpdate = System.currentTimeMillis()
             prefs.epgLastStatus = "${report.mappedChannels} channels, ${report.mappedPrograms} programs"
+            epgRunning.set(false)
             done?.invoke(prefs.epgLastStatus); fire()
         }
     }
-    fun clearEpg() { epg = null; java.io.File(app.cacheDir, "xmltv").deleteRecursively(); prefs.epgLastStatus = "Cleared"; fire() }
+    fun clearEpg() { epg = null; thread(name = "epg-clear") { java.io.File(app.cacheDir, "xmltv").deleteRecursively() }; prefs.epgLastStatus = "Cleared"; fire() }
     fun programs(i: Item): List<Program> = epg?.programsFor(i.ch) ?: emptyList()
     fun current(i: Item, now: Instant = Instant.now()): Program? = programs(i).firstOrNull { !it.start.isAfter(now) && it.end.isAfter(now) }
     fun next(i: Item, now: Instant = Instant.now()): Program? = programs(i).firstOrNull { it.start.isAfter(now) }

@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
 
 /* JADX INFO: loaded from: classes6.dex */
 public final class ChannelCategorizer {
-    private static final Pattern LOCAL_CALL_SIGN = Pattern.compile("(?i)\\b(?:[kw][a-z]{3}|[kw][a-z]{2}(?:[- ]?(?:tv|dt|fm|am)))\\b");
+    private static final Pattern LOCAL_CALL_SIGN = Pattern.compile("\\b(?:[KW][A-Z]{3}|[KW][A-Z]{2}(?:[- ]?(?:TV|DT|FM|AM)))\\b");
     private static final Pattern LOCAL_NETWORK_MARKET = Pattern.compile("(?i)\\b(?:abc|cbs|nbc|fox|cw)\\s+(?:ny|new york|la|los angeles|chicago|boston|philadelphia|atlanta|dallas|houston|miami|denver|seattle|detroit|phoenix|san francisco)\\b");
     private static final List<ChannelCategory> CATEGORIES = Collections.unmodifiableList(asCategoryList());
     private static final Comparator<Channel> CHANNEL_NAME_ORDER = new Comparator<Channel>() { // from class: com.livetv.app.catalog.ChannelCategorizer.1
@@ -36,7 +36,7 @@ public final class ChannelCategorizer {
         if (grouped != null) {
             return grouped;
         }
-        ChannelCategory metadata = categoryFromMetadata(normalize(channel.name + " " + channel.tvgId));
+        ChannelCategory metadata = categoryFromMetadata(normalize(channel.name + " " + channel.tvgId), channel.name + " " + channel.tvgId);
         if (metadata != null) {
             return metadata;
         }
@@ -117,8 +117,13 @@ public final class ChannelCategorizer {
         return ChannelCategory.INTERNATIONAL;
     }
 
-    private static ChannelCategory categoryFromMetadata(String metadata) {
-        if (!LOCAL_CALL_SIGN.matcher(metadata).find() && !LOCAL_NETWORK_MARKET.matcher(metadata).find() && !containsAny(metadata, "local station")) {
+    private static ChannelCategory categoryFromMetadata(String metadata, String rawMetadata) {
+        // The call-sign test is NOT in this first condition (audit
+        // G2): it ran case-insensitively over normalized text, where
+        // [kw][a-z]{3} matches west, wild, kids, work and friends, so
+        // group-less sports and kids channels landed in LOCAL. It now
+        // runs last, against the original-case text, just below.
+        if (!LOCAL_NETWORK_MARKET.matcher(metadata).find() && !containsAny(metadata, "local station")) {
             if (!containsAny(metadata, "espn", "sports", "sport", "nfl", "nba", "mlb", "nhl", "soccer", "football", "basketball", "baseball", "hockey", "golf", "tennis", "ufc", "wrestling", "racing", "fight", "formula 1", "big ten")) {
                 if (!containsAny(metadata, "cnn", "msnbc", "news", "weather", "cspan")) {
                     if (!containsAny(metadata, "movie", "cinema", "film", "hbo", "showtime", "starz")) {
@@ -131,6 +136,9 @@ public final class ChannelCategorizer {
                                                 if (!containsAny(metadata, "music", "mtv", "vh1", "radio")) {
                                                     if (containsAny(metadata, "international", "latin", "spanish", "espanol", "french", "arabic", "hindi", "italian", "german", "portuguese", "korean", "japanese", "chinese", "russian", "turkish")) {
                                                         return ChannelCategory.INTERNATIONAL;
+                                                    }
+                                                    if (LOCAL_CALL_SIGN.matcher(rawMetadata).find()) {
+                                                        return ChannelCategory.LOCAL;
                                                     }
                                                     return null;
                                                 }
@@ -183,7 +191,7 @@ public final class ChannelCategorizer {
         String right = second != null ? second : "";
         int leftIndex = 0;
         int rightIndex = 0;
-        while (leftIndex < leftIndex && rightIndex < right.length()) {
+        while (leftIndex < left.length() && rightIndex < right.length()) {
             char leftCharacter = left.charAt(leftIndex);
             char rightCharacter = right.charAt(rightIndex);
             if (Character.isDigit(leftCharacter) && Character.isDigit(rightCharacter)) {

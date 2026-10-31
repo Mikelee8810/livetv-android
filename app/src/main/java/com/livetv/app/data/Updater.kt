@@ -38,7 +38,13 @@ object Updater {
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
+        .callTimeout(300, TimeUnit.SECONDS)
         .build()
+
+    // A download is single-flight of its own (audit U1): the check
+    // flag is released when the prompt shows, so without this a
+    // second check could start a second download onto the same file.
+    private val downloadInFlight = java.util.concurrent.atomic.AtomicBoolean(false)
 
     /** Numeric version compare: "4.2.2" > "4.2.1"; a leading "v" is ignored. */
     fun isNewer(remote: String, current: String): Boolean {
@@ -116,8 +122,17 @@ object Updater {
     }
 
     private fun downloadAndInstall(activity: Activity, info: ReleaseInfo) {
+        if (!downloadInFlight.compareAndSet(false, true)) {
+            Dialogs.message(activity, "Update", "An update download is already running.")
+            return
+        }
         val dir = File(activity.cacheDir, "updates").apply { mkdirs() }
         val file = File(dir, "livetv-" + info.tag + ".apk")
+        val part = File(dir, file.name + ".part")
+        // Old update files do not accumulate (audit U3).
+        dir.listFiles()?.forEach { f ->
+            if (f.name.startsWith("livetv-") && f.name != file.name && f.name != part.name) f.delete()
+        }
         val progress = ProgressDialog(activity).apply {
             setTitle("Downloading LiveTV " + info.tag)
             setMessage("Getting the update ready...")
@@ -144,7 +159,10 @@ object Updater {
                             }
                         }
                         body.byteStream().use { input ->
-                            FileOutputStream(file).use { out ->
+                            // Download to .part and rename (audit U1):
+                            // a truncated write must never sit under
+                            // the final name looking installable.
+                            FileOutputStream(part).use { out ->
                                 val buf = ByteArray(64 * 1024)
                                 while (true) {
                                     val n = input.read(buf)
@@ -164,15 +182,19 @@ object Updater {
                         // that ends early yields a clean EOF and, with
                         // only a length > 0 check, a truncated APK that
                         // dead-ends at the installer's parse error.
-                        ok = file.length() > 0 && (total <= 0L || read == total)
+                        ok = part.length() > 0 && (total <= 0L || read == total) && part.renameTo(file)
                     }
                 }
             } catch (e: Exception) {
                 ok = false
             }
             activity.runOnUiThread {
-                if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
+                downloadInFlight.set(false)
+                // Dismiss before the finishing guard (audit U2): the
+                // old order leaked the dialog window when the activity
+                // was going away.
                 try { progress.dismiss() } catch (e: Exception) { }
+                if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
                 if (ok) install(activity, file)
                 else Dialogs.message(activity, "Update failed", "The download did not finish. Try again from Settings.")
             }
@@ -193,7 +215,11 @@ object Updater {
                 Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                 Uri.parse("package:" + activity.packageName)
             )
-            activity.startActivity(intent)
+            try {
+                activity.startActivity(intent)
+            } catch (e: Exception) {
+                Dialogs.message(activity, "Updates", "Could not open the install permission screen on this device.")
+            }
             return
         }
         val uri = FileProvider.getUriForFile(activity, activity.packageName + ".fileprovider", file)
@@ -202,6 +228,11 @@ object Updater {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        activity.startActivity(intent)
+        // Some TV builds lack an installer activity (audit U4).
+        try {
+            activity.startActivity(intent)
+        } catch (e: Exception) {
+            Dialogs.message(activity, "Update failed", "No installer is available on this device.")
+        }
     }
 }

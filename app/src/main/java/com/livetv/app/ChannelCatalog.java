@@ -45,6 +45,14 @@ public final class ChannelCatalog {
                     if (line2.startsWith("#EXTM3U")) {
                         epgSources = parseEpgSources(line2);
                     } else if (line2.startsWith("#EXTINF:")) {
+                        // Per-entry state resets here (audit C1): an
+                        // orphan EXTINF with no URL line after it used
+                        // to leak its group/logo/tvg-id into the NEXT
+                        // entry.
+                        group = "Live TV";
+                        logo = "";
+                        tvgId = "";
+                        feedCount = 7;
                         Matcher attributes = ATTR.matcher(line2);
                         while (attributes.find()) {
                             // Default must be "assign nothing": this used
@@ -92,7 +100,11 @@ public final class ChannelCatalog {
                                     break;
                             }
                         }
-                        int comma = line2.lastIndexOf(44);
+                        // The name follows the comma after the last
+                        // quoted attribute (audit C3): lastIndexOf(',')
+                        // truncated any name containing a comma.
+                        int lastQuote = line2.lastIndexOf('"');
+                        int comma = lastQuote >= 0 ? line2.indexOf(',', lastQuote) : line2.lastIndexOf(44);
                         name = comma >= 0 ? line2.substring(comma + 1).trim() : "Channel";
                     } else if (name == null || line2.isEmpty() || line2.startsWith("#")) {
                         name = name;
@@ -118,6 +130,7 @@ public final class ChannelCatalog {
                     try {
                         merged.addAll(LiveCatalog.loadCachedNew(context, classified.channels));
                     } catch (Exception ignored) {
+                        android.util.Log.w("ChannelCatalog", "Live catalog merge failed", ignored);
                     }
                     // Always include the dedicated DaddyLive XMLTV guide
                     // (Mikoshi-nyudo/dlhd, regenerated every 12 hours) so the
@@ -163,7 +176,7 @@ public final class ChannelCatalog {
 
     private static String playbackPath(String id, List<String> sources) {
         try {
-            return "http://127.0.0.1:48913/live/manifest.m3u8?id=" + id + "&sources=" + URLEncoder.encode(String.join("|", sources), StandardCharsets.UTF_8.name());
+            return Channel.PROXY_BASE + "/live/manifest.m3u8?id=" + id + "&sources=" + URLEncoder.encode(String.join("|", sources), StandardCharsets.UTF_8.name());
         } catch (Exception impossible) {
             throw new IllegalStateException("UTF-8 encoding unavailable", impossible);
         }
