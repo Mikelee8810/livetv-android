@@ -235,7 +235,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                             throw new IllegalArgumentException("Missing id or sources");
                         }
                     } catch (Exception resolveError) {
-                        NanoHTTPD.Response staleR = staleManifest(id, player);
+                        NanoHTTPD.Response staleR = staleManifest(id, player, null);
                         if (staleR != null) {
                             return staleR;
                         }
@@ -244,14 +244,18 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                 } else {
                     resolved = new Resolved(upstream, q.get("referer"), "");
                 }
+                // Only the resolve path serves the session's own
+                // top-level playlist; url= requests are sub-playlists
+                // and must not be stamped with its token (audit V-10).
+                boolean topLevel = (upstream == null);
                 if (upstream == null) {
                     upstream = resolved.url;
                 }
                 try {
-                    return proxyManifest(id, player, upstream, resolved);
+                    return proxyManifest(id, player, upstream, resolved, topLevel);
                 } catch (Exception manifestError) {
                     noteManifestFailure(id, "proxyManifest threw");
-                    NanoHTTPD.Response stale = staleManifest(id, player);
+                    NanoHTTPD.Response stale = staleManifest(id, player, upstream);
                     if (stale != null) {
                         return stale;
                     }
@@ -582,9 +586,100 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
         if (LAST_GOOD_MANIFEST.size() > 48) {
             LAST_GOOD_MANIFEST.keySet().removeIf(k -> !k.startsWith(keepId + ":"));
             LAST_GOOD_MANIFEST_AT.keySet().removeIf(k -> !k.startsWith(keepId + ":"));
-            PDT_ANCHOR.keySet().removeIf(k -> !k.startsWith(keepId + ":"));
-            SEG_DURATIONS.keySet().removeIf(k -> !k.startsWith(keepId + ":"));
         }
+    }
+
+    /** Scan a transport stream's PAT/PMT for a video stream type. */
+    static boolean tsHasVideoPid(byte[] ts) {
+        if (ts == null || ts.length < 188 || ts[0] != 0x47) {
+            return false;
+        }
+        java.util.Set<Integer> videoTypes = new java.util.HashSet<>(java.util.Arrays.asList(
+                0x01, 0x02, 0x10, 0x1B, 0x24, 0x42, 0xD1, 0xEA));
+        int pmtPid = -1;
+        for (int off = 0; off + 188 <= ts.length; off += 188) {
+            if (ts[off] != 0x47) continue;
+            int pid = ((ts[off + 1] & 0x1F) << 8) | (ts[off + 2] & 0xFF);
+            boolean pusi = (ts[off + 1] & 0x40) != 0;
+            int afc = (ts[off + 3] >> 4) & 0x3;
+            if (afc == 2 || afc == 0) continue;
+            int payloadOff = off + 4;
+            if (afc == 3) payloadOff += 1 + (ts[off + 4] & 0xFF);
+            if (payloadOff + 12 > off + 188 || !pusi) continue;
+            int pointer = ts[payloadOff] & 0xFF;
+            int s = payloadOff + 1 + pointer;
+            if (s + 12 > off + 188) continue;
+            int sectionLength = ((ts[s + 1] & 0x0F) << 8) | (ts[s + 2] & 0xFF);
+            int end = Math.min(s + 3 + sectionLength - 4, off + 188);
+            if (pid == 0) {
+                // PAT entries start after the 8-byte section header
+                // (the PMT header below is 12 bytes - do not share
+                // the offset).
+                for (int e = s + 8; e + 4 <= end; e += 4) {
+                    int prog = ((ts[e] & 0xFF) << 8) | (ts[e + 1] & 0xFF);
+                    if (prog != 0) {
+                        pmtPid = ((ts[e + 2] & 0x1F) << 8) | (ts[e + 3] & 0xFF);
+                        break;
+                    }
+                }
+            } else if (pid == pmtPid) {
+                int progInfoLen = ((ts[s + 10] & 0x0F) << 8) | (ts[s + 11] & 0xFF);
+                int e = s + 12 + progInfoLen;
+                while (e + 5 <= end) {
+                    int st = ts[e] & 0xFF;
+                    if (videoTypes.contains(st)) {
+                        return true;
+                    }
+                    int esInfoLen = ((ts[e + 3] & 0x0F) << 8) | (ts[e + 4] & 0xFF);
+                    e += 5 + esInfoLen;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Route validation by SEGMENT, not by manifest (diff D1): a route
+     * used to be accepted - and cached as the channel's last-good
+     * route for 15 minutes - on one manifest 200 or a regex match,
+     * without ever fetching media. Upstream has player variants whose
+     * TS is valid but carries no usable video ("green/black picture,
+     * working audio" in EasyProxy's extractor notes), which is
+     * exactly the reported symptom. Fetch the first segment, unwrap
+     * it, and require a video PID in the PMT before accepting.
+     */
+    private void validateRouteHasVideo(String manifestUrl, String referer, String id) throws Exception {
+        String url = manifestUrl;
+        for (int hop = 0; hop < 2; hop++) {
+            String body = getText(url, referer);
+            if (!body.trim().startsWith("#EXTM3U")) {
+                throw new Exception("validation: not a playlist");
+            }
+            String base = url.substring(0, url.lastIndexOf('/') + 1);
+            String firstRef = null;
+            boolean master = body.contains("#EXT-X-STREAM-INF");
+            for (String raw : body.split("\\r?\\n")) {
+                String line = raw.trim();
+                if (!line.isEmpty() && !line.startsWith("#")) {
+                    firstRef = line;
+                    break;
+                }
+            }
+            if (firstRef == null) {
+                throw new Exception("validation: playlist has no entries");
+            }
+            String abs = absolute(base, firstRef);
+            if (master) {
+                url = abs;
+                continue;
+            }
+            byte[] seg = fetchSegmentBytes(abs, referer, id);
+            if (!tsHasVideoPid(seg)) {
+                throw new Exception("validation: segment carries no video PID (audio-only/black-video route rejected)");
+            }
+            return;
+        }
+        throw new Exception("validation: playlist nesting too deep");
     }
 
     private Resolved resolveSingle(String id, int player) throws Exception {
@@ -655,6 +750,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                                 throw new Exception("Route " + ROUTES[player] + " returned HTTP " + testResp.code());
                             }
                         }
+                        validateRouteHasVideo(manifestUrl, playerUrl, id);
                         TOKEN_SESSIONS.put(id, new TokenSession(edge, chan, playerUrl, token, ttl));
                         Log.i("LiveProxyAudit", "session created id=" + id + " edge=" + edge + " ttl=" + ttl);
                         Log.i(TAG, "resolved token channelId=" + id + " route=" + ROUTES[player]);
@@ -673,14 +769,15 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
         if (!url.startsWith("http")) {
             throw new Exception("invalid stream URL");
         }
+        validateRouteHasVideo(url, playerUrl, id);
         Log.i(TAG, "resolved channelId=" + id + " route=" + ROUTES[player]);
         return new Resolved(url, playerUrl, origin(playerUrl));
     }
 
-    private NanoHTTPD.Response proxyManifest(String id, int player, String upstream, Resolved resolved) throws Exception {
+    private NanoHTTPD.Response proxyManifest(String id, int player, String upstream, Resolved resolved, boolean topLevel) throws Exception {
         String effectiveUrl = upstream;
         TokenSession session = (id != null) ? TOKEN_SESSIONS.get(id) : null;
-        if (session != null) {
+        if (session != null && topLevel) {
             String token = getOrRenewToken(id, session, false);
             if (token != null && !token.isEmpty()) {
                 effectiveUrl = cleanPlaylistUrl(upstream);
@@ -692,7 +789,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
         okhttp3.Response response = null;
         try {
             response = executeOnce(request);
-            if (response.code() == 403 && session != null) {
+            if (response.code() == 403 && session != null && topLevel) {
                 response.close();
                 Log.w(TAG, "Upstream returned 403 for channel " + id + ", forcing token refresh and retry...");
                 String freshToken = getOrRenewToken(id, session, true);
@@ -709,7 +806,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                 response.close();
                 noteManifestFailure(id, "HTTP " + code);
                 Log.w("LiveProxyAudit", "manifest FAILED id=" + id + " http=" + code + " - keeping session, trying last-good manifest");
-                NanoHTTPD.Response stale = staleManifest(id, player);
+                NanoHTTPD.Response stale = staleManifest(id, player, upstream);
                 if (stale != null) {
                     return stale;
                 }
@@ -724,7 +821,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                 response.close();
                 noteManifestFailure(id, "non-playlist body");
                 Log.w("LiveProxyAudit", "manifest BAD BODY id=" + id + " - keeping session, trying last-good manifest");
-                NanoHTTPD.Response stale2 = staleManifest(id, player);
+                NanoHTTPD.Response stale2 = staleManifest(id, player, upstream);
                 if (stale2 != null) {
                     return stale2;
                 }
@@ -732,93 +829,45 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             }
             java.util.regex.Matcher seqM = java.util.regex.Pattern.compile("#EXT-X-MEDIA-SEQUENCE:(\\d+)").matcher(manifestBody);
             Log.i("LiveProxyAudit", "manifest served id=" + id + " seq=" + (seqM.find() ? seqM.group(1) : "?"));
-            // Synthetic PDT for the first segment of this playlist.
-            String pdtLine = null;
-            if (id != null) {
-                java.util.regex.Matcher seqM2 = java.util.regex.Pattern.compile("#EXT-X-MEDIA-SEQUENCE:(\\d+)").matcher(manifestBody);
-                if (seqM2.find()) {
-                    // Long, not int (audit S12): media sequences pass
-                    // 2^31 on long-lived channels and parseInt threw
-                    // the whole manifest away.
-                    long firstSeq = Long.parseLong(seqM2.group(1));
-                    java.util.List<Double> durs = new ArrayList<>();
-                    for (String rawLine : manifestBody.split("\\r?\\n")) {
-                        String t = rawLine.trim();
-                        if (t.startsWith("#EXTINF:")) {
-                            try {
-                                // A comma-less EXTINF still carries a
-                                // duration (audit S12): dropping it
-                                // desynchronised durations from
-                                // sequence numbers.
-                                int comma = t.indexOf(',');
-                                durs.add(Double.parseDouble(t.substring(8, comma < 0 ? t.length() : comma)));
-                            } catch (Exception ignored) {
-                            }
-                        }
-                    }
-                    if (!durs.isEmpty()) {
-                        String key = id + ":" + player;
-                        Map<Long, Double> known = SEG_DURATIONS.computeIfAbsent(key, k -> new ConcurrentHashMap<>());
-                        for (int i = 0; i < durs.size(); i++) {
-                            known.put(firstSeq + i, durs.get(i));
-                        }
-                        known.keySet().removeIf(s -> s < firstSeq - 120);
-                        double totalDur = 0;
-                        for (double d : durs) totalDur += d;
-                        long nowMs = System.currentTimeMillis();
-                        long liveEdgeStartMs = nowMs - Math.round((totalDur - durs.get(0)) * 1000.0);
-                        long[] anchor = PDT_ANCHOR.get(key);
-                        if (anchor == null || firstSeq < anchor[1]) {
-                            anchor = new long[]{liveEdgeStartMs, firstSeq};
-                            PDT_ANCHOR.put(key, anchor);
-                        }
-                        double acc = 0;
-                        if (firstSeq - anchor[1] > 1000L) {
-                            // Timeline jump (audit S12): never spin
-                            // summing a billion phantom segments on
-                            // the request thread - just re-anchor.
-                            anchor = new long[]{liveEdgeStartMs, firstSeq};
-                            PDT_ANCHOR.put(key, anchor);
-                        } else {
-                            for (long s = anchor[1]; s < firstSeq; s++) {
-                                Double d = known.get(s);
-                                acc += (d != null ? d : durs.get(0));
-                            }
-                        }
-                        long firstSegStartMs = anchor[0] + Math.round(acc * 1000.0);
-                        // 20 s, not 45 (audit S12): a bigger jump
-                        // exceeds the ~36 s window and made PDT
-                        // non-monotonic.
-                        if (Math.abs(firstSegStartMs - liveEdgeStartMs) > 20000L) {
-                            anchor = new long[]{liveEdgeStartMs, firstSeq};
-                            PDT_ANCHOR.put(key, anchor);
-                            firstSegStartMs = liveEdgeStartMs;
-                        }
-                        pdtLine = "#EXT-X-PROGRAM-DATE-TIME:" + isoUtc(firstSegStartMs);
-                    }
-                }
-            }
+            // No synthetic PDT (v4.4): every current upstream player
+            // (daddylive-stream-resolver, EasyProxy) strips PDT and
+            // adds nothing. The synthesized PDT this proxy used to
+            // inject was anchored to wall clock while the TS carries
+            // its own PTS timeline (~21h offset measured live), and
+            // the mismatch broke Media3's HLS timeline mapping on
+            // device - sound played, the video timeline never
+            // mapped. Upstream PDT is stripped below and none is
+            // emitted; Media3 derives the live offset from the
+            // playlist window and the player's LiveConfiguration.
             // Resolve relatives against the URL that actually
             // answered (audit S10): the requested URL still carries
             // the t=/_= query and the pre-redirect host.
             String finalUrl = response.request().url().toString();
+            // Parent query, kept for playlist inheritance below: the
+            // t=/_= pair is ours (token + cache buster) and is never
+            // inherited; anything else may be a CDN signature the
+            // child playlist was issued under.
+            String parentQuery = "";
             int qIdx = finalUrl.indexOf('?');
             if (qIdx >= 0) {
+                StringBuilder pq = new StringBuilder();
+                for (String param : finalUrl.substring(qIdx + 1).split("&")) {
+                    if (!param.startsWith("t=") && !param.startsWith("_=") && !param.isEmpty()) {
+                        if (pq.length() > 0) pq.append('&');
+                        pq.append(param);
+                    }
+                }
+                parentQuery = pq.toString();
                 finalUrl = finalUrl.substring(0, qIdx);
             }
             String base = finalUrl.substring(0, finalUrl.lastIndexOf('/') + 1);
             Pattern uriAttr = Pattern.compile("URI=\"([^\"]+)\"");
             StringBuilder output = new StringBuilder();
             List<String> segmentUrls = new ArrayList<>();
-            boolean pdtEmitted = false;
             for (String raw : manifestBody.split("\\r?\\n")) {
                 String line = raw.trim();
                 if (line.startsWith("#EXT-X-PROGRAM-DATE-TIME")) {
-                    continue; // Upstream PDT drifts in bursts; replaced by the synthetic one below
-                }
-                if (pdtLine != null && !pdtEmitted && line.startsWith("#EXTINF:")) {
-                    output.append(pdtLine).append('\n');
-                    pdtEmitted = true;
+                    continue; // Stripped, never replaced (v4.4 note above)
                 }
                 if (line.contains("URI=\"")) {
                     Matcher key = uriAttr.matcher(line);
@@ -827,6 +876,13 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                         // A URI attribute can point at another
                         // playlist (EXT-X-MEDIA, I-FRAME): proxy it as
                         // a manifest, not as a video segment (S11).
+                        // Relative playlist URIs inherit the parent
+                        // query when they carry none (diff D5): signed
+                        // CDN playlists 404 without it. Segments do
+                        // NOT inherit - their signatures are their own.
+                        if (target.contains(".m3u8") && !target.contains("?") && !parentQuery.isEmpty()) {
+                            target = target + "?" + parentQuery;
+                        }
                         String proxied = target.contains(".m3u8")
                                 ? manifestUrl(id, player, target, resolved.referer)
                                 : resourceUrl(target, resolved.referer, id);
@@ -835,6 +891,9 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                 } else if (!line.isEmpty() && !line.startsWith("#")) {
                     String absolute = absolute(base, line);
                     if (absolute.contains(".m3u8")) {
+                        if (!absolute.contains("?") && !parentQuery.isEmpty()) {
+                            absolute = absolute + "?" + parentQuery;
+                        }
                         line = manifestUrl(id, player, absolute, resolved.referer);
                     } else {
                         segmentUrls.add(absolute);
@@ -844,8 +903,8 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                 output.append(line).append('\n');
             }
             if (id != null) {
-                LAST_GOOD_MANIFEST.put(id + ":" + player, output.toString());
-                LAST_GOOD_MANIFEST_AT.put(id + ":" + player, System.currentTimeMillis());
+                LAST_GOOD_MANIFEST.put(manifestKey(id, player, upstream), output.toString());
+                LAST_GOOD_MANIFEST_AT.put(manifestKey(id, player, upstream), System.currentTimeMillis());
                 noteManifestSuccess(id);
                 // Sliding resolve TTL (audit S2).
                 CachedResolved cr = RESOLVE_CACHE.get(id + ":" + player);
@@ -881,32 +940,43 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
     // position would plunge negative and never recover. Session state
     // is therefore never discarded on a manifest failure, and the
     // player rides out the failure on the last good playlist.
-    // Synthetic program-date-time state, per channel+route. The
-    // upstream PDT cannot be trusted (it advances in bursts, up to
-    // 1.25x wall clock), but stripping PDT entirely leaves Media3
-    // with no live offset at all: currentLiveOffset stayed TIME_UNSET
-    // on device, which disabled both the live-offset logic and the
-    // live playback speed control. So the proxy synthesizes a PDT
-    // from the media sequence and the real EXTINF durations it has
-    // served: monotonic, media-accurate, wall-clock anchored once.
-    private static final Map<String, long[]> PDT_ANCHOR = new ConcurrentHashMap<>();
-    private static final Map<String, Map<Long, Double>> SEG_DURATIONS = new ConcurrentHashMap<>();
-
-    private static String isoUtc(long ms) {
-        java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US);
-        f.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
-        return f.format(new java.util.Date(ms));
-    }
+    // (The synthetic-PDT state that used to live here was removed in
+    // v4.4 with the PDT synthesis itself - see the note in
+    // proxyManifest. PDT_ANCHOR/SEG_DURATIONS are gone; pruneCaches no
+    // longer references them.)
 
     private static final Map<String, String> LAST_GOOD_MANIFEST = new ConcurrentHashMap<>();
     private static final Map<String, Long> LAST_GOOD_MANIFEST_AT = new ConcurrentHashMap<>();
 
-    private NanoHTTPD.Response staleManifest(String id, int player) {
+    // Last-good manifests are keyed per PLAYLIST, not per channel
+    // (audit V-03): master, video, audio and subtitle playlists of one
+    // channel all proxy under the same id+route, and the old shared
+    // key let whichever playlist was rewritten last - often the AUDIO
+    // media playlist - be served in answer to a master/video request.
+    // That is a direct black-screen-with-audio path.
+    private static String manifestKey(String id, int player, String upstream) {
+        return id + ":" + player + ":" + (upstream == null ? "" : Integer.toHexString(upstream.hashCode()));
+    }
+
+    private NanoHTTPD.Response staleManifest(String id, int player, String upstream) {
         if (id == null) {
             return null;
         }
-        String body = LAST_GOOD_MANIFEST.get(id + ":" + player);
-        Long at = LAST_GOOD_MANIFEST_AT.get(id + ":" + player);
+        String body = LAST_GOOD_MANIFEST.get(manifestKey(id, player, upstream));
+        Long at = LAST_GOOD_MANIFEST_AT.get(manifestKey(id, player, upstream));
+        if (body == null && upstream != null) {
+            // The caller failed before learning which playlist it was
+            // (resolve error): fall back to the freshest entry for
+            // this channel+route rather than none.
+            long bestAt = 0L;
+            for (Map.Entry<String, Long> e : LAST_GOOD_MANIFEST_AT.entrySet()) {
+                if (e.getKey().startsWith(id + ":" + player + ":") && e.getValue() > bestAt) {
+                    bestAt = e.getValue();
+                    at = e.getValue();
+                    body = LAST_GOOD_MANIFEST.get(e.getKey());
+                }
+            }
+        }
         if (body == null || at == null || System.currentTimeMillis() - at > 25000L) {
             return null;
         }
@@ -1008,7 +1078,29 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
         // No Accept-Ranges header (audit S20): Range requests are not
         // honoured here, and advertising them breaks BYTERANGE
         // playlists.
-        return newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "video/mp2t", new ByteArrayInputStream(bytes), bytes.length);
+        // MIME follows the payload, not a blanket video/mp2t
+        // (audit V-04): fMP4 init segments and pass-through resources
+        // were mislabelled as TS.
+        String mime = "application/octet-stream";
+        if (bytes.length >= 4 && bytes[0] == 0x47) {
+            mime = "video/mp2t";
+        } else if (bytes.length >= 8 && bytes[4] == 'f' && bytes[5] == 't' && bytes[6] == 'y' && bytes[7] == 'p') {
+            mime = "video/mp4";
+        } else if (bytes.length >= 6 && bytes[0] == 'W' && bytes[1] == 'E' && bytes[2] == 'B') {
+            mime = "text/vtt";
+        }
+        return newFixedLengthResponse(NanoHTTPD.Response.Status.OK, mime, new ByteArrayInputStream(bytes), bytes.length);
+    }
+
+    /** True for bodies that are legitimately NOT transport streams:
+     *  EXT-X-KEY key files, fMP4 init/segments, WebVTT, raw AAC. */
+    private static boolean isNonTsResource(byte[] raw, String url) {
+        if (raw == null) return false;
+        if (raw.length <= 64) return true; // AES key sized
+        if (raw.length >= 8 && raw[4] == 'f' && raw[5] == 't' && raw[6] == 'y' && raw[7] == 'p') return true;
+        if (raw.length >= 6 && raw[0] == 'W' && raw[1] == 'E' && raw[2] == 'B' && raw[3] == 'V' && raw[4] == 'T' && raw[5] == 'T') return true;
+        if (url != null && (url.contains(".vtt") || url.contains(".m4s") || url.contains(".mp4") || url.contains(".aac") || url.contains(".key"))) return true;
+        return false;
     }
 
     private NanoHTTPD.Response proxyResource(String url, String referer, String channelId) throws Exception {
@@ -1055,7 +1147,22 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
         }
         boolean registered = raced == null;
         try {
-            byte[] bytes = fetchSegmentBytes(url, referer, channelId);
+            byte[] bytes;
+            try {
+                bytes = fetchSegmentBytes(url, referer, channelId);
+            } catch (UnwrapException ue) {
+                // Not every resource is a disguised TS segment
+                // (audit V-04): EXT-X-KEY keys, EXT-X-MAP fMP4 init
+                // segments, WebVTT and raw AAC all failed the
+                // unwrapper by construction and could never play.
+                // Serve those byte-for-byte; anything else keeps the
+                // hard failure (audit S4 - never cache garbage).
+                byte[] raw = downloadRaw(url, referer, true);
+                if (!isNonTsResource(raw, url)) {
+                    throw ue;
+                }
+                bytes = raw;
+            }
             synchronized (SEGMENT_CACHE) { SEGMENT_CACHE.put(url, bytes); }
             if (registered) {
                 mine.complete(bytes);
@@ -1675,6 +1782,38 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                 }
             } catch (Exception e) {
                 Log.w(TAG, "Unwrap payload error: " + e.getMessage());
+            }
+        }
+
+        // 4. TIKTIKTSGZ (diff D6, from daddylive-stream-resolver's
+        // unwrap-webp-ts): marker followed directly by a gzip member
+        // holding the TS - a disguise the PNG path cannot see.
+        byte[] tsgz = "TIKTIKTSGZ".getBytes(StandardCharsets.US_ASCII);
+        for (int i = 0; i + tsgz.length + 18 < bytes.length; i++) {
+            boolean match = true;
+            for (int j = 0; j < tsgz.length; j++) {
+                if (bytes[i + j] != tsgz[j]) { match = false; break; }
+            }
+            if (match) {
+                byte[] gzPart = new byte[bytes.length - (i + tsgz.length)];
+                System.arraycopy(bytes, i + tsgz.length, gzPart, 0, gzPart.length);
+                byte[] ts = gunzip(gzPart);
+                if (ts != null && ts.length > 0 && ts[0] == 0x47 &&
+                        (ts.length <= 188 || ts[188] == 0x47)) {
+                    return ts;
+                }
+                break;
+            }
+        }
+
+        // 5. Generic TS scan (diff D6): three consecutive sync bytes
+        // at 188-byte spacing anywhere in the payload - wrappers that
+        // prepend arbitrary headers land here instead of hard-failing.
+        for (int i = 0; i + 376 < bytes.length; i++) {
+            if (bytes[i] == 0x47 && bytes[i + 188] == 0x47 && bytes[i + 376] == 0x47) {
+                byte[] out = new byte[bytes.length - i];
+                System.arraycopy(bytes, i, out, 0, out.length);
+                return out;
             }
         }
 
