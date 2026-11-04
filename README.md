@@ -55,6 +55,13 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ---
 
+## What's new in 4.4.0
+
+- **Black-screen-with-sound fixed.** Live probing (2026-11-03) proved the upstream stream is healthy H.264 + AAC; the break was app-side. The proxy no longer injects a synthetic program-date-time that fought the stream's own timeline (every current upstream player strips PDT and adds nothing); routes are now validated by fetching and inspecting a real segment — a route whose TS carries no video PID is rejected instead of being cached as "last good"; the track selector can no longer settle on an audio-only rendition, and a new watchdog detects sound-with-no-picture and recovers (route change, then decoder flip). Full register: `AUDIT-v44.md`.
+- **Navigation fixed.** Search's UP-to-input path was dead code, the main menu opened on its second item, closing Settings could focus the hidden guide over fullscreen, the guide cursor rotted in the past until RIGHT became a dead key, info-only rows were focusable dead stops, digits typed in the quick list zapped channels, and Settings/Search left the guide live behind them.
+- **EPG honesty.** A failed EPG refresh no longer wipes the guide and stamps itself fresh; "Update EPG now" completes once instead of stacking a dialog per source; EPG cache files are SHA-256 keyed; minute-precision XMLTV times parse.
+- **Dead settings wired.** Confirm-exit, seek step, and the number-zap toggle now do what they say.
+
 ## What's new in 4.1.0
 
 - **Domain rot fixed.** DaddyLive moved: `dlhd.st` and `dlstreams.st` now redirect to `thedaddy.pk`. Every upstream domain lives in one place now, `StreamEndpoints.java` (primary `thedaddy.pk`, mirrors `daddylive.at`, `daddylive.app`), so the next domain hop is a one file change.
