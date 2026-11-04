@@ -627,10 +627,14 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                     .setMinVideoBitrate(250_000)
                     .setMaxVideoSize(1920, 1080)
                     .setViewportSize(1920, 1080, true)
-                    // Tunneled playback: the hardware A/V sync path on
-                    // Android TV silicon (audit V-14). Media3 falls
-                    // back automatically when a decoder can't tunnel.
-                    .setTunnelingEnabled(true)
+                    // Tunneled playback OFF (v4.4.1 diagnostic): on the
+                    // Google TV Streamer's MTK decoder, tunneling held
+                    // frames at the tune position - READY + audible audio
+                    // with the position frozen at ~17.7 s and a static
+                    // screen on device (2026-11-03). Media3 does NOT
+                    // fall back when a tunneled decoder simply never
+                    // releases frames for display.
+                    .setTunnelingEnabled(false)
             )
         }
 

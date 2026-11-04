@@ -54,6 +54,13 @@ class ListPanel(ctx: Context) : RecyclerView(ctx) {
     // older submits must not fire into a changed surface (audit N11).
     private var submitGen = 0
 
+    // v4.4.1: while another surface owns focus (e.g. the main-menu rail
+    // is open over this list), focus grabs from this list - including
+    // the delayed 80 ms one below - must not fire. On device, a stale
+    // grab plus the still-focusable categories rows let DPAD_DOWN leak
+    // out of the rail into this list and Settings was never reached.
+    @Volatile var focusGrabBlocked = false
+
     fun submit(r: List<Row>, focusIndex: Int = -1) {
         submitGen++
         // Audit L1: with no explicit focus index, keep focus on the
@@ -67,10 +74,11 @@ class ListPanel(ctx: Context) : RecyclerView(ctx) {
     }
     fun update(index: Int, r: Row) { rows = rows.toMutableList().also { it[index] = r }; adapter!!.notifyItemChanged(index) }
     fun focusRow(i: Int) {
-        if (i !in rows.indices) return
+        if (i !in rows.indices || focusGrabBlocked) return
         val gen = submitGen
         scrollToPosition(i)
         val doFocus = Runnable {
+            if (focusGrabBlocked) return@Runnable
             val lm = layoutManager as? LinearLayoutManager
             val child = lm?.findViewByPosition(i)
             if (child != null) {
@@ -79,7 +87,7 @@ class ListPanel(ctx: Context) : RecyclerView(ctx) {
                 postDelayed({
                     // Stale-generation grabs landed focus on detached
                     // rows after dialogs/drawers closed (audit N11).
-                    if (gen != submitGen || !isShown) return@postDelayed
+                    if (gen != submitGen || !isShown || focusGrabBlocked) return@postDelayed
                     val delayed = (layoutManager as? LinearLayoutManager)?.findViewByPosition(i)
                     if (delayed != null) {
                         delayed.requestFocus()
