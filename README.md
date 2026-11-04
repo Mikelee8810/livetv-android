@@ -55,6 +55,12 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ---
 
+## What's new in 4.4.1
+
+- **Video actually renders now (device-verified on the Google TV Streamer / MT8696).** 4.4.0's fixes were code-correct but never tested on the real TV, and two hardware-path defects survived: (1) the MediaTek decoder's tunneled/sideband output never presented frames to the SurfaceView — the decoder "played" into a black hole while audio (a separate path) kept working, and the position froze at the first frame in a stall loop; (2) ExoPlayer tunneling (enabled by a 4.4.0 change) fed that same path. 4.4.1 shows video through a TextureView, which is composited by the app itself and cannot take the vendor sideband path, and disables tunneling. Verified on-device: preview and fullscreen frames advance, first frame renders on the TextureView surface, stall loop gone. Full evidence: `AUDIT-v441.md`.
+- **Settings opens — and the menu rail reaches it.** Settings crashed instantly on every open in 4.4.0 (a Kotlin init-order bug: the drawer's init block read a focus-memory map declared after it, still null during construction). Separately, DPAD DOWN from "My list" leaked sideways into the Categories list, so Settings could never be focused: the rail now has an explicit focus chain, the Categories list is focus-blocked while the rail is open, and BACK unwinds one layer at a time instead of jumping to exit.
+- Honest residual: at peak hours some upstream edges deliver segments slower than real time; during those stretches playback can hold a frame and rebuffer until delivery recovers (the app's route watchdog still escalates). That is upstream throughput, not the 4.4.0 black-screen defect.
+
 ## What's new in 4.4.0
 
 - **Black-screen-with-sound fixed.** Live probing (2026-11-03) proved the upstream stream is healthy H.264 + AAC; the break was app-side. The proxy no longer injects a synthetic program-date-time that fought the stream's own timeline (every current upstream player strips PDT and adds nothing); routes are now validated by fetching and inspecting a real segment — a route whose TS carries no video PID is rejected instead of being cached as "last good"; the track selector can no longer settle on an audio-only rendition, and a new watchdog detects sound-with-no-picture and recovers (route change, then decoder flip). Full register: `AUDIT-v44.md`.

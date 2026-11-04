@@ -12,7 +12,6 @@ import android.os.Looper
 import android.util.Rational
 import android.view.Gravity
 import android.view.KeyEvent
-import android.view.SurfaceView
 import android.view.TextureView
 import android.view.View
 import android.view.ViewGroup
@@ -66,7 +65,7 @@ class MainActivity : Activity() {
 
     // Preview / Info header in Guide
     private lateinit var previewContainer: FrameLayout
-    private lateinit var mainVideoView: SurfaceView
+    private lateinit var mainVideoView: TextureView
     private lateinit var infoContainer: LinearLayout
     private lateinit var infoTitle: TextView
     private lateinit var infoSub: TextView
@@ -169,16 +168,22 @@ class MainActivity : Activity() {
         rootContainer.addView(guideLayout, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
 
         // 2. Single Video View for both Preview & Fullscreen (Top-Right preview in Guide mode)
-        mainVideoView = SurfaceView(this).apply {
+        // TextureView, NOT SurfaceView (v4.4.1): on the Google TV
+        // Streamer's MediaTek decoder, SurfaceView output goes through
+        // the vendor sideband path (C2VideoTunnelHandleSetter) and the
+        // frames never reach the display - SurfaceFlinger showed the
+        // SurfaceView layer with NO active buffer and a zero-size buffer
+        // layer while the decoder "rendered" into the void: black box
+        // with audio, on every channel (device-verified 2026-11-03).
+        // A TextureView renders through a normal BufferQueue the app
+        // composites itself, which cannot take the sideband path.
+        mainVideoView = TextureView(this).apply {
             isFocusable = false
+            isOpaque = true
             layoutParams = FrameLayout.LayoutParams(dpi(380f), dpi(214f), Gravity.TOP or Gravity.END).apply {
                 rightMargin = dpi(24f)
                 topMargin = dpi(16f)
             }
-            if (Build.VERSION.SDK_INT >= 34) {
-                setSurfaceLifecycle(SurfaceView.SURFACE_LIFECYCLE_FOLLOWS_ATTACHMENT)
-            }
-            setZOrderMediaOverlay(false)
             setOnClickListener {
                 if (playerEngine.currentItem != null) {
                     enterFullscreen()
@@ -186,7 +191,7 @@ class MainActivity : Activity() {
             }
         }
         rootContainer.addView(mainVideoView)
-        playerEngine.attachSurface(mainVideoView)
+        playerEngine.attachTextureView(mainVideoView)
 
         // 3. Sliding Categories Drawer Overlay (slides in over the guide on Left)
         setupCategoriesDrawer()
@@ -490,7 +495,12 @@ class MainActivity : Activity() {
                                 true
                             }
                             KeyEvent.KEYCODE_BACK -> {
-                                confirmAppExit()
+                                // Back out one level to Categories, never
+                                // straight to exit while a drawer is open
+                                // (v4.4.1; dispatchKeyEvent normally gets
+                                // this first - this is the belt to its
+                                // braces for keys delivered to the view).
+                                closeMainMenuDrawer(focusCategories = true)
                                 true
                             }
                             else -> false
@@ -545,6 +555,27 @@ class MainActivity : Activity() {
             closeCategoriesDrawer(false)
             showSettings()
         })
+
+        // Explicit vertical focus chain for the rail (v4.4.1). Children:
+        // 0 brand, 1 Search, 2 TV Guide, 3 Reminders, 4 My list,
+        // 5 spacer, 6 Settings. Device proof on 4.4.0: with no chain,
+        // DPAD_DOWN from "My list" left the rail entirely and landed in
+        // the Categories list beside it - Settings (below a weighted
+        // spacer) was geometrically unreachable. The chain makes every
+        // step deterministic, and the end items point at themselves so
+        // focus can never fall out of the rail vertically.
+        val railItems = listOf(
+            mainMenuDrawer.getChildAt(1),
+            mainMenuDrawer.getChildAt(2),
+            mainMenuDrawer.getChildAt(3),
+            mainMenuDrawer.getChildAt(4),
+            mainMenuDrawer.getChildAt(6)
+        )
+        railItems.forEach { it.id = View.generateViewId() }
+        railItems.forEachIndexed { i, v ->
+            v.nextFocusDownId = railItems.getOrNull(i + 1)?.id ?: v.id
+            v.nextFocusUpId = railItems.getOrNull(i - 1)?.id ?: v.id
+        }
     }
 
     private fun setupFullscreenLayout() {
@@ -636,6 +667,13 @@ class MainActivity : Activity() {
         if (isMainMenuDrawerOpen) return
         isMainMenuDrawerOpen = true
         guideView.isFocusable = false
+        // Focus containment (v4.4.1): while the rail is open, the
+        // Categories list beside it is visible but must be OUT of the
+        // focus graph - its rows were the landing spot that swallowed
+        // DPAD_DOWN out of the rail on device, and its delayed focus
+        // grabs could steal focus back mid-navigation.
+        categoriesDrawer.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+        groupsList.focusGrabBlocked = true
         mainMenuDrawer.bringToFront()
         mainMenuDrawer.visibility = View.VISIBLE
         categoriesDrawer.animate()
@@ -653,6 +691,10 @@ class MainActivity : Activity() {
     }
 
     fun closeMainMenuDrawer(focusCategories: Boolean = true) {
+        // The rail is closing (or already closed): Categories becomes
+        // focusable again BEFORE any focus hand-off into it (v4.4.1).
+        categoriesDrawer.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+        groupsList.focusGrabBlocked = false
         if (!isMainMenuDrawerOpen) {
             if (focusCategories && isCategoriesDrawerOpen) {
                 val curIdx = Repo.groups().indexOfFirst { it.id == prefs.lastGroup }.coerceAtLeast(0)
@@ -1020,14 +1062,20 @@ class MainActivity : Activity() {
                 }
             }
 
-            // Guide Layout navigation hierarchy on BACK (TiviMate 1:1 order: Fullscreen -> Guide -> Categories -> Main Menu -> Exit)
+            // BACK backs out ONE level at a time (v4.4.1): Main Menu ->
+            // Categories -> Guide -> exit confirm. On 4.4.0, BACK with
+            // the rail open jumped straight to the exit path, so two
+            // presses threw the user out of the app to the Google TV
+            // home screen while they were just trying to back out of
+            // the menus (device-verified).
             if (code == KeyEvent.KEYCODE_BACK && !isFullscreen) {
                 if (isMainMenuDrawerOpen) {
-                    confirmAppExit()
+                    closeMainMenuDrawer(focusCategories = isCategoriesDrawerOpen)
+                    if (!isCategoriesDrawerOpen) closeCategoriesDrawer(focusGuide = true)
                     return true
                 }
                 if (isCategoriesDrawerOpen) {
-                    openMainMenuDrawer()
+                    closeCategoriesDrawer(focusGuide = true)
                     return true
                 }
                 // If in Guide in Program column: move back to Channel column first!

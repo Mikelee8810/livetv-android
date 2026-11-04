@@ -25,6 +25,19 @@ class SettingsDrawer(
     private val listPanel = ListPanel(activity)
     private val navStack = mutableListOf<Screen>()
 
+    // Audit Se1: focus position is remembered per screen and kept
+    // across in-place re-renders (every toggle used to throw focus
+    // back to the top row).
+    // v4.4.1: these MUST be declared before the init block below -
+    // init calls push() -> showScreen(), which reads focusMemory.
+    // When they were declared after init, the field was still null
+    // during construction and Settings crashed with an NPE the
+    // moment it was opened (device-verified on 4.4.1-pre, and the
+    // reason Settings "could not be reached at all" on 4.4.0).
+    private val focusMemory = HashMap<String, Int>()
+    private var updatingPlaylists = false
+    private var updatingEpg = false
+
     data class Screen(val title: String, val rows: () -> List<Row>)
 
     init {
@@ -61,13 +74,6 @@ class SettingsDrawer(
         // Show root screen
         push(Screen("Settings", ::buildRootMenu))
     }
-
-    // Audit Se1: focus position is remembered per screen and kept
-    // across in-place re-renders (every toggle used to throw focus
-    // back to the top row).
-    private val focusMemory = HashMap<String, Int>()
-    private var updatingPlaylists = false
-    private var updatingEpg = false
 
     // Record the outgoing screen's live focus before leaving it
     // (audit N10): the memory was only written on re-render, so
