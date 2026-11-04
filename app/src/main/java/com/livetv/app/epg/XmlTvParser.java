@@ -21,6 +21,11 @@ public final class XmlTvParser {
     private static final DateTimeFormatter XMLTV_TIME = DateTimeFormatter.ofPattern("yyyyMMddHHmmss Z");
     private static final DateTimeFormatter XMLTV_TIME_COMPACT = DateTimeFormatter.ofPattern("yyyyMMddHHmmssZ");
     private static final DateTimeFormatter XMLTV_TIME_LOCAL = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+    // Minute-precision shapes are valid XMLTV in the wild (audit R7):
+    // without these, every programme in such a feed vanished silently.
+    private static final DateTimeFormatter XMLTV_TIME_MIN = DateTimeFormatter.ofPattern("yyyyMMddHHmm Z");
+    private static final DateTimeFormatter XMLTV_TIME_MIN_COMPACT = DateTimeFormatter.ofPattern("yyyyMMddHHmmZ");
+    private static final DateTimeFormatter XMLTV_TIME_MIN_LOCAL = DateTimeFormatter.ofPattern("yyyyMMddHHmm");
     private static final int MAX_TEXT_CHARS = 8192;
 
     public List<Program> parse(InputStream xml, Instant windowStart, Instant windowEnd) throws Exception {
@@ -78,6 +83,18 @@ public final class XmlTvParser {
         }
         try {
             return LocalDateTime.parse(trimmed, XMLTV_TIME_LOCAL).toInstant(ZoneOffset.UTC);
+        } catch (Exception ignored) {
+        }
+        try {
+            return OffsetDateTime.parse(trimmed, XMLTV_TIME_MIN).toInstant();
+        } catch (Exception ignored) {
+        }
+        try {
+            return OffsetDateTime.parse(trimmed, XMLTV_TIME_MIN_COMPACT).toInstant();
+        } catch (Exception ignored) {
+        }
+        try {
+            return LocalDateTime.parse(trimmed, XMLTV_TIME_MIN_LOCAL).toInstant(ZoneOffset.UTC);
         } catch (Exception ignored) {
         }
         throw new IllegalArgumentException("Unparseable XMLTV timestamp: " + value);
@@ -254,10 +271,14 @@ public final class XmlTvParser {
 
         @Override // org.xml.sax.helpers.DefaultHandler, org.xml.sax.ContentHandler
         public void endDocument() {
-            // Flush stop-less programmes still pending at EOF with
-            // the window end as their stop (audit X2).
+            // Flush stop-less programmes still pending at EOF
+            // (audit X2), but cap the fabricated stop at start + 2h
+            // (audit R6): the window end made one stop-less entry
+            // pose as the current programme for up to a day and, via
+            // the merge's "owns now" lock, block better data.
             for (PendingProgram pending : new ArrayList<>(this.pendingByChannel.values())) {
-                emit(pending, this.windowEnd);
+                Instant cap = pending.start.plus(2L, java.time.temporal.ChronoUnit.HOURS);
+                emit(pending, cap.isBefore(this.windowEnd) ? cap : this.windowEnd);
             }
             this.pendingByChannel.clear();
         }

@@ -30,7 +30,12 @@ object Logos {
         // Audit Lg2: every requester is registered as a waiter. The
         // old pending-set dedupe silently dropped later requesters'
         // callbacks, leaving their views on the placeholder forever.
-        waiters.getOrPut(url) { mutableListOf() }.add(onReady)
+        // Audit R3: but GuideView calls get() on EVERY draw for every
+        // visible row, so unbounded registration piled up hundreds of
+        // lambdas per URL. Cap the waiter list - late draw callers
+        // still get invalidated by the guide's regular tick/scroll.
+        val wl = waiters.getOrPut(url) { mutableListOf() }
+        if (wl.size < 8) wl.add(onReady)
         if (pending.add(url)) {
             Glide.with(ctx.applicationContext).asBitmap().load(url).override(180, 120).into(object : CustomTarget<Bitmap>() {
                 override fun onResourceReady(r: Bitmap, t: Transition<in Bitmap>?) {

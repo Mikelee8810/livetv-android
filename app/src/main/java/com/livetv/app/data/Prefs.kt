@@ -28,7 +28,10 @@ class Prefs(ctx: Context) {
     var autoStartWake get() = bool("autoStartWake", false); set(v) = put("autoStartWake", v)
     var resumeLast get() = bool("resumeLast", true); set(v) = put("resumeLast", v)
     var pipOnHome get() = bool("pipOnHome", false); set(v) = put("pipOnHome", v)
-    var confirmExit get() = bool("confirmExit", false); set(v) = put("confirmExit", v)
+    // Default true (audit N4): double-Back-to-exit was the app's
+    // actual behaviour while the setting was unread, so true is the
+    // value that keeps behaviour unchanged now that it is read.
+    var confirmExit get() = bool("confirmExit", true); set(v) = put("confirmExit", v)
     var userAgent get() = str("userAgent", ""); set(v) = put("userAgent", v)
     var udpProxy get() = str("udpProxy", ""); set(v) = put("udpProxy", v)
     var lastChannel get() = str("lastChannel", ""); set(v) = put("lastChannel", v)

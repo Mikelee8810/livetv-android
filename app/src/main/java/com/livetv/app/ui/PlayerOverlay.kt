@@ -626,19 +626,23 @@ class PlayerOverlay(
             return true
         }
 
-        // Handle number keys (0..9)
-        if (code in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9) {
-            handleNumber(code - KeyEvent.KEYCODE_0)
-            return true
-        }
-
-        // If quick list is open, let it handle
+        // If quick list is open, let it handle (audit N12: digits
+        // were handled BEFORE this check, so typing in the quick
+        // list started a channel zap instead).
         if (isQuickListVisible) {
             if (code == KeyEvent.KEYCODE_BACK) {
                 hideQuickList()
                 return true
             }
             return false
+        }
+
+        // Handle number keys (0..9) - only when the number-zap
+        // setting is on (audit N4: the toggle was stored but the
+        // digits were handled unconditionally).
+        if (code in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9 && prefs.numberZap) {
+            handleNumber(code - KeyEvent.KEYCODE_0)
+            return true
         }
 
         // If bottom bar is open
@@ -725,12 +729,12 @@ class PlayerOverlay(
                 return true
             }
             KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
-                playerEngine.seekRelative(10)
+                playerEngine.seekRelative(prefs.seekStepSec)
                 showBottomBar()
                 return true
             }
             KeyEvent.KEYCODE_MEDIA_REWIND -> {
-                playerEngine.seekRelative(-10)
+                playerEngine.seekRelative(-prefs.seekStepSec)
                 showBottomBar()
                 return true
             }

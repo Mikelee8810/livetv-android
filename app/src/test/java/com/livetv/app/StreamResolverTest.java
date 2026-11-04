@@ -110,6 +110,54 @@ public class StreamResolverTest {
         assertEquals(0x47, out[0] & 0xFF);
     }
 
+    private static byte[] tsPacket(int pid, byte[] payload) {
+        byte[] pkt = new byte[188];
+        pkt[0] = 0x47;
+        pkt[1] = (byte) (0x40 | ((pid >> 8) & 0x1F));
+        pkt[2] = (byte) (pid & 0xFF);
+        pkt[3] = 0x10;
+        pkt[4] = 0; // pointer field for PAT/PMT
+        System.arraycopy(payload, 0, pkt, 5, Math.min(payload.length, 183));
+        return pkt;
+    }
+
+    private static byte[] patPayload() {
+        // table 0, section_length 13, ts id 1, ver 0, sec 0/0,
+        // one entry: program 1 -> PMT PID 0x100, then 4 CRC bytes.
+        return new byte[]{
+            0x00, (byte) 0xB0, 0x0D, 0x00, 0x01, (byte) 0xC1, 0x00, 0x00,
+            0x00, 0x01, (byte) 0xE1, 0x00, 0, 0, 0, 0
+        };
+    }
+
+    private static byte[] pmtPayload(int streamType) {
+        // table 2, section_length 18 (9 header + 5 ES + 4 CRC),
+        // program 1, ver 0, sec 0/0, PCR PID 0x101,
+        // program_info_length 0, one ES entry: type, PID 0x101,
+        // es_info_length 0, then 4 CRC bytes.
+        return new byte[]{
+            0x02, (byte) 0xB0, 0x12, 0x00, 0x01, (byte) 0xC1, 0x00, 0x00,
+            (byte) 0xE1, 0x01, (byte) 0xF0, 0x00,
+            (byte) streamType, (byte) 0xE1, 0x01, (byte) 0xF0, 0x00, 0, 0, 0, 0
+        };
+    }
+
+    @Test
+    public void tsScanFindsVideoPid() {
+        byte[] ts = new byte[376];
+        System.arraycopy(tsPacket(0, patPayload()), 0, ts, 0, 188);
+        System.arraycopy(tsPacket(0x100, pmtPayload(0x1B)), 0, ts, 188, 188);
+        assertTrue(OnDeviceStreamServer.tsHasVideoPid(ts));
+    }
+
+    @Test
+    public void tsScanRejectsAudioOnly() {
+        byte[] ts = new byte[376];
+        System.arraycopy(tsPacket(0, patPayload()), 0, ts, 0, 188);
+        System.arraycopy(tsPacket(0x100, pmtPayload(0x04)), 0, ts, 188, 188);
+        org.junit.Assert.assertFalse(OnDeviceStreamServer.tsHasVideoPid(ts));
+    }
+
     @Test
     public void playerPageUrlUsesPrimaryDomain() {
         assertEquals("https://thedaddy.pk/stream/stream-51.php", OnDeviceStreamServer.playerPageUrl("51", 0));
