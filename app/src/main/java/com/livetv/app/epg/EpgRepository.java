@@ -502,7 +502,20 @@ public final class EpgRepository {
     }
 
     private static File cacheFile(File directory, String source) {
-        return new File(directory, Integer.toHexString(source.hashCode()) + (source.toLowerCase(Locale.ROOT).endsWith(".gz") ? ".xml.gz" : ".xml"));
+        // SHA-256, not the 32-bit String.hashCode (audit R1): two
+        // different EPG URLs with colliding hashes used to share one
+        // cache file and parse each other's guide.
+        String name;
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(source.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : digest) sb.append(String.format("%02x", b));
+            name = sb.toString();
+        } catch (Exception e) {
+            name = Integer.toHexString(source.hashCode());
+        }
+        return new File(directory, name + (source.toLowerCase(Locale.ROOT).endsWith(".gz") ? ".xml.gz" : ".xml"));
     }
 
     public static boolean isStale(long lastModifiedMillis, Instant now) {

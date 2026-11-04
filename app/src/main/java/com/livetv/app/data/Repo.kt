@@ -226,11 +226,31 @@ object Repo {
         }
         if (force) thread(name = "epg-clear") { java.io.File(app.cacheDir, "xmltv").deleteRecursively() }
         EpgRepository(app, sources).refresh(chans) { snap, report ->
-            epg = snap
-            prefs.epgLastUpdate = System.currentTimeMillis()
-            prefs.epgLastStatus = "${report.mappedChannels} channels, ${report.mappedPrograms} programs"
-            epgRunning.set(false)
-            done?.invoke(prefs.epgLastStatus); fire()
+            // The repository reports PROGRESS once per source
+            // (audit N2): progressive snapshots fill the guide in,
+            // but completion effects - clearing the in-flight guard,
+            // stamping the freshness time, invoking done (which shows
+            // the Settings dialog) - must run exactly once, on the
+            // terminal report.
+            val terminal = report.declaredSources == 0 ||
+                report.successfulSources + report.failedSources >= report.declaredSources
+            // Total failure must not wipe a good guide (audit N3):
+            // the failure path posts an empty snapshot, and committing
+            // it plus a fresh timestamp erased all programme data and
+            // suppressed retry for 30 minutes.
+            val totalFailure = report.declaredSources > 0 && report.successfulSources == 0 && report.parsedPrograms == 0
+            if (!totalFailure) {
+                epg = snap
+                prefs.epgLastStatus = "${report.mappedChannels} channels, ${report.mappedPrograms} programs"
+            } else if (terminal) {
+                prefs.epgLastStatus = "EPG update failed - kept the previous guide"
+            }
+            if (terminal) {
+                if (!totalFailure) prefs.epgLastUpdate = System.currentTimeMillis()
+                epgRunning.set(false)
+                done?.invoke(prefs.epgLastStatus)
+            }
+            fire()
         }
     }
     fun clearEpg() { epg = null; thread(name = "epg-clear") { java.io.File(app.cacheDir, "xmltv").deleteRecursively() }; prefs.epgLastStatus = "Cleared"; fire() }
