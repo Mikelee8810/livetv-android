@@ -721,7 +721,7 @@ class MainActivity : Activity() {
                 // unconditional call fired 200 ms later against the
                 // hidden guide while the player overlay was up.
                 guideView.isFocusable = true
-                if (!isFullscreen && searchPanel == null && channelMenu == null) {
+                if (!isFullscreen && searchPanel == null && !isMainMenuDrawerOpen) {
                     guideView.requestFocus()
                 }
             }.start()

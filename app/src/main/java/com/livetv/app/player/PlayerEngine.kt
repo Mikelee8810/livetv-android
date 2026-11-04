@@ -584,7 +584,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                     MediaCodecUtil.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
                 } catch (e: Exception) {
                     Log.w(TAG, "Decoder query failed for $mimeType; using default selector", e)
-                    androidx.media3.exoplayer.mediacodec.DefaultMediaCodecSelector.INSTANCE
+                    androidx.media3.exoplayer.mediacodec.MediaCodecSelector.DEFAULT
                         .getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
                 }
                 if (mimeType.startsWith("video/")) {
