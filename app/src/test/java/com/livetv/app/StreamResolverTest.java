@@ -131,11 +131,12 @@ public class StreamResolverTest {
     }
 
     private static byte[] pmtPayload(int streamType) {
-        // table 2, section_length 17, program 1, ver 0, sec 0/0,
-        // PCR PID 0x101, program_info_length 0, one ES entry:
-        // type, PID 0x101, es_info_length 0, then 4 CRC bytes.
+        // table 2, section_length 18 (9 header + 5 ES + 4 CRC),
+        // program 1, ver 0, sec 0/0, PCR PID 0x101,
+        // program_info_length 0, one ES entry: type, PID 0x101,
+        // es_info_length 0, then 4 CRC bytes.
         return new byte[]{
-            0x02, (byte) 0xB0, 0x11, 0x00, 0x01, (byte) 0xC1, 0x00, 0x00,
+            0x02, (byte) 0xB0, 0x12, 0x00, 0x01, (byte) 0xC1, 0x00, 0x00,
             (byte) 0xE1, 0x01, (byte) 0xF0, 0x00,
             (byte) streamType, (byte) 0xE1, 0x01, (byte) 0xF0, 0x00, 0, 0, 0, 0
         };
