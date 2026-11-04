@@ -164,6 +164,9 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     private var retryRunnable: Runnable? = null
     @Volatile private var released = false
     private var flipCountThisChannel = 0
+    // Audio-with-no-video verdict state (audit V-05).
+    private var noVideoSinceMs = 0L
+    private var noVideoRecoveries = 0
 
     // Absolute media position (audit P1). currentPosition is relative
     // to the live window's start; at the live edge the window slides
@@ -198,6 +201,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         netWindowStartMs = 0L
         netWindowStartPos = 0L
         bufferingSinceMs = 0L
+        noVideoSinceMs = 0L
     }
 
     /** Recovery rung 1: re-prepare the same media at the live seat. */
@@ -232,10 +236,8 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         // off the Streamer where the ladder collapses, a "rebuild on
         // the other decoder" rebuilds into the same broken decoder.
         val explicitPref = prefs.videoDecoder == "Hardware" || prefs.videoDecoder == "Software"
-        val isStreamer = Build.MODEL.contains("Google TV Streamer", ignoreCase = true) ||
-            Build.HARDWARE.contains("mt8696", ignoreCase = true)
         flipCountThisChannel++
-        if (explicitPref || !isStreamer || flipCountThisChannel > 2) {
+        if (explicitPref || flipCountThisChannel > 2) {
             Log.w(TAG, "Decoder flip not applicable or capped; replaying on the next route")
             routeAttempt++
             play(item, false)
@@ -245,11 +247,11 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         }
         decoderEscalation++
         decoderEscalationsTotal++
-        val sv = attachedSurfaceView
-        val tv = attachedTextureView
-        val np = initPlayer()
-        if (sv != null) np.setVideoSurfaceView(sv)
-        if (tv != null) np.setVideoTextureView(tv)
+        // initPlayer() already attaches the remembered surface exactly
+        // once (audit V-16): re-attaching here double-set the surface
+        // and, if both view kinds were ever remembered, left the player
+        // rendering into whichever view was attached last.
+        initPlayer()
         play(item, false)
     }
 
@@ -439,6 +441,39 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
 
                 if (!buffering && p.playbackState == Player.STATE_READY &&
                     now - playbackStartMs > 12000L) {
+                    // 1c. Audio playing, NO video (audit V-05): READY and
+                    // the position advances on audio while there is no
+                    // video format at all, or the decoder has rendered
+                    // zero frames 10 s after the first READY. Every
+                    // older net was blind to this state (the freeze
+                    // verdict requires >=60 rendered frames first), so
+                    // black-screen-with-sound ran forever. Escalate:
+                    // first a route change, then a decoder flip.
+                    if (firstReadyMs > 0L && now - firstReadyMs > 10000L &&
+                        (p.videoFormat == null || rendered == 0)) {
+                        if (noVideoSinceMs == 0L) noVideoSinceMs = now
+                        if (now - noVideoSinceMs > 8000L) {
+                            noVideoRecoveries++
+                            Log.w(TAG, "Audio playing with NO VIDEO (format=${p.videoFormat}, rendered=$rendered); recovery $noVideoRecoveries")
+                            resetWatchdogTracking(now)
+                            if (noVideoRecoveries >= 2 && currentItem != null) {
+                                noVideoRecoveries = 0
+                                flipDecoderAndReload()
+                                return
+                            }
+                            if (currentItem != null) {
+                                routeAttempt++
+                                play(currentItem!!, false)
+                            } else {
+                                reprepare(p)
+                            }
+                            mainHandler.postDelayed(this, 1000L)
+                            return
+                        }
+                    } else {
+                        noVideoSinceMs = 0L
+                    }
+
                     // 2. Frozen video: rendered frames stopped while the
                     // timeline (audio) keeps moving for a full 7 seconds.
                     if (p.videoFormat != null && rendered >= 0 && lastRenderedCount >= 60 &&
@@ -542,21 +577,29 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             // up with HD, so the list is always reordered explicitly to the
             // wanted preference (see preferSoftware below).
             setMediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
-                val decoders = MediaCodecUtil.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
+                // A failed decoder query must not become a decoder-init
+                // failure feeding the rebuild loop (audit V-15): fall
+                // back to the platform's default selector answer.
+                val decoders = try {
+                    MediaCodecUtil.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Decoder query failed for $mimeType; using default selector", e)
+                    androidx.media3.exoplayer.mediacodec.DefaultMediaCodecSelector.INSTANCE
+                        .getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
+                }
                 if (mimeType.startsWith("video/")) {
-                    val isGoogleTvStreamer = Build.MODEL.contains("Google TV Streamer", ignoreCase = true) ||
-                                             Build.HARDWARE.contains("mt8696", ignoreCase = true)
-                    // Hardware first on the Streamer: its software AVC decoder
-                    // cannot keep up with HD and drops frames in bursts of
-                    // hundreds (measured on device, v4.2.2). The old freeze
-                    // risk is now covered by the frame watchdog and this
-                    // ladder: any decoder failure or freeze escalates to
-                    // software, and an explicit user choice always wins.
+                    // Hardware first by default: the Streamer's software
+                    // AVC decoder cannot keep up with HD and drops frames
+                    // in bursts of hundreds (measured on device, v4.2.2).
+                    // The ladder is the documented 3 steps (audit V-12),
+                    // one modulus everywhere: step 0 = user preference /
+                    // hardware-first, step 1 = force software, step 2 =
+                    // force hardware again after software also failed.
+                    // An explicit user choice always wins.
                     val preferSoftware = when {
                         prefs.videoDecoder == "Software" -> true
                         prefs.videoDecoder == "Hardware" -> false
-                        isGoogleTvStreamer -> decoderEscalation % 2 == 1
-                        else -> false
+                        else -> decoderEscalation % 3 == 1
                     }
                     // Always order the list explicitly. Returning the platform
                     // order when hardware was wanted silently kept the software
@@ -575,6 +618,19 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             setParameters(
                 buildUponParameters()
                     .setPreferredAudioLanguages(prefs.preferAudioLang.ifBlank { "eng" }, "en", "eng")
+                    // Video guardrails (audit V-01): without a floor the
+                    // adaptive selector can settle on a low-bitrate
+                    // audio-only HLS variant and stay there - sound with
+                    // a black screen. A minimum video bitrate plus the
+                    // onTracksChanged override below keep selection on a
+                    // rendition that actually carries video.
+                    .setMinVideoBitrate(250_000)
+                    .setMaxVideoSize(1920, 1080)
+                    .setViewportSize(1920, 1080, true)
+                    // Tunneled playback: the hardware A/V sync path on
+                    // Android TV silicon (audit V-14). Media3 falls
+                    // back automatically when a decoder can't tunnel.
+                    .setTunnelingEnabled(true)
             )
         }
 
@@ -636,12 +692,17 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         // old watchdog attack good streams. The watchdog reads
         // DecoderCounters (captured below) instead.
 
+        // Remember a surface handed in as a parameter (audit V-06):
+        // rebuilds call initPlayer() with no argument, and a parameter
+        // that was never stored left the rebuilt player surfaceless -
+        // audio kept playing, the picture never came back.
+        if (surfaceView != null && attachedSurfaceView == null && attachedTextureView == null) {
+            attachedSurfaceView = surfaceView
+        }
         if (attachedTextureView != null) {
             player.setVideoTextureView(attachedTextureView)
         } else if (attachedSurfaceView != null) {
             player.setVideoSurfaceView(attachedSurfaceView)
-        } else if (surfaceView != null) {
-            player.setVideoSurfaceView(surfaceView)
         }
 
         player.addListener(object : Player.Listener {
@@ -726,6 +787,38 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             }
 
             override fun onTracksChanged(tracks: Tracks) {
+                // Audio-only guard (audit V-01/V-19): if a video group
+                // exists but the selected track carries no video (an
+                // audio-only variant chosen by adaptive selection),
+                // force-select the first real video track instead of
+                // playing sound over a black screen indefinitely.
+                var videoSelected = false
+                var fallbackGroup: Tracks.Group? = null
+                var fallbackIndex = -1
+                for (group in tracks.groups) {
+                    if (group.type != C.TRACK_TYPE_VIDEO) continue
+                    for (i in 0 until group.length) {
+                        val fmt = group.getTrackFormat(i)
+                        val realVideo = fmt.sampleMimeType?.startsWith("video") == true
+                        if (group.isTrackSelected(i) && realVideo) videoSelected = true
+                        if (realVideo && fallbackGroup == null) {
+                            fallbackGroup = group
+                            fallbackIndex = i
+                        }
+                    }
+                }
+                val fg = fallbackGroup
+                if (!videoSelected && fg != null && fallbackIndex >= 0) {
+                    Log.w(TAG, "No video track selected though video exists; forcing a video rendition")
+                    try {
+                        player.trackSelectionParameters = player.trackSelectionParameters
+                            .buildUpon()
+                            .setOverrideForType(TrackSelectionOverride(fg.mediaTrackGroup, fallbackIndex))
+                            .build()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Video track override failed", e)
+                    }
+                }
                 onTracksChanged?.invoke()
             }
         })
@@ -738,9 +831,17 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
 
     fun attachSurface(surfaceView: SurfaceView?) {
         if (attachedSurfaceView == surfaceView && attachedTextureView == null) return
+        val old = attachedSurfaceView
         attachedSurfaceView = surfaceView
         attachedTextureView = null
-        exoPlayer?.setVideoSurfaceView(surfaceView)
+        // Detach through the dedicated clear call (audit V-07): the
+        // setter-with-null path left the player targeting a destroyed
+        // surface on some Media3 paths.
+        if (surfaceView == null && old != null) {
+            exoPlayer?.clearVideoSurfaceView(old)
+        } else {
+            exoPlayer?.setVideoSurfaceView(surfaceView)
+        }
     }
 
     fun attachTextureView(textureView: TextureView?) {
@@ -777,6 +878,11 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         lastPlayState = -1
         playbackStartMs = android.os.SystemClock.uptimeMillis()
         firstReadyMs = 0L
+        // A stale ready timestamp made the 30 s stability forgiveness
+        // and the no-video verdict read a previous tune's age
+        // (audit V-35).
+        readySinceMs = 0L
+        noVideoRecoveries = 0
         resetWatchdogTracking(playbackStartMs)
         val player = exoPlayer ?: initPlayer()
 
@@ -846,7 +952,14 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                 // screen as an endless buffer. Two quick retries, then
                 // the error reaches onPlayerError, where the route and
                 // re-resolve machinery can actually fix it.
-                .setLoadErrorHandlingPolicy(object : androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy {
+                // Extends the default policy (audit V-02): the old
+                // anonymous policy returned null from
+                // getFallbackSelectionFor, which disabled Media3's HLS
+                // variant/track fallback entirely - one bad rendition
+                // errored the whole playback instead of switching.
+                // Inheriting the default keeps fallback working while
+                // the two overrides below keep the fail-fast timing.
+                .setLoadErrorHandlingPolicy(object : androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy() {
                     override fun getRetryDelayMsFor(
                         loadErrorInfo: androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo
                     ): Long {
@@ -856,10 +969,6 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                     // ~2 consecutive failures, so a local-proxy blip
                     // cost a full error plus re-tune (audit P13).
                     override fun getMinimumLoadableRetryCount(dataType: Int): Int = 3
-                    override fun getFallbackSelectionFor(
-                        fallbackOptions: androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.FallbackOptions,
-                        loadErrorInfo: androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo
-                    ): androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.FallbackSelection? = null
                 })
                 .createMediaSource(mediaItem)
         } else {
@@ -1027,6 +1136,33 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         targetView.layoutParams = lp
     }
 
+    /** Video tracks, mirroring the audio picker (audit V-01: there was
+     *  no video-track API at all, so a wrong rendition could never be
+     *  corrected from the UI or diagnostics). */
+    fun getVideoTracks(): List<TrackInfo> {
+        val player = exoPlayer ?: return emptyList()
+        val tracks = player.currentTracks
+        val result = mutableListOf<TrackInfo>()
+        for (group in tracks.groups) {
+            if (group.type == C.TRACK_TYPE_VIDEO) {
+                for (i in 0 until group.length) {
+                    val format = group.getTrackFormat(i)
+                    val label = format.label ?: "${format.width}x${format.height}"
+                    result.add(TrackInfo(group, i, label, group.isTrackSelected(i)))
+                }
+            }
+        }
+        return result
+    }
+
+    fun selectVideoTrack(trackInfo: TrackInfo) {
+        val player = exoPlayer ?: return
+        player.trackSelectionParameters = player.trackSelectionParameters
+            .buildUpon()
+            .setOverrideForType(TrackSelectionOverride(trackInfo.group.mediaTrackGroup, trackInfo.trackIndex))
+            .build()
+    }
+
     fun getAudioTracks(): List<TrackInfo> {
         val player = exoPlayer ?: return emptyList()
         val tracks = player.currentTracks
@@ -1086,8 +1222,22 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     fun release(terminal: Boolean = false) {
         if (terminal) released = true
         mainHandler.removeCallbacksAndMessages(null)
+        // Detach the dying player from its surface explicitly and, on
+        // terminal release, forget the views (audit V-07). Non-terminal
+        // release is initPlayer()'s rebuild path and must keep the
+        // remembered surface for the new player.
+        try {
+            if (attachedTextureView != null) exoPlayer?.clearVideoTextureView(attachedTextureView)
+            if (attachedSurfaceView != null) exoPlayer?.clearVideoSurfaceView(attachedSurfaceView)
+        } catch (e: Exception) {
+            Log.w(TAG, "Surface detach on release failed", e)
+        }
         exoPlayer?.release()
         exoPlayer = null
+        if (terminal) {
+            attachedSurfaceView = null
+            attachedTextureView = null
+        }
         isPlaying = false
         isBuffering = false
         videoCounters = null
