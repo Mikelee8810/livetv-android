@@ -50,7 +50,12 @@ class ListPanel(ctx: Context) : RecyclerView(ctx) {
         overScrollMode = OVER_SCROLL_NEVER
     }
 
+    // Generation of the latest submit(); delayed focus runnables from
+    // older submits must not fire into a changed surface (audit N11).
+    private var submitGen = 0
+
     fun submit(r: List<Row>, focusIndex: Int = -1) {
+        submitGen++
         // Audit L1: with no explicit focus index, keep focus on the
         // row position that had it. Callers that re-submit after an
         // action (quick list, settings toggles) used to lose focus
@@ -63,6 +68,7 @@ class ListPanel(ctx: Context) : RecyclerView(ctx) {
     fun update(index: Int, r: Row) { rows = rows.toMutableList().also { it[index] = r }; adapter!!.notifyItemChanged(index) }
     fun focusRow(i: Int) {
         if (i !in rows.indices) return
+        val gen = submitGen
         scrollToPosition(i)
         val doFocus = Runnable {
             val lm = layoutManager as? LinearLayoutManager
@@ -71,6 +77,9 @@ class ListPanel(ctx: Context) : RecyclerView(ctx) {
                 child.requestFocus()
             } else {
                 postDelayed({
+                    // Stale-generation grabs landed focus on detached
+                    // rows after dialogs/drawers closed (audit N11).
+                    if (gen != submitGen || !isShown) return@postDelayed
                     val delayed = (layoutManager as? LinearLayoutManager)?.findViewByPosition(i)
                     if (delayed != null) {
                         delayed.requestFocus()
@@ -90,7 +99,12 @@ class ListPanel(ctx: Context) : RecyclerView(ctx) {
         override fun onCreateViewHolder(p: ViewGroup, t: Int) = VH(RowView(context).also { it.layoutParams = LayoutParams(-1, -2) })
         override fun onBindViewHolder(h: VH, i: Int) { h.v.bind(rows[i], textScale, rowHeightDp) { onFocusRow(i, rows[i]) }
             h.v.setOnKeyListener { _, code, e ->
-                e.action == KeyEvent.ACTION_DOWN && (code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT || code == KeyEvent.KEYCODE_BACK) && onEdge(code) } }
+                // UP/DOWN are forwarded too (audit N1): SearchPanel's
+                // "UP from the first result returns to the input" path
+                // waited for a DPAD_UP this listener never delivered,
+                // so it was dead code. Callers that don't care return
+                // false and platform focus search proceeds normally.
+                e.action == KeyEvent.ACTION_DOWN && (code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT || code == KeyEvent.KEYCODE_DPAD_UP || code == KeyEvent.KEYCODE_DPAD_DOWN || code == KeyEvent.KEYCODE_BACK) && onEdge(code) } }
     }
 }
 
@@ -125,7 +139,11 @@ class RowView(ctx: Context) : LinearLayout(ctx) {
         row = r; focusCb = onFocus; accentTitle = r.accentTitle; dim = r.dim
         // Audit L2: the trailing "|| true" made EVERY item row
         // focusable, including inert info rows that trap D-pad focus.
-        isFocusable = r.kind == Kind.ITEM && (r.onClick != null || r.checked != null || r.onLong != null || r.sub != null || r.value != null)
+        // Audit N5: a subtitle or value alone is not an action - pure
+        // info rows ("Latest update status", the version row) were
+        // still focusable dead stops that swallow OK. Focusable iff
+        // the row actually does something.
+        isFocusable = r.kind == Kind.ITEM && (r.onClick != null || r.checked != null || r.onLong != null)
         if (r.kind == Kind.HEADER) isFocusable = false
         minimumHeight = dpi(if (r.kind == Kind.HEADER) 36f else if (r.kind == Kind.SPACER) 12f else minH)
         val s = scale

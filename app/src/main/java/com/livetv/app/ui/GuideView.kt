@@ -77,11 +77,26 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
     private val timeFmt = SimpleDateFormat("hh:mm a", Locale.US)
     private val dateFmt = SimpleDateFormat("EEE, MMM d, h:mm a", Locale.US)
     private var anim: ValueAnimator? = null
-    private val tick = object : Runnable { override fun run() { invalidate(); postDelayed(this, 30_000) } }
+    // The selection time rides the wall clock (audit N8): the tick
+    // advances selTime by the elapsed delta, preserving whatever
+    // offset the user navigated to. Without this the cursor rotted
+    // in place - after hours it sat on a past programme, indexOfFirst
+    // returned -1, and RIGHT became a swallowed dead key.
+    private var lastTickMs = System.currentTimeMillis()
+    private val tick = object : Runnable {
+        override fun run() {
+            val nowMs = System.currentTimeMillis()
+            val delta = nowMs - lastTickMs
+            if (delta in 1..120_000L) selTime += delta
+            lastTickMs = nowMs
+            invalidate()
+            postDelayed(this, 30_000)
+        }
+    }
 
     init { isFocusable = true; isFocusableInTouchMode = false; setWillNotDraw(false) }
     override fun onAttachedToWindow() { super.onAttachedToWindow(); postDelayed(tick, 30_000) }
-    override fun onDetachedFromWindow() { removeCallbacks(tick); super.onDetachedFromWindow() }
+    override fun onDetachedFromWindow() { removeCallbacks(tick); anim?.cancel(); super.onDetachedFromWindow() }
 
     // Audit G4: floor to the local :00/:30 boundary. The old code
     // subtracted a dead `let { 0 }` instead of the zone offset, so
@@ -387,6 +402,13 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
                 } else {
                     val cells = cellsFor(cur)
                     val i = cells.indexOfFirst { selTime >= it.start && selTime < it.end }
+                    if (i == -1) {
+                        // Selection outside the window (audit N8):
+                        // re-anchor to now instead of treating it as
+                        // "no previous cell" and jumping columns.
+                        resetToNow()
+                        return true
+                    }
                     val minStart = floor30(now) - 6 * 3_600_000L
                     // Audit G5: being on the LIVE cell used to bounce
                     // focus back to the channel column, so past
@@ -415,6 +437,12 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
                 } else {
                     val cells = cellsFor(cur)
                     val i = cells.indexOfFirst { selTime >= it.start && selTime < it.end }
+                    if (i == -1) {
+                        // Selection outside the window (audit N8):
+                        // re-anchor instead of swallowing the key.
+                        resetToNow()
+                        return true
+                    }
                     if (i in 0 until cells.size - 1) {
                         selTime = cells[i + 1].start
                         ensureTimeVisible(cells[i + 1])

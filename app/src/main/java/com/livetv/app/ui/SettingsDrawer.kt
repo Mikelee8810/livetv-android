@@ -69,13 +69,24 @@ class SettingsDrawer(
     private var updatingPlaylists = false
     private var updatingEpg = false
 
+    // Record the outgoing screen's live focus before leaving it
+    // (audit N10): the memory was only written on re-render, so
+    // leaving a screen by D-pad and returning restored a stale row.
+    private fun rememberCurrentFocus() {
+        val cur = navStack.lastOrNull() ?: return
+        val live = listPanel.focusedIndex()
+        if (live >= 0) focusMemory[cur.title] = live
+    }
+
     private fun push(screen: Screen) {
+        rememberCurrentFocus()
         navStack.add(screen)
         showScreen()
     }
 
     fun handleBack(): Boolean {
         if (navStack.size > 1) {
+            rememberCurrentFocus()
             navStack.removeAt(navStack.size - 1)
             showScreen()
             return true

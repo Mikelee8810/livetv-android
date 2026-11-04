@@ -124,7 +124,10 @@ object Dialogs {
             // the OK row off screen. Cap the text at 70% of the
             // display height inside a ScrollView.
             val tv = TextView(a).apply { text = message; textSize = 16f * Fonts.scale; setTextColor(Pal.textDim); setPadding(a.dpi(8f), 0, a.dpi(8f), a.dpi(12f)) }
-            val sv = ScrollView(a).apply { addView(tv) }
+            // Focusable so a long message can actually be scrolled
+            // with the remote (audit N15): UP from OK lands here and
+            // the D-pad scrolls; DOWN returns to OK.
+            val sv = ScrollView(a).apply { addView(tv); isFocusable = true; isFocusableInTouchMode = true }
             card.addView(sv, LinearLayout.LayoutParams(-1, -2))
             val cap = (a.resources.displayMetrics.heightPixels * 0.7f).toInt()
             sv.post {
@@ -166,7 +169,11 @@ object Dialogs {
                 KeyEvent.KEYCODE_DPAD_LEFT -> { pos = (pos - 1).coerceAtLeast(0); refresh(); true }
                 KeyEvent.KEYCODE_DPAD_RIGHT -> { pos = (pos + 1).coerceAtMost(3); refresh(); true }
                 in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9 -> { digits[pos] = code - KeyEvent.KEYCODE_0; if (pos < 3) pos++; refresh(); true }
-                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> { dlg.dismiss(); onResult(digits.joinToString("")); true }
+                // Numpad digits/enter too (audit N14): every other OK
+                // path in the app accepts them; the PIN could neither
+                // be typed nor confirmed from a numpad.
+                in KeyEvent.KEYCODE_NUMPAD_0..KeyEvent.KEYCODE_NUMPAD_9 -> { digits[pos] = code - KeyEvent.KEYCODE_NUMPAD_0; if (pos < 3) pos++; refresh(); true }
+                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> { dlg.dismiss(); onResult(digits.joinToString("")); true }
                 else -> false
             }
         }

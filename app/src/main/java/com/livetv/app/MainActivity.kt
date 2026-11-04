@@ -149,7 +149,13 @@ class MainActivity : Activity() {
                 guideView.select(startItem.key)
             }
             guideView.focusCol = GuideView.GuideFocus.CHANNEL
-            guideView.requestFocus()
+            // Only pull focus to the guide if nothing else is open
+            // (audit N21): keys are live while the first load runs,
+            // and a user who already opened a drawer had focus yanked
+            // back behind it when the load finished.
+            if (!isCategoriesDrawerOpen && !isMainMenuDrawerOpen && settingsDrawer == null && searchPanel == null) {
+                guideView.requestFocus()
+            }
         }
     }
 
@@ -640,10 +646,10 @@ class MainActivity : Activity() {
             .translationX(0f)
             .setDuration(220)
             .withEndAction {
-                mainMenuDrawer.getChildAt(2)?.requestFocus() ?: mainMenuDrawer.getChildAt(1)?.requestFocus()
+                mainMenuDrawer.getChildAt(1)?.requestFocus() ?: mainMenuDrawer.getChildAt(2)?.requestFocus()
             }
             .start()
-        mainMenuDrawer.getChildAt(2)?.requestFocus() ?: mainMenuDrawer.getChildAt(1)?.requestFocus()
+        mainMenuDrawer.getChildAt(1)?.requestFocus() ?: mainMenuDrawer.getChildAt(2)?.requestFocus()
     }
 
     fun closeMainMenuDrawer(focusCategories: Boolean = true) {
@@ -687,6 +693,9 @@ class MainActivity : Activity() {
             rootContainer.addView(settingsDrawer, lp)
         }
         closingSettings = false
+        // The guide must not take keys behind the drawer (audit N16,
+        // mirroring the categories/main-menu drawers).
+        guideView.isFocusable = false
         settingsDrawer?.apply {
             visibility = View.VISIBLE
             translationX = dp(440f)
@@ -706,7 +715,15 @@ class MainActivity : Activity() {
                 closingSettings = false
                 rootContainer.removeView(drawer)
                 settingsDrawer = null
-                guideView.requestFocus()
+                // Only restore guide focus when the guide is actually
+                // the surface the user returns to (audit N7): entering
+                // fullscreen also closes settings, and the old
+                // unconditional call fired 200 ms later against the
+                // hidden guide while the player overlay was up.
+                guideView.isFocusable = true
+                if (!isFullscreen && searchPanel == null && channelMenu == null) {
+                    guideView.requestFocus()
+                }
             }.start()
         } ?: run { closingSettings = false }
     }
@@ -727,6 +744,8 @@ class MainActivity : Activity() {
             )
             rootContainer.addView(searchPanel, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         }
+        // Guide keys off behind the full-screen panel (audit N16).
+        guideView.isFocusable = false
         searchPanel?.apply {
             visibility = View.VISIBLE
             focusInput()
@@ -737,6 +756,7 @@ class MainActivity : Activity() {
         searchPanel?.let { panel ->
             rootContainer.removeView(panel)
             searchPanel = null
+            guideView.isFocusable = true
             guideView.requestFocus()
         }
     }
@@ -1027,6 +1047,12 @@ class MainActivity : Activity() {
     }
 
     private fun confirmAppExit() {
+        // The "Confirm exit by double Back" setting was stored but
+        // never read (audit N4): with it off, one Back exits.
+        if (!prefs.confirmExit) {
+            finish()
+            return
+        }
         val now = System.currentTimeMillis()
         if (now - lastBackPress < 2500L) {
             finish()
