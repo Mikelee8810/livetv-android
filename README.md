@@ -33,6 +33,14 @@ Designed for Google TV, Android TV streaming boxes, and smart TVs with remote-fi
 
 ---
 
+## Reference
+
+**[docs/UPSTREAM-REFERENCE.md](docs/UPSTREAM-REFERENCE.md)** — every upstream
+link, the live domain map, the measured stream flow (domains → iframe →
+token playlist → disguised segments), throughput measurements, and the
+target-device playbook. Read it before touching playback; audit registers
+(`AUDIT-*.md`) hold the per-version defect history.
+
 ## Building from Source
 
 ### Prerequisites
