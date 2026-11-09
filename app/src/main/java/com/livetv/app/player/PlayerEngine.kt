@@ -534,29 +534,21 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     fun initPlayer(surfaceView: SurfaceView? = null): ExoPlayer {
         release()
 
-        // Live HLS buffer sizing: DaddyLive playlists have ~30s windows (5 chunks x 6s).
-        // Buffer must fit within the sliding window to prevent behind-live-window stalls.
+        // Live HLS buffer sizing: DaddyLive playlists have ~36s windows (6 chunks x 6s).
+        // Buffer must fit within the sliding window AND stay strictly below targetOffsetMs (18s)
+        // so DefaultLoadControl is never starved waiting for future segments that do not exist yet.
         val loadControl = DefaultLoadControl.Builder().apply {
             val (minBuffer, maxBuffer) = when (prefs.buffer) {
-                "Small" -> Pair(5000, 10000)
-                "Normal" -> Pair(20000, 34000)
-                // "Large" and "Very large" intentionally equal
-                // "Normal": the ~36 s live window caps the useful
-                // buffer, so a bigger setting could never be honoured
-                // for live playback anyway (audit P17).
-                "Large" -> Pair(20000, 34000)
-                "Very large" -> Pair(20000, 34000)
-                else -> Pair(20000, 34000)
+                "Small" -> Pair(5000, 12000)
+                "Medium", "Normal" -> Pair(10000, 24000)
+                "Large" -> Pair(12000, 28000)
+                "Very large" -> Pair(14000, 32000)
+                else -> Pair(10000, 24000)
             }
             setBufferDurationsMs(
                 minBuffer,
                 maxBuffer,
-                2500, // bufferForPlaybackMs: do not start on a sliver of data
-                // Resume after a rebuffer at 2 s, not 5: while the player
-                // waits for a 5 s cushion the ~36 s live window slides 5 s
-                // further away, which is how a brief starve turned into a
-                // permanent mid-window trap (2026-10-30). OwnTV's live
-                // load control restarts at 2 s for the same reason.
+                1500, // bufferForPlaybackMs: fast start once the first segment is cached
                 2000
             )
             setPrioritizeTimeOverSizeThresholds(true)
@@ -923,12 +915,10 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             // DaddyLive windows measure ~36 s on device (about 6
             // segments). The offset is measured from the live EDGE, so
             // the slack that keeps the playhead from being evicted off
-            // the back of the window is window minus offset. A 28 s
-            // offset left only ~6-8 s of that slack and one slow
-            // segment killed playback with BEHIND_LIVE_WINDOW 12 s in
-            // (2026-10-30). A ~16 s target leaves ~20 s of eviction
-            // slack; a stall then costs a rebuffer, not the stream.
-            .setTargetOffsetMs(16000L)
+            // the back of the window is window minus offset. A ~18 s
+            // target leaves ~18 s of eviction slack while giving
+            // DefaultLoadControl up to 18 s of forward buffer room.
+            .setTargetOffsetMs(18000L)
             .setMinOffsetMs(10000L)
             .setMaxOffsetMs(30000L)
             .setMinPlaybackSpeed(0.97f)
@@ -1083,12 +1073,16 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     }
 
     fun setAspectRatio(mode: String, surfaceContainer: android.widget.FrameLayout?, targetView: View?) {
-        if (surfaceContainer == null || targetView == null || videoWidth <= 0 || videoHeight <= 0) return
+        if (surfaceContainer == null || targetView == null) return
         val containerW = surfaceContainer.width.toFloat()
         val containerH = surfaceContainer.height.toFloat()
         if (containerW <= 0f || containerH <= 0f) return
 
-        val videoAspect = videoWidth.toFloat() / videoHeight.toFloat()
+        val videoAspect = if (videoWidth > 0 && videoHeight > 0) {
+            videoWidth.toFloat() / videoHeight.toFloat()
+        } else {
+            16f / 9f
+        }
         val screenAspect = containerW / containerH
 
         val lp = targetView.layoutParams as android.widget.FrameLayout.LayoutParams

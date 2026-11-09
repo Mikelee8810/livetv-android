@@ -34,7 +34,8 @@ class PlayerOverlay(
     private val playerEngine: PlayerEngine,
     private val onSwitchChannel: (Item) -> Unit,
     private val onExitFullscreen: () -> Unit,
-    private val onOpenMenu: (Item) -> Unit
+    private val onOpenMenu: (Item) -> Unit,
+    private val onAspectChanged: (() -> Unit)? = null
 ) : FrameLayout(activity) {
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -556,6 +557,7 @@ class PlayerOverlay(
         val nextIdx = (modes.indexOf(prefs.aspect) + 1) % modes.size
         prefs.aspect = modes[nextIdx]
         aspectBadge.text = prefs.aspect
+        onAspectChanged?.invoke()
         updateContent()
         showBottomBar()
     }

@@ -192,6 +192,11 @@ class MainActivity : Activity() {
         }
         rootContainer.addView(mainVideoView)
         playerEngine.attachTextureView(mainVideoView)
+        playerEngine.onStateChanged = {
+            if (isFullscreen) {
+                playerEngine.setAspectRatio(prefs.aspect, rootContainer, mainVideoView)
+            }
+        }
 
         // 3. Sliding Categories Drawer Overlay (slides in over the guide on Left)
         setupCategoriesDrawer()
@@ -599,6 +604,11 @@ class MainActivity : Activity() {
             },
             onOpenMenu = { item ->
                 ChannelMenu.show(this, item, null, onWatch = {}, onRefresh = { updateGuideRows() })
+            },
+            onAspectChanged = {
+                if (isFullscreen) {
+                    playerEngine.setAspectRatio(prefs.aspect, rootContainer, mainVideoView)
+                }
             }
         )
         fullscreenContainer.addView(playerOverlay, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
@@ -942,6 +952,7 @@ class MainActivity : Activity() {
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT
         )
+        playerEngine.setAspectRatio(prefs.aspect, rootContainer, mainVideoView)
         fullscreenContainer.visibility = View.VISIBLE
         playerOverlay.showBottomBar()
         fullscreenContainer.requestFocus()

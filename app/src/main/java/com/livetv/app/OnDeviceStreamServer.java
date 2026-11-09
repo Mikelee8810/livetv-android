@@ -21,6 +21,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.Inflater;
+import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -34,6 +37,8 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
     private final OkHttpClient client;
     /** Segments fetch fail-fast: no retry sleeps, short read timeout. */
     private final OkHttpClient segmentClient;
+    /** HTTP/2 + HTTP/1.1 client for full-GET segment downloads (e.g. tiktokcdn multiplexes cleanly at >1 MB/s over HTTP/2). */
+    private final OkHttpClient h2SegmentClient;
     // Route names from dlhd-web (Lunatic16), which added a "hub" player this
     // app never had. Route 0 (ntvs) is the odd one out: its embed page lives
     // on the primary host's /stream/ path, the rest use /<route>/stream-<id>.php.
@@ -49,6 +54,14 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
     private static final Pattern CHAN_PAT = Pattern.compile("CHANNEL\\s*=\\s*[\"']([^\"']+)[\"']");
     private static final Pattern SRC_PAT = Pattern.compile("SRC\\s*=\\s*[\"']([^\"']+)[\"']");
     private static final Pattern TOKEN_PAT = Pattern.compile("\"token\"\\s*:\\s*\"([^\"]+)\"");
+    private static final Pattern KEY_PAT = Pattern.compile("\"k\"\\s*:\\s*\"([^\"]+)\"");
+    private static final Pattern ZDEC_PAT = Pattern.compile("zdec\\s*=\\s*[\"']([^\"']+)[\"']");
+    private static final Pattern PLUS_XOR_PAT = Pattern.compile("var\\s+_\\w+\\s*=\\s*\\[([0-9,\\s]{200,})\\]\\s*,\\s*_\\w+\\s*=\\s*(\\d+)\\s*,\\s*_\\w+\\s*=\\s*(\\d+)");
+    private static final Pattern LOAD_STREAM_URL_PAT = Pattern.compile("loadStreamUrl\\([\"']([^\"']+)[\"']");
+    private static final Pattern MATCHORA_CH_PAT = Pattern.compile("var\\s+CH\\s*=\\s*\"([^\"]+)\"");
+    private static final Pattern MATCHORA_FX_PAT = Pattern.compile("FX\\s*=\\s*\"([^\"]+)\"");
+    private static final Pattern MATCHORA_PP_PAT = Pattern.compile("var\\s+PP\\s*=\\s*\"([^\"]+)\"");
+    private static final Pattern ECONFIG_PAT = Pattern.compile("window\\._econfig\\s*=\\s*['\"]([^'\"]+)['\"]");
     // Fallback extraction patterns borrowed from dlhd-cli (Lunatic16/dlhd-cli),
     // which resolves the same DaddyLive pages: direct .m3u8, any atob() blob,
     // a player config file: entry, the legacy playerFrame iframe, and data-url.
@@ -95,17 +108,65 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
         final String chan;
         final String playerUrl;
         volatile String token;
+        volatile byte[] key;
         volatile long renewAt;
         volatile long lastRenewAttemptMs;
 
-        TokenSession(String edge, String chan, String playerUrl, String token, long ttlSec) {
+        TokenSession(String edge, String chan, String playerUrl, String token, byte[] key, long ttlSec) {
             this.edge = edge;
             this.chan = chan;
             this.playerUrl = playerUrl;
             this.token = token;
+            this.key = key;
             long now = System.currentTimeMillis();
             this.renewAt = now + (ttlSec * 500L);
         }
+    }
+
+    /**
+     * Decrypts a sealed dembed playlist where each media line is base64url(AES-128-CTR(segmentUrl))
+     * encrypted under key `k` from `/api/playlist-token` and a 16-byte counter block whose last 8 bytes
+     * hold the big-endian media sequence number (`#EXT-X-MEDIA-SEQUENCE` + segment index).
+     * Plaintext manifests (already containing `://`) are returned unchanged.
+     */
+    static String openSealedPlaylist(String manifestBody, byte[] key) throws Exception {
+        if (manifestBody == null || key == null || key.length != 16 || manifestBody.contains("://")) {
+            return manifestBody;
+        }
+        SecretKeySpec keySpec = new SecretKeySpec(key, "AES");
+        StringBuilder out = new StringBuilder(manifestBody.length() + 512);
+        long seq = 0L;
+        for (String rawLine : manifestBody.split("\\r?\\n")) {
+            String line = rawLine.trim();
+            if (line.isEmpty()) {
+                continue;
+            }
+            if (line.charAt(0) == '#') {
+                if (line.startsWith("#EXT-X-MEDIA-SEQUENCE:")) {
+                    try {
+                        seq = Long.parseLong(line.substring("#EXT-X-MEDIA-SEQUENCE:".length()).trim());
+                    } catch (Exception ignored) {
+                    }
+                }
+                out.append(line).append('\n');
+                continue;
+            }
+            byte[] iv = new byte[16];
+            long s = seq++;
+            iv[8] = (byte) ((s >>> 56) & 0xFF);
+            iv[9] = (byte) ((s >>> 48) & 0xFF);
+            iv[10] = (byte) ((s >>> 40) & 0xFF);
+            iv[11] = (byte) ((s >>> 32) & 0xFF);
+            iv[12] = (byte) ((s >>> 24) & 0xFF);
+            iv[13] = (byte) ((s >>> 16) & 0xFF);
+            iv[14] = (byte) ((s >>> 8) & 0xFF);
+            iv[15] = (byte) (s & 0xFF);
+            Cipher cipher = Cipher.getInstance("AES/CTR/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE, keySpec, new IvParameterSpec(iv));
+            byte[] plainBytes = cipher.doFinal(decodeBase64(line));
+            out.append(new String(plainBytes, StandardCharsets.UTF_8)).append('\n');
+        }
+        return out.toString();
     }
 
     private String getOrRenewToken(String channelId, TokenSession session, boolean force) {
@@ -138,6 +199,13 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                         Matcher m = TOKEN_PAT.matcher(body);
                         if (m.find()) {
                             session.token = m.group(1);
+                            Matcher kM = KEY_PAT.matcher(body);
+                            if (kM.find()) {
+                                try {
+                                    session.key = decodeBase64(kM.group(1));
+                                } catch (Exception ignored) {
+                                }
+                            }
                             long ttl = 120L;
                             Matcher ttlM = Pattern.compile("\"ttl\"\\s*:\\s*(\\d+)").matcher(body);
                             if (ttlM.find()) {
@@ -192,6 +260,9 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
         // call here is a blocking execute().
         this.segmentClient = new OkHttpClient.Builder().connectTimeout(5L, TimeUnit.SECONDS).readTimeout(8L, TimeUnit.SECONDS).followRedirects(true)
                 .protocols(java.util.Collections.singletonList(okhttp3.Protocol.HTTP_1_1))
+                .connectionPool(new okhttp3.ConnectionPool(16, 5L, TimeUnit.MINUTES))
+                .build();
+        this.h2SegmentClient = new OkHttpClient.Builder().connectTimeout(5L, TimeUnit.SECONDS).readTimeout(10L, TimeUnit.SECONDS).followRedirects(true)
                 .connectionPool(new okhttp3.ConnectionPool(16, 5L, TimeUnit.MINUTES))
                 .build();
     }
@@ -332,8 +403,34 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                 return new Resolved(pageUrl, referer, origin(referer));
             }
             String html = getText(pageUrl, depth == 0 ? null : referer);
+            Matcher zdecM = ZDEC_PAT.matcher(html);
+            if (zdecM.find()) {
+                try {
+                    String outer = new String(decodeBase64(zdecM.group(1)), StandardCharsets.UTF_8);
+                    Matcher innerAtob = ANY_ATOB.matcher(outer);
+                    if (innerAtob.find()) {
+                        String nextUrl = new String(decodeBase64(innerAtob.group(1)), StandardCharsets.UTF_8).trim();
+                        if (nextUrl.startsWith("http")) {
+                            referer = pageUrl;
+                            pageUrl = nextUrl;
+                            depth++;
+                            continue;
+                        }
+                    }
+                } catch (Exception ignored) {
+                }
+            }
             try {
-                String streamUrl = extractStreamUrl(html);
+                String streamUrl = resolvePlusXorStream(html, pageUrl);
+                if (streamUrl == null) {
+                    streamUrl = resolveMatchoraStream(html, pageUrl);
+                }
+                if (streamUrl == null) {
+                    streamUrl = extractEconfigStream(html);
+                }
+                if (streamUrl == null) {
+                    streamUrl = extractStreamUrl(html);
+                }
                 Log.i(TAG, "resolved external route=" + selected);
                 return new Resolved(streamUrl, pageUrl, origin(pageUrl));
             } catch (Exception e) {
@@ -645,31 +742,56 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
      * without ever fetching media. Upstream has player variants whose
      * TS is valid but carries no usable video ("green/black picture,
      * working audio" in EasyProxy's extractor notes), which is
-     * exactly the reported symptom. Fetch the first segment, unwrap
-     * it, and require a video PID in the PMT before accepting.
+     * exactly the reported symptom. Fetch the live-edge segment, unwrap
+     * it, require a video PID in the PMT before accepting, and warm
+     * SEGMENT_CACHE with the validated segment so ExoPlayer's first
+     * segment request hits cache in 0ms.
      */
-    private void validateRouteHasVideo(String manifestUrl, String referer, String id) throws Exception {
+    private void validateRouteHasVideo(String manifestUrl, String referer, String id, String initialManifestBody, byte[] key) throws Exception {
         String url = manifestUrl;
         for (int hop = 0; hop < 2; hop++) {
-            String body = getText(url, referer);
+            String body = (hop == 0 && initialManifestBody != null) ? initialManifestBody : getText(url, referer);
             if (!body.trim().startsWith("#EXTM3U")) {
                 throw new Exception("validation: not a playlist");
             }
-            String base = url.substring(0, url.lastIndexOf('/') + 1);
+            if (hop == 0 && key != null) {
+                body = openSealedPlaylist(body, key);
+            }
+            int qIdx = url.indexOf('?');
+            String cleanUrl = qIdx >= 0 ? url.substring(0, qIdx) : url;
+            String parentQuery = "";
+            if (qIdx >= 0) {
+                StringBuilder pq = new StringBuilder();
+                for (String param : url.substring(qIdx + 1).split("&")) {
+                    if (!param.startsWith("t=") && !param.startsWith("_=") && !param.isEmpty()) {
+                        if (pq.length() > 0) pq.append('&');
+                        pq.append(param);
+                    }
+                }
+                parentQuery = pq.toString();
+            }
+            String base = cleanUrl.substring(0, cleanUrl.lastIndexOf('/') + 1);
             String firstRef = null;
+            String lastRef = null;
             boolean master = body.contains("#EXT-X-STREAM-INF");
             for (String raw : body.split("\\r?\\n")) {
                 String line = raw.trim();
                 if (!line.isEmpty() && !line.startsWith("#")) {
-                    firstRef = line;
-                    break;
+                    if (firstRef == null) {
+                        firstRef = line;
+                    }
+                    lastRef = line;
                 }
             }
-            if (firstRef == null) {
+            String chosenRef = master ? firstRef : lastRef;
+            if (chosenRef == null) {
                 throw new Exception("validation: playlist has no entries");
             }
-            String abs = absolute(base, firstRef);
+            String abs = absolute(base, chosenRef);
             if (master) {
+                if (abs.contains(".m3u8") && !abs.contains("?") && !parentQuery.isEmpty()) {
+                    abs = abs + "?" + parentQuery;
+                }
                 url = abs;
                 continue;
             }
@@ -677,9 +799,134 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             if (!tsHasVideoPid(seg)) {
                 throw new Exception("validation: segment carries no video PID (audio-only/black-video route rejected)");
             }
+            synchronized (SEGMENT_CACHE) {
+                SEGMENT_CACHE.put(abs, seg);
+            }
             return;
         }
         throw new Exception("validation: playlist nesting too deep");
+    }
+
+    /**
+     * Extracts a stream from Route `plus` (ehgembxe.cfd / epiembeds): deobfuscates
+     * the XOR byte array script, fetches the binary ticket from `loadStreamUrl("...")`,
+     * and XOR-decodes the signed `.m3u8` URL.
+     */
+    private String resolvePlusXorStream(String playerHtml, String playerUrl) throws Exception {
+        Matcher m = PLUS_XOR_PAT.matcher(playerHtml);
+        if (!m.find()) {
+            return null;
+        }
+        String[] parts = m.group(1).split(",");
+        int xorKey = Integer.parseInt(m.group(2).trim());
+        int subKey = Integer.parseInt(m.group(3).trim());
+        StringBuilder decodedJs = new StringBuilder(parts.length);
+        for (String p : parts) {
+            String trimmed = p.trim();
+            if (!trimmed.isEmpty()) {
+                int b = Integer.parseInt(trimmed);
+                decodedJs.append((char) (((b ^ xorKey) - subKey + 256) & 255));
+            }
+        }
+        String js = decodedJs.toString();
+        Matcher loadM = LOAD_STREAM_URL_PAT.matcher(js);
+        if (loadM.find()) {
+            String ticketUrl = loadM.group(1);
+            String tk = ticketUrl.substring(ticketUrl.lastIndexOf('/') + 1);
+            Request req = request(ticketUrl, playerUrl).build();
+            try (okhttp3.Response resp = executeWithRetry(req)) {
+                if (!resp.isSuccessful() || resp.body() == null) {
+                    throw new Exception("plus ticket HTTP " + resp.code());
+                }
+                byte[] blob = resp.body().bytes();
+                if (blob.length < 2 || tk.isEmpty()) {
+                    throw new Exception("plus ticket blob empty");
+                }
+                int seed = blob[0] & 0xFF;
+                StringBuilder urlOut = new StringBuilder(blob.length - 1);
+                for (int i = 1; i < blob.length; i++) {
+                    int c = (blob[i] & 0xFF) ^ tk.charAt((i - 1) % tk.length()) ^ ((seed + i - 1) & 0xFF);
+                    urlOut.append((char) (c & 0xFF));
+                }
+                return validateStreamUrl(urlOut.toString().trim());
+            }
+        }
+        return extractStreamUrl(js);
+    }
+
+    /**
+     * Extracts a stream from Route `casting` (matchora.to): reads CH, FX, and PP
+     * from the embed script and queries `/api/play/{CH}?fx={FX}&pp={PP}`.
+     */
+    private String resolveMatchoraStream(String playerHtml, String playerUrl) throws Exception {
+        Matcher chM = MATCHORA_CH_PAT.matcher(playerHtml);
+        Matcher fxM = MATCHORA_FX_PAT.matcher(playerHtml);
+        Matcher ppM = MATCHORA_PP_PAT.matcher(playerHtml);
+        if (!chM.find() || !ppM.find()) {
+            return null;
+        }
+        String ch = chM.group(1);
+        String fx = fxM.find() ? fxM.group(1) : "";
+        String pp = ppM.group(1);
+        String baseOrigin = origin(playerUrl);
+        if (baseOrigin.isEmpty()) {
+            return null;
+        }
+        StringBuilder api = new StringBuilder(baseOrigin)
+                .append("/api/play/")
+                .append(URLEncoder.encode(ch, StandardCharsets.UTF_8.name()))
+                .append("?pp=")
+                .append(URLEncoder.encode(pp, StandardCharsets.UTF_8.name()));
+        if (!fx.isEmpty()) {
+            api.append("&fx=").append(URLEncoder.encode(fx, StandardCharsets.UTF_8.name()));
+        }
+        String json = getText(api.toString(), playerUrl);
+        Matcher urlM = Pattern.compile("\"url\"\\s*:\\s*\"([^\"]+)\"").matcher(json);
+        if (urlM.find()) {
+            return validateStreamUrl(urlM.group(1).replace("\\/", "/"));
+        }
+        return null;
+    }
+
+    /**
+     * Decrypts `window._econfig` (tiestep / 4-part reordered base64 JSON config).
+     */
+    static String extractEconfigStream(String html) {
+        Matcher m = ECONFIG_PAT.matcher(html == null ? "" : html);
+        if (!m.find()) {
+            return null;
+        }
+        try {
+            byte[] rawBytes = decodeBase64(m.group(1));
+            String raw = new String(rawBytes, StandardCharsets.ISO_8859_1);
+            int parts = 4;
+            int chunkSize = (raw.length() + parts - 1) / parts;
+            String[] chunks = new String[parts];
+            for (int i = 0, off = 0; i < parts; i++, off += chunkSize) {
+                chunks[i] = raw.substring(off, Math.min(raw.length(), off + chunkSize));
+            }
+            int[] order = {2, 0, 3, 1};
+            String[] reordered = new String[parts];
+            for (int i = 0; i < order.length; i++) {
+                String c = chunks[i];
+                if (c.length() < 4) return null;
+                String piece = c.substring(0, 3) + c.substring(4);
+                reordered[order[i]] = new String(decodeBase64(piece), StandardCharsets.ISO_8859_1);
+            }
+            StringBuilder joined = new StringBuilder();
+            for (String r : reordered) joined.append(r);
+            String json = new String(decodeBase64(joined.toString()), StandardCharsets.UTF_8);
+            Matcher nop2p = Pattern.compile("\"stream_url_nop2p\"\\s*:\\s*\"([^\"]+\\.m3u8[^\"]*)\"").matcher(json);
+            if (nop2p.find()) {
+                return nop2p.group(1).replace("\\/", "/");
+            }
+            Matcher surl = Pattern.compile("\"stream_url\"\\s*:\\s*\"([^\"]+\\.m3u8[^\"]*)\"").matcher(json);
+            if (surl.find()) {
+                return surl.group(1).replace("\\/", "/");
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
     }
 
     private Resolved resolveSingle(String id, int player) throws Exception {
@@ -689,23 +936,34 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
         TOKEN_SESSIONS.remove(id);
         String embed = playerPageUrl(id, player);
         String watch = (player == 0) ? StreamEndpoints.NTVS_WATCH + id : StreamEndpoints.watchUrl(StreamEndpoints.PRIMARY, id);
-        String embedHtml;
+        String embedHtml = null;
         try {
-            embedHtml = getText(embed, watch);
+            Request req = request(embed, watch).build();
+            try (okhttp3.Response resp = executeWithRetry(req)) {
+                if (!resp.isSuccessful() || resp.body() == null) {
+                    throw new Exception("HTTP " + resp.code());
+                }
+                embed = resp.request().url().toString();
+                embedHtml = resp.body().string();
+            }
         } catch (Exception firstFailure) {
             // The primary host is not the only base (audit S14): the
             // domain has hopped before, so walk the mirror bases for
             // the embed page before giving up on this route.
-            embedHtml = null;
             for (String base : StreamEndpoints.BASES) {
                 if (embed.startsWith(base)) {
                     continue;
                 }
                 String alt = playerPageUrlOn(base, id, player);
                 try {
-                    embedHtml = getText(alt, watch);
-                    embed = alt;
-                    break;
+                    Request req = request(alt, watch).build();
+                    try (okhttp3.Response resp = executeWithRetry(req)) {
+                        if (resp.isSuccessful() && resp.body() != null) {
+                            embed = resp.request().url().toString();
+                            embedHtml = resp.body().string();
+                            break;
+                        }
+                    }
                 } catch (Exception ignored) {
                 }
             }
@@ -718,7 +976,34 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             throw new Exception("player page unavailable on " + ROUTES[player]);
         }
         String playerUrl = new URL(new URL(embed), frame.group(1)).toString();
-        String playerHtml = getText(playerUrl, embed);
+        String playerHtml;
+        Request playerReq = request(playerUrl, embed).build();
+        try (okhttp3.Response playerResp = executeWithRetry(playerReq)) {
+            if (!playerResp.isSuccessful() || playerResp.body() == null) {
+                throw new Exception("HTTP " + playerResp.code());
+            }
+            playerUrl = playerResp.request().url().toString();
+            playerHtml = playerResp.body().string();
+        }
+
+        // Blogger/zdec wrapper hop (Route player -> tv-bu1.blogspot.com -> wideiptv.top)
+        Matcher zdecM = ZDEC_PAT.matcher(playerHtml);
+        if (zdecM.find()) {
+            String outer = new String(decodeBase64(zdecM.group(1)), StandardCharsets.UTF_8);
+            Matcher innerAtob = ANY_ATOB.matcher(outer);
+            if (innerAtob.find()) {
+                String nextUrl = new String(decodeBase64(innerAtob.group(1)), StandardCharsets.UTF_8).trim();
+                if (nextUrl.startsWith("http")) {
+                    Request nextReq = request(nextUrl, playerUrl).build();
+                    try (okhttp3.Response nextResp = executeWithRetry(nextReq)) {
+                        if (nextResp.isSuccessful() && nextResp.body() != null) {
+                            playerUrl = nextResp.request().url().toString();
+                            playerHtml = nextResp.body().string();
+                        }
+                    }
+                }
+            }
+        }
 
         Matcher edgeM = EDGE_PAT.matcher(playerHtml);
         Matcher chanM = CHAN_PAT.matcher(playerHtml);
@@ -735,6 +1020,14 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                     Matcher tokM = TOKEN_PAT.matcher(tokJson);
                     if (tokM.find()) {
                         String token = tokM.group(1);
+                        byte[] key = null;
+                        Matcher kM = KEY_PAT.matcher(tokJson);
+                        if (kM.find()) {
+                            try {
+                                key = decodeBase64(kM.group(1));
+                            } catch (Exception ignored) {
+                            }
+                        }
                         long ttl = 120L;
                         Matcher ttlM = Pattern.compile("\"ttl\"\\s*:\\s*(\\d+)").matcher(tokJson);
                         if (ttlM.find()) {
@@ -744,15 +1037,17 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                         // else (audit S26): a raw + / = in it made
                         // this route test fail spuriously.
                         String manifestUrl = src + (src.contains("?") ? "&" : "?") + "t=" + URLEncoder.encode(token, StandardCharsets.UTF_8.name()) + "&_=" + System.currentTimeMillis();
+                        String initialManifestBody;
                         okhttp3.Request testReq = request(manifestUrl, playerUrl).build();
                         try (okhttp3.Response testResp = this.client.newCall(testReq).execute()) {
-                            if (!testResp.isSuccessful()) {
+                            if (!testResp.isSuccessful() || testResp.body() == null) {
                                 throw new Exception("Route " + ROUTES[player] + " returned HTTP " + testResp.code());
                             }
+                            initialManifestBody = testResp.body().string();
                         }
-                        validateRouteHasVideo(manifestUrl, playerUrl, id);
-                        TOKEN_SESSIONS.put(id, new TokenSession(edge, chan, playerUrl, token, ttl));
-                        Log.i("LiveProxyAudit", "session created id=" + id + " edge=" + edge + " ttl=" + ttl);
+                        validateRouteHasVideo(manifestUrl, playerUrl, id, initialManifestBody, key);
+                        TOKEN_SESSIONS.put(id, new TokenSession(edge, chan, playerUrl, token, key, ttl));
+                        Log.i("LiveProxyAudit", "session created id=" + id + " edge=" + edge + " ttl=" + ttl + " sealed=" + (key != null));
                         Log.i(TAG, "resolved token channelId=" + id + " route=" + ROUTES[player]);
                         return new Resolved(manifestUrl, playerUrl, origin(playerUrl));
                     }
@@ -760,16 +1055,24 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             }
         }
 
-        Matcher source = SOURCE.matcher(playerHtml);
-        if (!source.find()) {
-            throw new Exception("stream token unavailable on " + ROUTES[player]);
+        // Route plus (ehgembxe.cfd XOR array + ticket blob)
+        String url = resolvePlusXorStream(playerHtml, playerUrl);
+        if (url == null) {
+            // Route casting (matchora.to /api/play)
+            url = resolveMatchoraStream(playerHtml, playerUrl);
         }
-        String encoded = source.group(source.group(1) == null ? 2 : 1);
-        String url = encoded.contains(".m3u8") ? encoded : new String(decodeBase64(encoded), StandardCharsets.UTF_8);
+        if (url == null) {
+            // Tiestep window._econfig
+            url = extractEconfigStream(playerHtml);
+        }
+        if (url == null) {
+            // Generic extractor (wideiptv streamUrl:, atob source:, joined vars, direct .m3u8, file:)
+            url = extractStreamUrl(playerHtml);
+        }
         if (!url.startsWith("http")) {
             throw new Exception("invalid stream URL");
         }
-        validateRouteHasVideo(url, playerUrl, id);
+        validateRouteHasVideo(url, playerUrl, id, null, null);
         Log.i(TAG, "resolved channelId=" + id + " route=" + ROUTES[player]);
         return new Resolved(url, playerUrl, origin(playerUrl));
     }
@@ -826,6 +1129,14 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                     return stale2;
                 }
                 throw new Exception("Upstream returned a non-playlist body for channel " + id);
+            }
+            if (session != null && topLevel) {
+                if (session.key == null && !manifestBody.contains("://")) {
+                    getOrRenewToken(id, session, true);
+                }
+                if (session.key != null) {
+                    manifestBody = openSealedPlaylist(manifestBody, session.key);
+                }
             }
             java.util.regex.Matcher seqM = java.util.regex.Pattern.compile("#EXT-X-MEDIA-SEQUENCE:(\\d+)").matcher(manifestBody);
             Log.i("LiveProxyAudit", "manifest served id=" + id + " seq=" + (seqM.find() ? seqM.group(1) : "?"));
@@ -1001,8 +1312,8 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
     // small LRU; and a segment the player asks for is fetched INLINE on
     // the player's own request thread whenever it is not already in
     // flight - the player never queues behind warming work.
-    private static final int PREFETCH_AHEAD = 3;
-    private static final int SEGMENT_CACHE_MAX = 12;
+    private static final int PREFETCH_AHEAD = 4;
+    private static final int SEGMENT_CACHE_MAX = 16;
     private static final Map<String, byte[]> SEGMENT_CACHE = new java.util.LinkedHashMap<String, byte[]>(16, 0.75f, true) {
         @Override protected boolean removeEldestEntry(Map.Entry<String, byte[]> eldest) {
             return size() > SEGMENT_CACHE_MAX;
@@ -1011,7 +1322,7 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
     private static final Map<String, java.util.concurrent.CompletableFuture<byte[]>> SEGMENT_INFLIGHT = new ConcurrentHashMap<>();
     private static final java.util.concurrent.LinkedBlockingQueue<Runnable> PREFETCH_QUEUE = new java.util.concurrent.LinkedBlockingQueue<>();
     private static final java.util.concurrent.ExecutorService PREFETCH_POOL = new java.util.concurrent.ThreadPoolExecutor(
-            3, 3, 0L, TimeUnit.MILLISECONDS, PREFETCH_QUEUE,
+            4, 4, 0L, TimeUnit.MILLISECONDS, PREFETCH_QUEUE,
             r -> { Thread t = new Thread(r, "seg-prefetch"); t.setDaemon(true); return t; });
     /** Channel the player is actually consuming segments for right now. */
     private static volatile String activeChannelId = null;
@@ -1209,33 +1520,78 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
      */
     private byte[] downloadRaw(String url, String referer, boolean playerPriority) throws Exception {
         java.util.concurrent.ExecutorService pool = playerPriority ? PLAYER_CHUNK_POOL : CHUNK_POOL;
-        long total = -1L;
-        // HEAD discipline (audit S15): a CDN that signs per method
-        // 403s HEAD - that used to be fatal and triggered a token
-        // renew plus another doomed HEAD. HEAD failure now means "no
-        // usable HEAD", the host is remembered, and the segment goes
-        // straight to the range probe.
-        String host = hostOf(url);
-        Long headFailedAt = HEAD_FAILED_HOSTS.get(host);
-        boolean skipHead = headFailedAt != null && System.currentTimeMillis() - headFailedAt < 600_000L;
-        if (!skipHead) {
-            okhttp3.Call head = this.segmentClient.newCall(request(url, referer).head().build());
-            head.timeout().timeout(6L, TimeUnit.SECONDS);
-            try (okhttp3.Response resp = head.execute()) {
-                if (resp.code() >= 400) {
-                    HEAD_FAILED_HOSTS.put(host, System.currentTimeMillis());
-                } else if (resp.isSuccessful()) {
-                    total = resp.header("Content-Length") != null ? Long.parseLong(resp.header("Content-Length")) : -1L;
+        // Fast path: full GET over HTTP/2 + HTTP/1.1 connection pool with a 3.5s stall hedge.
+        // Benchmarking against tiktokcdn-us.com showed HTTP/2 full GET completes a 1.6 MB segment
+        // in ~1.2s (and 3 parallel segments in ~1.4s total), whereas 6 parallel HTTP/1.1 Range
+        // connections + synchronous HEAD took 7.3s+ due to per-IP connection throttling.
+        okhttp3.Call primaryCall = this.h2SegmentClient.newCall(request(url, referer).build());
+        primaryCall.timeout().timeout(9L, TimeUnit.SECONDS);
+        java.util.concurrent.Future<byte[]> primaryFuture = pool.submit(() -> {
+            try (okhttp3.Response r = primaryCall.execute()) {
+                if (r.code() == 403) {
+                    throw new HttpException(403);
                 }
-            } catch (Exception ignored) {
-                // No usable HEAD: fall through to the range-probe flow.
+                if (!r.isSuccessful() || r.body() == null) {
+                    throw new HttpException(r.code());
+                }
+                return r.body().bytes();
+            }
+        });
+        try {
+            return primaryFuture.get(3500L, TimeUnit.MILLISECONDS);
+        } catch (java.util.concurrent.ExecutionException ee) {
+            primaryCall.cancel();
+            if (ee.getCause() instanceof HttpException && ((HttpException) ee.getCause()).code == 403) {
+                throw (HttpException) ee.getCause();
+            }
+            // Fall through to range-probe recovery on transient error
+        } catch (java.util.concurrent.TimeoutException te) {
+            // Primary GET is taking > 3.5s: keep primaryCall running and race a hedged GET on a fresh connection,
+            // waiting up to 4.5s more before falling back to chunked Range assembly.
+            okhttp3.Call hedgeCall = this.segmentClient.newCall(request(url, referer).build());
+            hedgeCall.timeout().timeout(8L, TimeUnit.SECONDS);
+            java.util.concurrent.Future<byte[]> hedgeFuture = pool.submit(() -> {
+                try (okhttp3.Response r = hedgeCall.execute()) {
+                    if (r.code() == 403) {
+                        throw new HttpException(403);
+                    }
+                    if (!r.isSuccessful() || r.body() == null) {
+                        throw new HttpException(r.code());
+                    }
+                    return r.body().bytes();
+                }
+            });
+            try {
+                long deadline = System.currentTimeMillis() + 4500L;
+                while (System.currentTimeMillis() < deadline) {
+                    if (primaryFuture.isDone()) {
+                        hedgeFuture.cancel(true);
+                        hedgeCall.cancel();
+                        return primaryFuture.get();
+                    }
+                    if (hedgeFuture.isDone()) {
+                        primaryFuture.cancel(true);
+                        primaryCall.cancel();
+                        return hedgeFuture.get();
+                    }
+                    Thread.sleep(40L);
+                }
+            } catch (java.util.concurrent.ExecutionException ee) {
+                primaryFuture.cancel(true);
+                primaryCall.cancel();
+                hedgeFuture.cancel(true);
+                hedgeCall.cancel();
+                if (ee.getCause() instanceof HttpException && ((HttpException) ee.getCause()).code == 403) {
+                    throw (HttpException) ee.getCause();
+                }
+            } finally {
+                primaryFuture.cancel(true);
+                primaryCall.cancel();
+                hedgeFuture.cancel(true);
+                hedgeCall.cancel();
             }
         }
-        if (total > CHUNK_SIZE) {
-            return collectChunks(url, referer, pool, total, null);
-        }
-        // Small body or no HEAD: range-probe flow (first chunk doubles
-        // as the probe), or a plain stream if ranges are refused.
+        // Fallback: range-probe flow (first chunk doubles as the probe, no synchronous HEAD needed)
         Request firstReq = request(url, referer).header("Range", "bytes=0-" + (CHUNK_SIZE - 1)).build();
         try (okhttp3.Response resp = executeOnce(firstReq)) {
             if (resp.code() == 403) {
@@ -1257,10 +1613,6 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             }
             byte[] first = resp.body().bytes();
             if (probedTotal < 0L) {
-                // The probe could not report a total (audit S5): this
-                // body may be only the first 256 KB of the segment,
-                // and returning it as complete poisoned the cache.
-                // Re-issue a plain GET for the whole body.
                 Request fullReq = request(url, referer).build();
                 try (okhttp3.Response full = executeOnce(fullReq)) {
                     if (full.code() == 403) {
@@ -1871,9 +2223,15 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
         }
     }
 
+    private static boolean shouldOmitReferer(String url) {
+        if (url == null) return false;
+        String lower = url.toLowerCase();
+        return lower.contains("tiktokcdn") || lower.contains("wideiptv") || lower.contains("cdnlivetv") || lower.contains("bluetier");
+    }
+
     private Request.Builder request(String url, String referer) {
         Request.Builder request = new Request.Builder().url(url).header(HttpHeaders.USER_AGENT, UA);
-        if (referer != null && !referer.isEmpty()) {
+        if (referer != null && !referer.isEmpty() && !shouldOmitReferer(url)) {
             request.header(HttpHeaders.REFERER, referer);
             try {
                 URI uri = URI.create(referer);
