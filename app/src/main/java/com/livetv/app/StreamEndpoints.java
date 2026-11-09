@@ -19,11 +19,12 @@ import java.util.List;
  */
 public final class StreamEndpoints {
 
-    /** Current primary host. dlhd.st and dlstreams.st both redirect here. */
-    public static final String PRIMARY = "https://thedaddy.pk";
+    /** Current primary host. thedaddy.pk, dlhd.st and dlstreams.st redirect here. */
+    public static final String PRIMARY = "https://thedaddy.li";
 
     /** Operator mirrors, tried when the primary host is unreachable. */
     public static final List<String> MIRRORS = Collections.unmodifiableList(Arrays.asList(
+            "https://thedaddy.pk",
             "https://dlhd.pk",
             "https://daddylive.at",
             "https://daddylive.app"

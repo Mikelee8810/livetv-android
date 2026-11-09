@@ -17,9 +17,9 @@ public class StreamResolverTest {
 
     @Test
     public void endpointsUseCurrentPrimaryDomain() {
-        assertEquals("https://thedaddy.pk/watch.php?id=51", StreamEndpoints.watchUrl(StreamEndpoints.PRIMARY, "51"));
-        assertEquals("https://thedaddy.pk/stream/stream-51.php", StreamEndpoints.streamUrl(StreamEndpoints.PRIMARY, "51"));
-        assertEquals("https://thedaddy.pk/24-7-channels.php", StreamEndpoints.channelsUrl(StreamEndpoints.PRIMARY));
+        assertEquals("https://thedaddy.li/watch.php?id=51", StreamEndpoints.watchUrl(StreamEndpoints.PRIMARY, "51"));
+        assertEquals("https://thedaddy.li/stream/stream-51.php", StreamEndpoints.streamUrl(StreamEndpoints.PRIMARY, "51"));
+        assertEquals("https://thedaddy.li/24-7-channels.php", StreamEndpoints.channelsUrl(StreamEndpoints.PRIMARY));
         assertTrue(StreamEndpoints.BASES.get(0).equals(StreamEndpoints.PRIMARY));
     }
 
@@ -160,7 +160,61 @@ public class StreamResolverTest {
 
     @Test
     public void playerPageUrlUsesPrimaryDomain() {
-        assertEquals("https://thedaddy.pk/stream/stream-51.php", OnDeviceStreamServer.playerPageUrl("51", 0));
-        assertEquals("https://thedaddy.pk/watch/stream-51.php", OnDeviceStreamServer.playerPageUrl("51", 3));
+        assertEquals("https://thedaddy.li/stream/stream-51.php", OnDeviceStreamServer.playerPageUrl("51", 0));
+        assertEquals("https://thedaddy.li/watch/stream-51.php", OnDeviceStreamServer.playerPageUrl("51", 3));
+    }
+
+    @Test
+    public void decryptsSealedDembedPlaylist() throws Exception {
+        byte[] key = java.util.Base64.getUrlDecoder().decode("9mrr2wYDeYHL1qfp-Yinlg");
+        String plainSegment0 = "https://p16-plat-va.tiktokcdn-us.com/tos-maliva-i-f159k4nh3e-us/segment_100.png?x-expires=1794189000";
+        String plainSegment1 = "https://p16-plat-va.tiktokcdn-us.com/tos-maliva-i-f159k4nh3e-us/segment_101.png?x-expires=1794189006";
+
+        javax.crypto.spec.SecretKeySpec keySpec = new javax.crypto.spec.SecretKeySpec(key, "AES");
+        byte[] iv0 = new byte[16];
+        iv0[15] = 100;
+        javax.crypto.Cipher c0 = javax.crypto.Cipher.getInstance("AES/CTR/NoPadding");
+        c0.init(javax.crypto.Cipher.ENCRYPT_MODE, keySpec, new javax.crypto.spec.IvParameterSpec(iv0));
+        String enc0 = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(c0.doFinal(plainSegment0.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+
+        byte[] iv1 = new byte[16];
+        iv1[15] = 101;
+        javax.crypto.Cipher c1 = javax.crypto.Cipher.getInstance("AES/CTR/NoPadding");
+        c1.init(javax.crypto.Cipher.ENCRYPT_MODE, keySpec, new javax.crypto.spec.IvParameterSpec(iv1));
+        String enc1 = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(c1.doFinal(plainSegment1.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+
+        String sealedManifest = "#EXTM3U\n"
+                + "#EXT-X-VERSION:3\n"
+                + "#EXT-X-TARGETDURATION:6\n"
+                + "#EXT-X-MEDIA-SEQUENCE:100\n"
+                + "#EXTINF:6.0,\n"
+                + enc0 + "\n"
+                + "#EXTINF:6.0,\n"
+                + enc1 + "\n";
+
+        String opened = OnDeviceStreamServer.openSealedPlaylist(sealedManifest, key);
+        assertTrue(opened.contains(plainSegment0));
+        assertTrue(opened.contains(plainSegment1));
+    }
+
+    @Test
+    public void unwrapsWebpLosslessHeaderSegment() {
+        // Route plus (tims-001.sytes.net) prepends a 42-byte RIFF....WEBPVP8L header
+        // directly before raw 188-byte MPEG-TS packets.
+        byte[] header = new byte[42];
+        byte[] riff = "RIFF\u0000\u0000\u0000\u0000WEBPVP8L".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        System.arraycopy(riff, 0, header, 0, riff.length);
+        byte[] ts = new byte[188 * 4];
+        for (int i = 0; i < ts.length; i += 188) {
+            ts[i] = 0x47;
+        }
+        byte[] wrapped = new byte[header.length + ts.length];
+        System.arraycopy(header, 0, wrapped, 0, header.length);
+        System.arraycopy(ts, 0, wrapped, header.length, ts.length);
+
+        byte[] unwrapped = OnDeviceStreamServer.unwrapPayload(wrapped);
+        assertEquals(ts.length, unwrapped.length);
+        assertEquals(0x47, unwrapped[0] & 0xFF);
+        assertEquals(0x47, unwrapped[188] & 0xFF);
     }
 }
