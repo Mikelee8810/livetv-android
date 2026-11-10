@@ -93,6 +93,7 @@ class MainActivity : Activity() {
         // Initialize Data & Engine
         Repo.init(this)
         prefs = Repo.prefs
+        Thread { com.livetv.app.data.Recorder.purgeOld(this) }.start()
         Pal.apply(prefs.theme, prefs.accent)
         Fonts.scale = when (prefs.fontSize) { "Small" -> 0.88f; "Large" -> 1.15f; else -> 1.0f }
         playerEngine = PlayerEngine(this, prefs)
@@ -1158,10 +1159,8 @@ class MainActivity : Activity() {
         val R_ = com.livetv.app.data.Recorder
         val saved = R_.saved(this)
         val scheduled = com.livetv.app.data.RecordingSchedule.all(prefs)
-        if (saved.isEmpty() && scheduled.isEmpty()) {
-            Dialogs.message(this, "Recordings", "No recordings yet. While watching, open the player bar and choose Record, or open a live program in the guide and choose Record this program.")
-            return
-        }
+        val openRow = com.livetv.app.ui.Row("Open from Google Drive or storage",
+            sub = "Play a recording saved elsewhere", onClick = { pickRecordingToPlay() })
         val fmt = java.text.SimpleDateFormat("EEE MMM d, h:mm a", java.util.Locale.US)
         val rows = saved.map { s ->
             val mb = s.sizeBytes / (1024 * 1024)
@@ -1169,12 +1168,14 @@ class MainActivity : Activity() {
                 (if (s.recording) "● " else "") + s.title,
                 sub = fmt.format(java.util.Date(s.modifiedMs)) + " · ${mb} MB" + (if (s.recording) " · recording" else ""),
                 onClick = {
-                    val acts = mutableListOf("Play", "Delete")
+                    val acts = mutableListOf("Play", "Save to Google Drive or storage", "Share", "Delete")
                     if (s.recording) acts.add(1, "Stop recording")
                     Dialogs.choose(this, s.title, acts, 0) { i ->
                         when (acts[i]) {
                             "Play" -> { playerEngine.playFile(s.file); enterFullscreen() }
                             "Stop recording" -> R_.activeList().firstOrNull { it.file.absolutePath == s.file.absolutePath }?.let { R_.stop(it.id) }
+                            "Save to Google Drive or storage" -> exportRecording(s.file)
+                            "Share" -> shareRecording(s.file)
                             "Delete" -> Dialogs.confirm(this, "Delete Recording", "Delete '${s.title}'?", "Delete") { R_.delete(this, s) }
                         }
                     }
@@ -1193,7 +1194,74 @@ class MainActivity : Activity() {
                 }
             )
         }
-        com.livetv.app.ui.Dialogs.menu(this, "Recordings", schedRows + rows, 520f)
+        com.livetv.app.ui.Dialogs.menu(this, "Recordings", listOf(openRow) + schedRows + rows, 520f)
+    }
+
+    // -- Recordings <-> Google Drive / other storage ---------------------------
+    // Uses the system document picker, which lists Google Drive whenever
+    // the Drive app (or another cloud provider) is installed on the device.
+    private var pendingExport: java.io.File? = null
+    private val REQ_EXPORT = 7101
+    private val REQ_OPEN = 7102
+
+    private fun startPicker(i: android.content.Intent, req: Int) {
+        try { startActivityForResult(i, req) }
+        catch (e: android.content.ActivityNotFoundException) {
+            Dialogs.message(this, "Not Available", "This device has no file picker. Use Share instead, or install Google Drive.")
+        }
+    }
+
+    private fun exportRecording(f: java.io.File) {
+        pendingExport = f
+        startPicker(android.content.Intent(android.content.Intent.ACTION_CREATE_DOCUMENT)
+            .addCategory(android.content.Intent.CATEGORY_OPENABLE)
+            .setType("video/mp2t")
+            .putExtra(android.content.Intent.EXTRA_TITLE, f.name), REQ_EXPORT)
+    }
+
+    private fun shareRecording(f: java.io.File) {
+        try {
+            val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.fileprovider", f)
+            val send = android.content.Intent(android.content.Intent.ACTION_SEND)
+                .setType("video/mp2t")
+                .putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            startActivity(android.content.Intent.createChooser(send, "Save recording to"))
+        } catch (e: Exception) {
+            Dialogs.message(this, "Not Available", "No app on this device can receive the recording. Install Google Drive to save recordings there.")
+        }
+    }
+
+    private fun pickRecordingToPlay() {
+        startPicker(android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT)
+            .addCategory(android.content.Intent.CATEGORY_OPENABLE)
+            .setType("video/*"), REQ_OPEN)
+    }
+
+    @Deprecated("Activity result API")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        val uri = data?.data
+        if (resultCode != RESULT_OK || uri == null) { pendingExport = null; return }
+        when (requestCode) {
+            REQ_EXPORT -> {
+                val src = pendingExport ?: return
+                pendingExport = null
+                Toast.makeText(this, "Saving ${src.name}…", Toast.LENGTH_SHORT).show()
+                Thread {
+                    val ok = try {
+                        contentResolver.openOutputStream(uri)?.use { out -> src.inputStream().use { it.copyTo(out, 1 shl 16) } } != null
+                    } catch (e: Exception) { false }
+                    runOnUiThread {
+                        Toast.makeText(this, if (ok) "Saved ${src.name}" else "Save failed", Toast.LENGTH_LONG).show()
+                    }
+                }.start()
+            }
+            REQ_OPEN -> {
+                playerEngine.playUri(uri)
+                enterFullscreen()
+            }
+        }
     }
 
     private fun confirmAppExit() {

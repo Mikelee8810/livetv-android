@@ -78,11 +78,21 @@ object Recorder {
         return ok
     }
 
+    /** Delete finished recordings older than the Auto-delete setting. */
+    fun purgeOld(ctx: Context) {
+        val days = Repo.prefs.recKeepDays
+        if (days <= 0) return
+        val cutoff = System.currentTimeMillis() - days * 86_400_000L
+        saved(ctx).filter { !it.recording && it.modifiedMs < cutoff }.forEach { it.file.delete() }
+        fire()
+    }
+
     fun stop(id: String) { active[id]?.stop = true; fire() }
 
     /** Start recording [item] until [endMs] (epoch ms). Returns the recording, or null if already recording it. */
     fun start(ctx: Context, item: Item, title: String, endMs: Long): Active? {
         if (isRecording(item.name)) return null
+        purgeOld(ctx)
         val stamp = SimpleDateFormat("yyyy-MM-dd_HHmm", Locale.US).format(Date())
         val safe = "${item.name} ${title}".replace(Regex("[^A-Za-z0-9 ._-]"), "").trim().replace(' ', '_').take(80)
         val file = File(dir(ctx), "${stamp}_$safe.ts")

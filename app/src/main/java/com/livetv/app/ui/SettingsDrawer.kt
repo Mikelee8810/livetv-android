@@ -162,6 +162,9 @@ class SettingsDrawer(
         Row("Playback", sub = "Buffer, decoders, AFR & audio", onClick = {
             push(Screen("Playback", ::buildPlaybackMenu))
         }),
+        Row("Recording", sub = "Start/end padding & auto-delete", onClick = {
+            push(Screen("Recording", ::buildRecordingMenu))
+        }),
         Row("Remote control", sub = "D-pad & remote button mapping", onClick = {
             push(Screen("Remote control", ::buildRemoteMenu))
         }),
@@ -467,6 +470,37 @@ class SettingsDrawer(
     // -------------------------------------------------------------
     // 5. Playback
     // -------------------------------------------------------------
+    private fun buildRecordingMenu(): List<Row> {
+        val padOpts = listOf(0, 1, 2, 5, 10, 15, 30)
+        val keepOpts = listOf(0, 3, 7, 14, 30, 60)
+        fun keepLabel(d: Int) = if (d == 0) "Never" else "After $d days"
+        return listOf(
+            Row("Start early", sub = "Scheduled recordings begin this much before the show",
+                value = "${prefs.recPaddingBefore} min", onClick = {
+                    Dialogs.choose(activity, "Start Early", padOpts.map { "$it min" }, padOpts.indexOf(prefs.recPaddingBefore).coerceAtLeast(0)) {
+                        prefs.recPaddingBefore = padOpts[it]; renderCurrent()
+                    }
+                }),
+            Row("End late", sub = "Keep recording this long after the show ends",
+                value = "${prefs.recPaddingAfter} min", onClick = {
+                    Dialogs.choose(activity, "End Late", padOpts.map { "$it min" }, padOpts.indexOf(prefs.recPaddingAfter).coerceAtLeast(0)) {
+                        prefs.recPaddingAfter = padOpts[it]; renderCurrent()
+                    }
+                }),
+            Row("Auto-delete recordings", sub = "Remove finished recordings older than this",
+                value = keepLabel(prefs.recKeepDays), onClick = {
+                    Dialogs.choose(activity, "Auto-delete", keepOpts.map { keepLabel(it) }, keepOpts.indexOf(prefs.recKeepDays).coerceAtLeast(0)) {
+                        prefs.recKeepDays = keepOpts[it]; renderCurrent()
+                        com.livetv.app.data.Recorder.purgeOld(activity)
+                    }
+                }),
+            Row("Storage used", value = run {
+                val all = com.livetv.app.data.Recorder.saved(activity)
+                "${all.size} recordings, ${all.sumOf { it.sizeBytes } / (1024 * 1024)} MB"
+            })
+        )
+    }
+
     private fun buildPlaybackMenu(): List<Row> = listOf(
         Row("Buffer size", value = prefs.buffer, onClick = {
             val opts = listOf("Small", "Medium", "Large", "Very large")
