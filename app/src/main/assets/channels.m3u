@@ -1,4 +1,4 @@
-#EXTM3U url-tvg="https://epgshare01.online/epgshare01/epg_ripper_US2.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_US_LOCALS1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_US_SPORTS1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_CA2.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_UK1.xml.gz,titantv://directv-national,titantv://spectrum-manhattan,titantv://sling-national,cdnlive://sports"
+#EXTM3U url-tvg="https://epgshare01.online/epgshare01/epg_ripper_US2.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_US_SPORTS1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_CA2.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_UK1.xml.gz,titantv://directv-national,titantv://spectrum-manhattan,titantv://sling-national,cdnlive://sports"
 #EXTINF:-1 tvg-id="abcusa.us" tvg-name="ABC USA" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/abc-us.png" group-title="USA Entertainment",ABC USA
 /api/proxy/daddylive/manifest.m3u8?id=51
 #EXTINF:-1 tvg-id="Antenna.TV.us2" tvg-name="Antenna TV USA" tvg-logo="https://i.imgur.com/1sAgSME.png" group-title="USA Entertainment",Antenna TV USA

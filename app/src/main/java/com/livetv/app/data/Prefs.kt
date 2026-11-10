@@ -80,6 +80,8 @@ class Prefs(ctx: Context) {
     var tunneled get() = bool("tunneled", false); set(v) = put("tunneled", v)
     // Live channels: VLC (smooth on the Google TV Streamer) or ExoPlayer.
     var playerEngine get() = str("playerEngine", "VLC"); set(v) = put("playerEngine", v)
+    // Lip-sync trim for the VLC engine, in milliseconds (+ = audio later).
+    var audioDelayMs get() = int("audioDelayMs", 0); set(v) = put("audioDelayMs", v)
     var aspect get() = str("aspect", "Fit"); set(v) = put("aspect", v)
     var autoRetry get() = bool("autoRetry", true); set(v) = put("autoRetry", v)
     var preferAudioLang get() = str("preferAudioLang", "eng"); set(v) = put("preferAudioLang", v)

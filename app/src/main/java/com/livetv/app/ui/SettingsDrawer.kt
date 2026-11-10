@@ -529,6 +529,14 @@ class SettingsDrawer(
                 renderCurrent()
             }
         }),
+        Row("Audio delay (lip sync)", value = (if (prefs.audioDelayMs > 0) "+" else "") + prefs.audioDelayMs + " ms", onClick = {
+            val steps = (-300..300 step 25).toList()
+            val opts = steps.map { (if (it > 0) "+" else "") + it + " ms" + if (it == 0) " (default)" else "" }
+            Dialogs.choose(activity, "Audio delay: + if sound is early, - if late. Applies on next channel change.", opts, steps.indexOf(prefs.audioDelayMs).coerceAtLeast(0)) {
+                prefs.audioDelayMs = steps[it]
+                renderCurrent()
+            }
+        }),
         Row("Video decoder", value = prefs.videoDecoder, onClick = {
             val opts = listOf("Auto", "Hardware", "Software")
             Dialogs.choose(activity, "Video Decoder", opts, opts.indexOf(prefs.videoDecoder).coerceAtLeast(0)) {

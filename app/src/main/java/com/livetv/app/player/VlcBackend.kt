@@ -101,7 +101,7 @@ class VlcBackend(context: Context, private val listener: Listener) {
         }
     }
 
-    fun play(url: String, userAgent: String, captions: Boolean) {
+    fun play(url: String, userAgent: String, captions: Boolean, audioDelayMs: Int = 0) {
         lastUrl = url
         isActive = true
         if (!attached) attachVout()
@@ -112,12 +112,11 @@ class VlcBackend(context: Context, private val listener: Listener) {
             addOption(":network-caching=3000")
             addOption(":live-caching=3000")
             addOption(":http-user-agent=$userAgent")
-            addOption(":clock-jitter=0")
-            addOption(":clock-synchro=0")
         }
         player.media = media
         media.release()
         player.play()
+        setAudioDelay(audioDelayMs)
         setCaptions(captions)
         Log.i(TAG, "VLC play $url")
     }
@@ -131,6 +130,9 @@ class VlcBackend(context: Context, private val listener: Listener) {
             player.spuTrack = target
         }, 1500L)
     }
+
+    /** Positive delays audio; negative brings it earlier. */
+    fun setAudioDelay(ms: Int) { player.setAudioDelay(ms * 1000L) }
 
     fun restart() { lastUrl?.let { url -> player.media?.let { player.stop(); player.play() } ?: Log.w(TAG, "no media for $url") } }
     fun pause() = player.pause()

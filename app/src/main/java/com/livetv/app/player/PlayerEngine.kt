@@ -987,7 +987,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             v.attach(attachedTextureView)
             isPlaying = false
             isBuffering = true
-            v.play(streamUrl, userAgent, prefs.captionsOn)
+            v.play(streamUrl, userAgent, prefs.captionsOn, prefs.audioDelayMs)
             onStateChanged?.invoke()
             return
         }
