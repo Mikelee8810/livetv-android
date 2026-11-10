@@ -568,7 +568,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             ): androidx.media3.exoplayer.audio.AudioSink? {
                 val b = androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context)
                     .setEnableFloatOutput(enableFloatOutput)
-                    .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
+                    .setEnableAudioTrackPlaybackParams(enableAudioOutputPlaybackParams)
                 if (!allowPassthrough) {
                     @Suppress("DEPRECATION")
                     b.setAudioCapabilities(androidx.media3.exoplayer.audio.AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES)
