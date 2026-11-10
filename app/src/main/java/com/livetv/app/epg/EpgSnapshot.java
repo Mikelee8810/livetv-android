@@ -65,6 +65,14 @@ public final class EpgSnapshot {
                         return EpgSnapshot.lambda$map$1((String) obj);
                     }
                 }).add(program);
+                // An aliased guide id can also feed a second channel: the
+                // NY local feed (exact id) and the national network channel
+                // (alias) share one schedule.
+                String alias = aliases == null ? null : aliases.get(program.channelId);
+                Channel extra = alias == null ? null : index.exactIds.get(alias.toLowerCase(Locale.ROOT));
+                if (extra != null && !extra.id.equals(channel.id)) {
+                    mapped.computeIfAbsent(extra.id, k -> new ArrayList<>()).add(program);
+                }
             }
         }
         return new EpgSnapshot(snapshotChannels, mapped);
