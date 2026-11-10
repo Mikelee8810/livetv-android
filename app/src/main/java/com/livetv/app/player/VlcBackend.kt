@@ -46,11 +46,14 @@ class VlcBackend(context: Context, private val listener: Listener) {
     private var attached = false
     private var lastUrl: String? = null
     var isActive = false; private set
+    private var audioDelayMs = 0
 
     init {
         player.setEventListener { e ->
             when (e.type) {
-                MediaPlayer.Event.Playing -> listener.onVlcPlaying()
+                // libVLC resets the audio delay when the media starts, so the
+                // trim must be (re)applied here, not before play().
+                MediaPlayer.Event.Playing -> { setAudioDelay(audioDelayMs); listener.onVlcPlaying() }
                 MediaPlayer.Event.Buffering -> listener.onVlcBuffering(e.buffering < 100f)
                 MediaPlayer.Event.Vout -> if (e.voutCount > 0) reportSize()
                 MediaPlayer.Event.ESAdded -> reportSize()
@@ -116,7 +119,7 @@ class VlcBackend(context: Context, private val listener: Listener) {
         player.media = media
         media.release()
         player.play()
-        setAudioDelay(audioDelayMs)
+        this.audioDelayMs = audioDelayMs
         setCaptions(captions)
         Log.i(TAG, "VLC play $url")
     }
@@ -132,7 +135,7 @@ class VlcBackend(context: Context, private val listener: Listener) {
     }
 
     /** Positive delays audio; negative brings it earlier. */
-    fun setAudioDelay(ms: Int) { val ok = player.setAudioDelay(ms * 1000L); Log.i(TAG, "audio delay " + ms + " ms applied=" + ok) }
+    fun setAudioDelay(ms: Int) { audioDelayMs = ms; val ok = player.setAudioDelay(ms * 1000L); Log.i(TAG, "audio delay " + ms + " ms applied=" + ok) }
 
     fun restart() { lastUrl?.let { url -> player.media?.let { player.stop(); player.play() } ?: Log.w(TAG, "no media for $url") } }
     fun pause() = player.pause()

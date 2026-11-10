@@ -85,7 +85,7 @@ class Prefs(ctx: Context) {
         get() = str("recentChannels", "").split('\n').filter { it.isNotBlank() }
         set(v) = put("recentChannels", v.take(10).joinToString("\n"))
     // Lip-sync trim for the VLC engine, in milliseconds (+ = audio later).
-    var audioDelayMs get() = int("audioDelayMs2", -100); set(v) = put("audioDelayMs2", v)
+    var audioDelayMs get() = int("audioDelayMs3", 0); set(v) = put("audioDelayMs3", v)
     var aspect get() = str("aspect", "Fit"); set(v) = put("aspect", v)
     var autoRetry get() = bool("autoRetry", true); set(v) = put("autoRetry", v)
     var preferAudioLang get() = str("preferAudioLang", "eng"); set(v) = put("preferAudioLang", v)
