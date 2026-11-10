@@ -60,6 +60,10 @@ object Repo {
         val ordered = enabled.sortedBy { if (it.id == "builtin") 0 else 1 }
         val out = ArrayList<Item>()
         var n = 1
+        // done (start playback, focus the guide) runs once, as soon as
+        // the builtin list is in: it used to wait for every user
+        // playlist download, so a slow playlist stalled startup.
+        var doneFired = false
         for ((pass, pl) in ordered.withIndex()) {
             val chans: List<Channel> = try {
                 if (pl.id == "builtin") ChannelCatalog.loadWithReport(app).also { catalogEpg = it.epgSources }.channels
@@ -76,6 +80,10 @@ object Repo {
                 if (mySeq != reloadSeq.get()) return@thread
                 val partial = sortItems(ArrayList(out))
                 if (partial.isNotEmpty() || items.isEmpty()) items = partial
+                if (items.isNotEmpty()) {
+                    doneFired = true
+                    main.post { done?.invoke(); fire() }
+                }
             }
         }
         // A superseded reload commits nothing (audit R1): a slow older
@@ -89,7 +97,16 @@ object Repo {
         // the first playback for CPU right at app start. A single
         // posted runnable, cancelled and reposted per reload, so
         // reloads cannot stack refreshes (audit R2).
-        main.post { done?.invoke(); fire(); if (prefs.epgOnStart) { main.removeCallbacks(epgRefreshRunnable); main.postDelayed(epgRefreshRunnable, 15000) } }
+        // When listings are already cached on disk the refresh only
+        // parses them, so load them after 3 s instead of leaving the
+        // guide without programmes for 15 s on every launch.
+        val hasCache = java.io.File(app.cacheDir, "xmltv").list()?.isNotEmpty() == true
+        val epgDelay = if (hasCache) 3000L else 15000L
+        main.post {
+            if (!doneFired) done?.invoke()
+            fire()
+            if (prefs.epgOnStart) { main.removeCallbacks(epgRefreshRunnable); main.postDelayed(epgRefreshRunnable, epgDelay) }
+        }
         // Background: refresh the live DaddyLive channel list when its cache
         // is stale, then reload once so new channels appear without a restart.
         thread(name = "live-catalog") {
