@@ -756,8 +756,12 @@ class MainActivity : Activity() {
     fun closeMainMenuDrawer(focusCategories: Boolean = true) {
         // The rail is closing (or already closed): Categories becomes
         // focusable again BEFORE any focus hand-off into it (v4.4.1).
-        categoriesDrawer.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
-        groupsList.focusGrabBlocked = false
+        // Only while Categories is actually open: re-enabling a closed
+        // drawer let its list steal the D-pad from the guide again.
+        if (isCategoriesDrawerOpen) {
+            categoriesDrawer.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+            groupsList.focusGrabBlocked = false
+        }
         if (!isMainMenuDrawerOpen) {
             if (focusCategories && isCategoriesDrawerOpen) {
                 val curIdx = Repo.groups().indexOfFirst { it.id == prefs.lastGroup }.coerceAtLeast(0)
