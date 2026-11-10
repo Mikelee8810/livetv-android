@@ -1563,16 +1563,35 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             });
             try {
                 long deadline = System.currentTimeMillis() + 4500L;
-                while (System.currentTimeMillis() < deadline) {
-                    if (primaryFuture.isDone()) {
-                        hedgeFuture.cancel(true);
-                        hedgeCall.cancel();
-                        return primaryFuture.get();
+                // A racer that FAILS must not end the race: the old loop
+                // returned get() on whichever finished first, so a fast
+                // error on one connection threw away the other download
+                // mid-flight and dropped to the slow Range path - a
+                // visible stall. Only a success wins; a failure just
+                // leaves the other racer running (403 still aborts).
+                boolean primaryFailed = false, hedgeFailed = false;
+                while (System.currentTimeMillis() < deadline && !(primaryFailed && hedgeFailed)) {
+                    if (!primaryFailed && primaryFuture.isDone()) {
+                        try {
+                            byte[] b = primaryFuture.get();
+                            hedgeFuture.cancel(true);
+                            hedgeCall.cancel();
+                            return b;
+                        } catch (java.util.concurrent.ExecutionException pe) {
+                            if (pe.getCause() instanceof HttpException && ((HttpException) pe.getCause()).code == 403) throw pe;
+                            primaryFailed = true;
+                        }
                     }
-                    if (hedgeFuture.isDone()) {
-                        primaryFuture.cancel(true);
-                        primaryCall.cancel();
-                        return hedgeFuture.get();
+                    if (!hedgeFailed && hedgeFuture.isDone()) {
+                        try {
+                            byte[] b = hedgeFuture.get();
+                            primaryFuture.cancel(true);
+                            primaryCall.cancel();
+                            return b;
+                        } catch (java.util.concurrent.ExecutionException he) {
+                            if (he.getCause() instanceof HttpException && ((HttpException) he.getCause()).code == 403) throw he;
+                            hedgeFailed = true;
+                        }
                     }
                     Thread.sleep(40L);
                 }

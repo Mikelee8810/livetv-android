@@ -76,6 +76,7 @@ class Prefs(ctx: Context) {
     var afr get() = str("afr", "Off"); set(v) = put("afr", v)
     var surroundDefault get() = bool("surroundDefault", false); set(v) = put("surroundDefault", v)
     var passthrough get() = bool("passthrough", false); set(v) = put("passthrough", v)
+    var captionsOn get() = bool("captionsOn", false); set(v) = put("captionsOn", v)
     var tunneled get() = bool("tunneled", false); set(v) = put("tunneled", v)
     var aspect get() = str("aspect", "Fit"); set(v) = put("aspect", v)
     var autoRetry get() = bool("autoRetry", true); set(v) = put("autoRetry", v)

@@ -198,6 +198,26 @@ class MainActivity : Activity() {
         }
         rootContainer.addView(mainVideoView)
         playerEngine.attachTextureView(mainVideoView)
+
+        // Closed captions: drawn over the video and kept the same size
+        // and position as it (preview box or fullscreen). Nothing drew
+        // caption cues before, so picking a caption track did nothing.
+        val captionView = androidx.media3.ui.SubtitleView(this).apply {
+            setUserDefaultStyle()
+            setUserDefaultTextSize()
+            isFocusable = false
+        }
+        rootContainer.addView(captionView, FrameLayout.LayoutParams(dpi(380f), dpi(214f)))
+        mainVideoView.addOnLayoutChangeListener { v, l, t, r, b, _, _, _, _ ->
+            val lp = captionView.layoutParams as FrameLayout.LayoutParams
+            if (lp.width != r - l || lp.height != b - t || lp.leftMargin != l || lp.topMargin != t) {
+                lp.width = r - l; lp.height = b - t; lp.leftMargin = l; lp.topMargin = t
+                lp.gravity = Gravity.TOP or Gravity.START
+                captionView.layoutParams = lp
+            }
+            captionView.visibility = v.visibility
+        }
+        playerEngine.onCues = { cues -> captionView.setCues(cues) }
         playerEngine.onStateChanged = {
             if (isFullscreen) {
                 playerEngine.setAspectRatio(prefs.aspect, rootContainer, mainVideoView)
@@ -1037,6 +1057,13 @@ class MainActivity : Activity() {
             // A held BACK auto-repeats; acting on every repeat collapsed
             // several menu levels (or exited) from one long press.
             if (code == KeyEvent.KEYCODE_BACK && event.repeatCount > 0) return true
+            // The remote's CC button toggles closed captions anywhere.
+            if (code == KeyEvent.KEYCODE_CAPTIONS && event.repeatCount == 0) {
+                val on = !prefs.captionsOn
+                playerEngine.setCaptions(on)
+                Toast.makeText(this, if (on) "Captions on" else "Captions off", Toast.LENGTH_SHORT).show()
+                return true
+            }
             // Fullscreen handles its own keys
             if (isFullscreen) {
                 if (playerOverlay.onKey(code, event)) return true

@@ -629,7 +629,16 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                     // screen on device (2026-11-03). Media3 does NOT
                     // fall back when a tunneled decoder simply never
                     // releases frames for display.
-                    .setTunnelingEnabled(false)
+                    // Tunneling stays opt-in (the Settings toggle now
+                    // actually applies); default off for the reason above.
+                    .setTunnelingEnabled(prefs.tunneled)
+                    // Closed captions: remembered across channel changes
+                    // and player rebuilds. CEA-608 inside the TS
+                    // segments is exposed as an undetermined-language
+                    // text track, so allow those to be picked.
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !prefs.captionsOn)
+                    .setSelectUndeterminedTextLanguage(true)
+                    .setPreferredTextLanguage("en")
             )
         }
 
@@ -709,7 +718,15 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             player.setVideoSurfaceView(attachedSurfaceView)
         }
 
+        // Auto frame rate: the Settings toggle was stored but never read.
+        player.setVideoChangeFrameRateStrategy(
+            if (prefs.afr == "Off") C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF
+            else C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS
+        )
         player.addListener(object : Player.Listener {
+            override fun onCues(cueGroup: androidx.media3.common.text.CueGroup) {
+                onCues?.invoke(cueGroup.cues)
+            }
             override fun onPlaybackStateChanged(playbackState: Int) {
                 isBuffering = playbackState == Player.STATE_BUFFERING
                 isPlaying = playbackState == Player.STATE_READY && player.playWhenReady
@@ -1209,7 +1226,24 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         return result
     }
 
+    /** Receives caption cues; set by the activity that draws them. */
+    var onCues: ((List<androidx.media3.common.text.Cue>) -> Unit)? = null
+
+    /** Turn captions on/off for this and every later channel. */
+    fun setCaptions(on: Boolean) {
+        prefs.captionsOn = on
+        if (!on) onCues?.invoke(emptyList())
+        val player = exoPlayer ?: return
+        player.trackSelectionParameters = player.trackSelectionParameters
+            .buildUpon()
+            .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !on)
+            .build()
+    }
+
     fun selectSubtitleTrack(trackInfo: TrackInfo?) {
+        prefs.captionsOn = trackInfo != null
+        if (trackInfo == null) onCues?.invoke(emptyList())
         val player = exoPlayer ?: return
         if (trackInfo == null) {
             player.trackSelectionParameters = player.trackSelectionParameters

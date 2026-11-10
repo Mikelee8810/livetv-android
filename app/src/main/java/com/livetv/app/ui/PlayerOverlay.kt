@@ -565,12 +565,17 @@ class PlayerOverlay(
     private fun showSubtitlesDialog() {
         val tracks = playerEngine.getSubtitleTracks()
         if (tracks.isEmpty()) {
-            Dialogs.message(activity, "Subtitles", "No subtitle tracks available for this stream.")
+            // Captions are often only detected once they start, so a
+            // stream with none yet can still turn them on for later.
+            val on = prefs.captionsOn
+            Dialogs.choose(activity, "Closed Captions", listOf("Off", "On"), if (on) 1 else 0) { picked ->
+                playerEngine.setCaptions(picked == 1)
+            }
             return
         }
         val options = listOf("Off") + tracks.map { it.label }
         val selIdx = tracks.indexOfFirst { it.isSelected }.let { if (it >= 0) it + 1 else 0 }
-        Dialogs.choose(activity, "Subtitle Tracks", options, selIdx) { picked ->
+        Dialogs.choose(activity, "Closed Captions", options, selIdx) { picked ->
             if (picked == 0) playerEngine.selectSubtitleTrack(null)
             else playerEngine.selectSubtitleTrack(tracks[picked - 1])
         }
