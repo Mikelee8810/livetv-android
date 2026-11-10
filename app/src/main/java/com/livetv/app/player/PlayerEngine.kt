@@ -525,6 +525,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
 
     init {
         try {
+            OnDeviceStreamServer.attachContext(context)
             OnDeviceStreamServer.ensureStarted()
         } catch (e: Exception) {
             Log.e(TAG, "Error starting local stream server", e)

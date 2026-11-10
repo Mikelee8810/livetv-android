@@ -53,7 +53,7 @@ final class CdnLiveEpgSource {
                 throw new IOException("CDNLive body too large");
             }
             okio.BufferedSource source = response.body().source();
-            if (!source.request(MAX_BODY_BYTES + 1L)) {
+            if (source.request(MAX_BODY_BYTES + 1L)) {
                 throw new IOException("CDNLive body too large");
             }
             String json = source.readUtf8();

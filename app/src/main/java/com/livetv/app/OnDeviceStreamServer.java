@@ -96,6 +96,18 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
     private static final Map<String, java.util.concurrent.CompletableFuture<Resolved>> RESOLVE_INFLIGHT = new ConcurrentHashMap<>();
     private static final Map<String, Long> RESOLVE_NEGATIVE = new ConcurrentHashMap<>();
     private static final Map<String, Integer> LAST_GOOD_ROUTE = new ConcurrentHashMap<>();
+    // Last-good routes survive restarts: in memory only, every cold
+    // start re-walked the failing routes first (~4.6 s of 403s per tune).
+    private static volatile android.content.SharedPreferences routePrefs;
+
+    public static void attachContext(android.content.Context context) {
+        if (routePrefs != null || context == null) return;
+        android.content.SharedPreferences sp = context.getApplicationContext().getSharedPreferences("proxy_routes", android.content.Context.MODE_PRIVATE);
+        for (Map.Entry<String, ?> e : sp.getAll().entrySet()) {
+            if (e.getValue() instanceof Integer) LAST_GOOD_ROUTE.putIfAbsent(e.getKey(), (Integer) e.getValue());
+        }
+        routePrefs = sp;
+    }
     // Hosts where HEAD is refused (per-method signing); skipped for a
     // while so a segment does not pay a doomed HEAD first (S15).
     private static final Map<String, Long> HEAD_FAILED_HOSTS = new ConcurrentHashMap<>();
@@ -637,6 +649,8 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
                 // channel stays fast instead of re-walking embeds.
                 RESOLVE_CACHE.put(cacheKey, new CachedResolved(res, System.currentTimeMillis() + 900_000L));
                 LAST_GOOD_ROUTE.put(id, player);
+                android.content.SharedPreferences sp = routePrefs;
+                if (sp != null) sp.edit().putInt(id, player).apply();
                 RESOLVE_NEGATIVE.remove(cacheKey);
                 pruneCaches(id);
                 return res;
