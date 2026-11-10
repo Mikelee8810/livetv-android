@@ -577,7 +577,20 @@ class MainActivity : Activity() {
         })
         mainMenuDrawer.addView(makeMenuItem("My list", R.drawable.ic_bookmark) {
             closeMainMenuDrawer(false)
-            Dialogs.message(this, "My List", "Add channels to Favorites or schedule reminders to build your list.")
+            // Was a placeholder message; now lists favourite channels.
+            val favs = Repo.items.filter { Repo.isFav(it) }
+            if (favs.isEmpty()) {
+                Dialogs.message(this, "My List", "No favorites yet. While watching, press Favorite in the player bar, or use a channel's menu in the guide.")
+            } else {
+                val rows = favs.map { item ->
+                    val now = Repo.current(item)
+                    com.livetv.app.ui.Row(item.name, sub = now?.title ?: "", onClick = {
+                        playChannel(item)
+                        guideView.select(item.key)
+                    })
+                }
+                com.livetv.app.ui.Dialogs.menu(this, "My List", rows, 460f)
+            }
         })
 
         // Spacer to push Settings to bottom

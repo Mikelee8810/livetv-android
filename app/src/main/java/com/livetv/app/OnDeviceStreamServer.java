@@ -1319,6 +1319,8 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             return size() > SEGMENT_CACHE_MAX;
         }
     };
+    /** Which channel each cached segment belongs to (guarded by SEGMENT_CACHE). */
+    private static final Map<String, String> SEGMENT_OWNER = new java.util.HashMap<>();
     private static final Map<String, java.util.concurrent.CompletableFuture<byte[]>> SEGMENT_INFLIGHT = new ConcurrentHashMap<>();
     private static final java.util.concurrent.LinkedBlockingQueue<Runnable> PREFETCH_QUEUE = new java.util.concurrent.LinkedBlockingQueue<>();
     private static final java.util.concurrent.ExecutorService PREFETCH_POOL = new java.util.concurrent.ThreadPoolExecutor(
@@ -1372,8 +1374,15 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             return false;
         });
         // Cached segments outside the window are dead weight.
+        // Only this channel's: with a recording running on another
+        // channel, evicting every key outside THIS manifest threw away
+        // the other stream's segments on each refresh, so both had to
+        // be downloaded twice.
         synchronized (SEGMENT_CACHE) {
-            SEGMENT_CACHE.keySet().removeIf(k -> !segmentUrls.contains(k));
+            SEGMENT_CACHE.keySet().removeIf(k -> !segmentUrls.contains(k)
+                    && channelId != null && channelId.equals(SEGMENT_OWNER.get(k)));
+            SEGMENT_OWNER.keySet().retainAll(SEGMENT_CACHE.keySet());
+            for (String u : segmentUrls) SEGMENT_OWNER.put(u, channelId);
         }
         for (int i = from; i < segmentUrls.size(); i++) {
             String u = segmentUrls.get(i);
