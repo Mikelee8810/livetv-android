@@ -42,6 +42,12 @@ class MainActivity : Activity() {
     private val repoListener: () -> Unit = {
         updateGroups()
         updateGuideRows()
+        // Warm channel logos for the current group first, then the rest,
+        // so the guide paints real icons instead of initials.
+        if (prefs.guideLogos) {
+            val first = Repo.inGroup(prefs.lastGroup).map { it.ch.logo }
+            com.livetv.app.ui.Logos.prefetch(this, first + Repo.items.map { it.ch.logo })
+        }
     }
     private var closingSettings = false
     private val prewarmClient = okhttp3.OkHttpClient.Builder()
@@ -87,6 +93,7 @@ class MainActivity : Activity() {
         // Initialize Data & Engine
         Repo.init(this)
         prefs = Repo.prefs
+        Thread { com.livetv.app.data.Recorder.purgeOld(this) }.start()
         Pal.apply(prefs.theme, prefs.accent)
         Fonts.scale = when (prefs.fontSize) { "Small" -> 0.88f; "Large" -> 1.15f; else -> 1.0f }
         playerEngine = PlayerEngine(this, prefs)
@@ -192,6 +199,26 @@ class MainActivity : Activity() {
         }
         rootContainer.addView(mainVideoView)
         playerEngine.attachTextureView(mainVideoView)
+
+        // Closed captions: drawn over the video and kept the same size
+        // and position as it (preview box or fullscreen). Nothing drew
+        // caption cues before, so picking a caption track did nothing.
+        val captionView = androidx.media3.ui.SubtitleView(this).apply {
+            setUserDefaultStyle()
+            setUserDefaultTextSize()
+            isFocusable = false
+        }
+        rootContainer.addView(captionView, FrameLayout.LayoutParams(dpi(380f), dpi(214f)))
+        mainVideoView.addOnLayoutChangeListener { v, l, t, r, b, _, _, _, _ ->
+            val lp = captionView.layoutParams as FrameLayout.LayoutParams
+            if (lp.width != r - l || lp.height != b - t || lp.leftMargin != l || lp.topMargin != t) {
+                lp.width = r - l; lp.height = b - t; lp.leftMargin = l; lp.topMargin = t
+                lp.gravity = Gravity.TOP or Gravity.START
+                captionView.layoutParams = lp
+            }
+            captionView.visibility = v.visibility
+        }
+        playerEngine.onCues = { cues -> captionView.setCues(cues) }
         playerEngine.onStateChanged = {
             if (isFullscreen) {
                 playerEngine.setAspectRatio(prefs.aspect, rootContainer, mainVideoView)
@@ -544,9 +571,26 @@ class MainActivity : Activity() {
                 com.livetv.app.ui.Dialogs.menu(this, "Reminders (tap to cancel)", rows, 460f)
             }
         })
+        mainMenuDrawer.addView(makeMenuItem("Recordings", R.drawable.ic_tv) {
+            closeMainMenuDrawer(false)
+            showRecordings()
+        })
         mainMenuDrawer.addView(makeMenuItem("My list", R.drawable.ic_bookmark) {
             closeMainMenuDrawer(false)
-            Dialogs.message(this, "My List", "Add channels to Favorites or schedule reminders to build your list.")
+            // Was a placeholder message; now lists favourite channels.
+            val favs = Repo.items.filter { Repo.isFav(it) }
+            if (favs.isEmpty()) {
+                Dialogs.message(this, "My List", "No favorites yet. While watching, press Favorite in the player bar, or use a channel's menu in the guide.")
+            } else {
+                val rows = favs.map { item ->
+                    val now = Repo.current(item)
+                    com.livetv.app.ui.Row(item.name, sub = now?.title ?: "", onClick = {
+                        playChannel(item)
+                        guideView.select(item.key)
+                    })
+                }
+                com.livetv.app.ui.Dialogs.menu(this, "My List", rows, 460f)
+            }
         })
 
         // Spacer to push Settings to bottom
@@ -1028,6 +1072,16 @@ class MainActivity : Activity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val code = event.keyCode
         if (event.action == KeyEvent.ACTION_DOWN) {
+            // A held BACK auto-repeats; acting on every repeat collapsed
+            // several menu levels (or exited) from one long press.
+            if (code == KeyEvent.KEYCODE_BACK && event.repeatCount > 0) return true
+            // The remote's CC button toggles closed captions anywhere.
+            if (code == KeyEvent.KEYCODE_CAPTIONS && event.repeatCount == 0) {
+                val on = !prefs.captionsOn
+                playerEngine.setCaptions(on)
+                Toast.makeText(this, if (on) "Captions on" else "Captions off", Toast.LENGTH_SHORT).show()
+                return true
+            }
             // Fullscreen handles its own keys
             if (isFullscreen) {
                 if (playerOverlay.onKey(code, event)) return true
@@ -1051,6 +1105,12 @@ class MainActivity : Activity() {
                     closeSearch()
                     return true
                 }
+            }
+
+            // Settings and search own their D-pad: the drawer shortcuts
+            // below used to fire underneath them and yank focus away.
+            if (settingsDrawer != null || searchPanel != null) {
+                return super.dispatchKeyEvent(event)
             }
 
             // DPAD navigation across drawers
@@ -1081,8 +1141,11 @@ class MainActivity : Activity() {
             // the menus (device-verified).
             if (code == KeyEvent.KEYCODE_BACK && !isFullscreen) {
                 if (isMainMenuDrawerOpen) {
-                    closeMainMenuDrawer(focusCategories = isCategoriesDrawerOpen)
-                    if (!isCategoriesDrawerOpen) closeCategoriesDrawer(focusGuide = true)
+                    // Main Menu is the top level: BACK here is the only
+                    // way out of the app. confirmAppExit() was never
+                    // called before, so the app could not be exited with
+                    // the remote. It honours the double-Back setting.
+                    confirmAppExit()
                     return true
                 }
                 if (isCategoriesDrawerOpen) {
@@ -1103,6 +1166,115 @@ class MainActivity : Activity() {
         }
 
         return super.dispatchKeyEvent(event)
+    }
+
+    private fun showRecordings() {
+        val R_ = com.livetv.app.data.Recorder
+        val saved = R_.saved(this)
+        val scheduled = com.livetv.app.data.RecordingSchedule.all(prefs)
+        val openRow = com.livetv.app.ui.Row("Open from Google Drive or storage",
+            sub = "Play a recording saved elsewhere", onClick = { pickRecordingToPlay() })
+        val fmt = java.text.SimpleDateFormat("EEE MMM d, h:mm a", java.util.Locale.US)
+        val rows = saved.map { s ->
+            val mb = s.sizeBytes / (1024 * 1024)
+            com.livetv.app.ui.Row(
+                (if (s.recording) "● " else "") + s.title,
+                sub = fmt.format(java.util.Date(s.modifiedMs)) + " · ${mb} MB" + (if (s.recording) " · recording" else ""),
+                onClick = {
+                    val acts = mutableListOf("Play", "Save to Google Drive or storage", "Share", "Delete")
+                    if (s.recording) acts.add(1, "Stop recording")
+                    Dialogs.choose(this, s.title, acts, 0) { i ->
+                        when (acts[i]) {
+                            "Play" -> { playerEngine.playFile(s.file); enterFullscreen() }
+                            "Stop recording" -> R_.activeList().firstOrNull { it.file.absolutePath == s.file.absolutePath }?.let { R_.stop(it.id) }
+                            "Save to Google Drive or storage" -> exportRecording(s.file)
+                            "Share" -> shareRecording(s.file)
+                            "Delete" -> Dialogs.confirm(this, "Delete Recording", "Delete '${s.title}'?", "Delete") { R_.delete(this, s) }
+                        }
+                    }
+                }
+            )
+        }
+        val schedFmt = java.text.SimpleDateFormat("EEE MMM d, h:mm a", java.util.Locale.US)
+        val schedRows = scheduled.map { r ->
+            com.livetv.app.ui.Row(
+                "⏰ ${r.title} — ${r.channelName}",
+                sub = "Scheduled " + schedFmt.format(java.util.Date(r.startMs)),
+                onClick = {
+                    Dialogs.confirm(this, "Scheduled Recording", "Cancel recording '${r.title}'?", "Cancel recording") {
+                        com.livetv.app.data.RecordingSchedule.cancel(this, prefs, r)
+                    }
+                }
+            )
+        }
+        com.livetv.app.ui.Dialogs.menu(this, "Recordings", listOf(openRow) + schedRows + rows, 520f)
+    }
+
+    // -- Recordings <-> Google Drive / other storage ---------------------------
+    // Uses the system document picker, which lists Google Drive whenever
+    // the Drive app (or another cloud provider) is installed on the device.
+    private var pendingExport: java.io.File? = null
+    private val REQ_EXPORT = 7101
+    private val REQ_OPEN = 7102
+
+    private fun startPicker(i: android.content.Intent, req: Int) {
+        try { startActivityForResult(i, req) }
+        catch (e: android.content.ActivityNotFoundException) {
+            Dialogs.message(this, "Not Available", "This device has no file picker. Use Share instead, or install Google Drive.")
+        }
+    }
+
+    private fun exportRecording(f: java.io.File) {
+        pendingExport = f
+        startPicker(android.content.Intent(android.content.Intent.ACTION_CREATE_DOCUMENT)
+            .addCategory(android.content.Intent.CATEGORY_OPENABLE)
+            .setType("video/mp2t")
+            .putExtra(android.content.Intent.EXTRA_TITLE, f.name), REQ_EXPORT)
+    }
+
+    private fun shareRecording(f: java.io.File) {
+        try {
+            val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.fileprovider", f)
+            val send = android.content.Intent(android.content.Intent.ACTION_SEND)
+                .setType("video/mp2t")
+                .putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            startActivity(android.content.Intent.createChooser(send, "Save recording to"))
+        } catch (e: Exception) {
+            Dialogs.message(this, "Not Available", "No app on this device can receive the recording. Install Google Drive to save recordings there.")
+        }
+    }
+
+    private fun pickRecordingToPlay() {
+        startPicker(android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT)
+            .addCategory(android.content.Intent.CATEGORY_OPENABLE)
+            .setType("video/*"), REQ_OPEN)
+    }
+
+    @Deprecated("Activity result API")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        val uri = data?.data
+        if (resultCode != RESULT_OK || uri == null) { pendingExport = null; return }
+        when (requestCode) {
+            REQ_EXPORT -> {
+                val src = pendingExport ?: return
+                pendingExport = null
+                Toast.makeText(this, "Saving ${src.name}…", Toast.LENGTH_SHORT).show()
+                Thread {
+                    val ok = try {
+                        contentResolver.openOutputStream(uri)?.use { out -> src.inputStream().use { it.copyTo(out, 1 shl 16) } } != null
+                    } catch (e: Exception) { false }
+                    runOnUiThread {
+                        Toast.makeText(this, if (ok) "Saved ${src.name}" else "Save failed", Toast.LENGTH_LONG).show()
+                    }
+                }.start()
+            }
+            REQ_OPEN -> {
+                playerEngine.playUri(uri)
+                enterFullscreen()
+            }
+        }
     }
 
     private fun confirmAppExit() {

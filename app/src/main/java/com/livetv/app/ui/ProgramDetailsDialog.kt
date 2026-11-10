@@ -61,6 +61,14 @@ object ProgramDetailsDialog {
             if (live) {
                 rows.add(Row("Back to live", onClick = { liveHandler?.invoke(item) }))
             }
+            if (live) {
+                rows.add(Row("Record this program", onClick = {
+                    val rec = com.livetv.app.data.Recorder.start(activity, item, program.title, endMs)
+                    Dialogs.message(activity, "Recording",
+                        if (rec != null) "Recording '${program.title}' on ${item.name} until it ends. Find it under Main Menu, Recordings. Keep the app open while it records."
+                        else "${item.name} is already being recorded.")
+                }))
+            }
         }
         // Audit R1: a reminder for a live or past programme arms an
         // alarm in the past. Offer it only when the lead time still
@@ -83,6 +91,24 @@ object ProgramDetailsDialog {
                     Dialogs.message(activity, "Reminder Set", "You will be alerted ${prefs.remindLeadMinutes} minutes before '${program.title}' starts on ${item.name}. Find it under Main Menu, Reminders.")
                 })
             )
+        }
+
+        if (startMs > nowMs) {
+            val prefs = com.livetv.app.data.Repo.prefs
+            val booked = com.livetv.app.data.RecordingSchedule.all(prefs)
+                .firstOrNull { it.channelKey == item.key && it.title == program.title && it.startMs <= startMs && it.endMs >= endMs }
+            if (booked == null) {
+                rows.add(Row("Schedule recording", onClick = {
+                    com.livetv.app.data.RecordingSchedule.add(activity, prefs, item, program.title, startMs, endMs)
+                    Dialogs.message(activity, "Recording Scheduled",
+                        "'${program.title}' on ${item.name} will record automatically, even with the app closed. Manage it under Main Menu, Recordings.")
+                }))
+            } else {
+                rows.add(Row("Cancel scheduled recording", onClick = {
+                    com.livetv.app.data.RecordingSchedule.cancel(activity, prefs, booked)
+                    Dialogs.message(activity, "Recording Cancelled", "'${program.title}' will not be recorded.")
+                }))
+            }
         }
 
         Dialogs.menu(activity, program.title, rows, 460f)

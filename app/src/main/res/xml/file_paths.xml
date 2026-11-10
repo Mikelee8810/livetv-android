@@ -3,4 +3,7 @@
     <!-- Downloaded update APKs live here; the system installer reads them
          through the FileProvider above. -->
     <cache-path name="updates" path="updates/"/>
+    <!-- Recordings, shared to Google Drive or other apps. -->
+    <external-files-path name="recordings" path="Movies/Recordings/"/>
+    <files-path name="recordings_internal" path="Recordings/"/>
 </paths>

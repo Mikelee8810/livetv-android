@@ -368,6 +368,11 @@ class PlayerOverlay(
             }
         })
 
+        // Record: until the current programme ends, or a fixed length.
+        actionsBar.addView(makeActionButton("Record", R.drawable.ic_tv) {
+            playerEngine.currentItem?.let { item -> showRecordDialog(item) }
+        })
+
         // Channel Options
         actionsBar.addView(makeActionButton("Options", R.drawable.ic_settings) {
             playerEngine.currentItem?.let { onOpenMenu(it) }
@@ -562,15 +567,45 @@ class PlayerOverlay(
         showBottomBar()
     }
 
+    private fun showRecordDialog(item: Item) {
+        val running = com.livetv.app.data.Recorder.activeList().firstOrNull { it.channelName == item.name }
+        if (running != null) {
+            Dialogs.confirm(activity, "Recording", "Stop recording ${item.name}?", "Stop") {
+                com.livetv.app.data.Recorder.stop(running.id)
+            }
+            return
+        }
+        val now = System.currentTimeMillis()
+        val prog = Repo.current(item)
+        val opts = mutableListOf<Pair<String, Long>>()
+        if (prog != null) opts.add("Until '${prog.title}' ends" to prog.end.toEpochMilli())
+        opts.add("30 minutes" to now + 30 * 60_000L)
+        opts.add("1 hour" to now + 60 * 60_000L)
+        opts.add("2 hours" to now + 120 * 60_000L)
+        opts.add("3 hours" to now + 180 * 60_000L)
+        Dialogs.choose(activity, "Record ${item.name}", opts.map { it.first }, 0) { picked ->
+            val (_, end) = opts[picked]
+            val rec = com.livetv.app.data.Recorder.start(activity, item, prog?.title ?: "Recording", end)
+            android.widget.Toast.makeText(activity,
+                if (rec != null) "Recording ${item.name} (Main Menu, Recordings)" else "Already recording ${item.name}",
+                android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun showSubtitlesDialog() {
         val tracks = playerEngine.getSubtitleTracks()
         if (tracks.isEmpty()) {
-            Dialogs.message(activity, "Subtitles", "No subtitle tracks available for this stream.")
+            // Captions are often only detected once they start, so a
+            // stream with none yet can still turn them on for later.
+            val on = prefs.captionsOn
+            Dialogs.choose(activity, "Closed Captions", listOf("Off", "On"), if (on) 1 else 0) { picked ->
+                playerEngine.setCaptions(picked == 1)
+            }
             return
         }
         val options = listOf("Off") + tracks.map { it.label }
         val selIdx = tracks.indexOfFirst { it.isSelected }.let { if (it >= 0) it + 1 else 0 }
-        Dialogs.choose(activity, "Subtitle Tracks", options, selIdx) { picked ->
+        Dialogs.choose(activity, "Closed Captions", options, selIdx) { picked ->
             if (picked == 0) playerEngine.selectSubtitleTrack(null)
             else playerEngine.selectSubtitleTrack(tracks[picked - 1])
         }

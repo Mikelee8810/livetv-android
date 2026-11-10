@@ -555,14 +555,37 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             setBackBuffer(0, false)
         }.build()
 
-        val renderersFactory = DefaultRenderersFactory(context).apply {
+        // Audio passthrough setting (was stored, never read). On: the sink
+        // uses the TV/receiver's reported capabilities, so Dolby AC-3/E-AC-3
+        // can go out as a bitstream. Off: the sink reports plain stereo PCM
+        // only, so every format is decoded in the box.
+        val allowPassthrough = prefs.passthrough
+        val renderersFactory = object : DefaultRenderersFactory(context) {
+            override fun buildAudioSink(
+                context: android.content.Context,
+                enableFloatOutput: Boolean,
+                enableAudioOutputPlaybackParams: Boolean
+            ): androidx.media3.exoplayer.audio.AudioSink? {
+                val b = androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context)
+                    .setEnableFloatOutput(enableFloatOutput)
+                    .setEnableAudioTrackPlaybackParams(enableAudioOutputPlaybackParams)
+                if (!allowPassthrough) {
+                    @Suppress("DEPRECATION")
+                    b.setAudioCapabilities(androidx.media3.exoplayer.audio.AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES)
+                }
+                return b.build()
+            }
+        }.apply {
             val audioExtension = if (prefs.audioDecoder == "Software") 
                 DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER 
             else 
                 DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON
             setExtensionRendererMode(audioExtension)
             setEnableDecoderFallback(true)
-            setAllowedVideoJoiningTimeMs(10000)
+            // Joining time 0: with 10 s allowed, video was permitted to
+            // trail audio while the decoder "caught up" after a tune or
+            // track switch, which shows as picture lagging the sound.
+            setAllowedVideoJoiningTimeMs(0)
 
             // Decoder ordering for the Google TV Streamer / MT8696: the
             // platform lists the software decoder first, which cannot keep
@@ -626,13 +649,31 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                     // screen on device (2026-11-03). Media3 does NOT
                     // fall back when a tunneled decoder simply never
                     // releases frames for display.
-                    .setTunnelingEnabled(false)
+                    // Tunneling stays opt-in (the Settings toggle now
+                    // actually applies); default off for the reason above.
+                    .setTunnelingEnabled(prefs.tunneled)
+                    // Closed captions: remembered across channel changes
+                    // and player rebuilds. CEA-608 inside the TS
+                    // segments is exposed as an undetermined-language
+                    // text track, so allow those to be picked.
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !prefs.captionsOn)
+                    .setSelectUndeterminedTextLanguage(true)
+                    // "Surround sound by default" (was never read): off
+                    // prefers stereo renditions; a stream that only has
+                    // 5.1 still plays it.
+                    .setMaxAudioChannelCount(if (prefs.surroundDefault) Int.MAX_VALUE else 2)
+                    .setPreferredTextLanguage("en")
             )
         }
 
         val livePlaybackSpeedControl = DefaultLivePlaybackSpeedControl.Builder()
-            .setFallbackMinPlaybackSpeed(0.97f)
-            .setFallbackMaxPlaybackSpeed(1.05f)
+            // Speed held at 1.0x: live catch-up speed changes (0.97-1.05x)
+            // made the MTK hardware decoder drop/late-render frames while
+            // the time-stretched audio stayed on clock, so the picture
+            // drifted behind the sound. Offset drift is handled by the
+            // watchdog's seek-to-live instead.
+            .setFallbackMinPlaybackSpeed(1.0f)
+            .setFallbackMaxPlaybackSpeed(1.0f)
             // Do not let every rebuffer ratchet the target offset further
             // back (the +500 ms default): in a ~36 s window the target
             // migrating on its own makes the trap deeper each cycle. The
@@ -701,7 +742,15 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             player.setVideoSurfaceView(attachedSurfaceView)
         }
 
+        // Auto frame rate: the Settings toggle was stored but never read.
+        player.setVideoChangeFrameRateStrategy(
+            if (prefs.afr == "Off") C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF
+            else C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS
+        )
         player.addListener(object : Player.Listener {
+            override fun onCues(cueGroup: androidx.media3.common.text.CueGroup) {
+                onCues?.invoke(cueGroup.cues)
+            }
             override fun onPlaybackStateChanged(playbackState: Int) {
                 isBuffering = playbackState == Player.STATE_BUFFERING
                 isPlaying = playbackState == Player.STATE_READY && player.playWhenReady
@@ -822,6 +871,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         mainHandler.removeCallbacks(healthCheckRunnable)
         mainHandler.postDelayed(healthCheckRunnable, 2000L)
         exoPlayer = player
+        builtSettings = playerSettingsKey()
         return player
     }
 
@@ -880,7 +930,10 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         readySinceMs = 0L
         noVideoRecoveries = 0
         resetWatchdogTracking(playbackStartMs)
-        val player = exoPlayer ?: initPlayer()
+        // Playback settings are baked in when the player is built; if any
+        // changed in Settings since, rebuild so the change applies on
+        // this tune instead of only after an app restart.
+        val player = exoPlayer?.takeIf { builtSettings == playerSettingsKey() } ?: initPlayer()
 
         var streamUrl = item.url
         if (streamUrl.startsWith("/")) {
@@ -921,8 +974,8 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             .setTargetOffsetMs(18000L)
             .setMinOffsetMs(10000L)
             .setMaxOffsetMs(30000L)
-            .setMinPlaybackSpeed(0.97f)
-            .setMaxPlaybackSpeed(1.05f)
+            .setMinPlaybackSpeed(1.0f)
+            .setMaxPlaybackSpeed(1.0f)
             .build()
 
         val mediaItem = MediaItem.Builder()
@@ -1201,7 +1254,45 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         return result
     }
 
+    /** Play a saved recording (a local .ts file). Not live, so the
+     *  live-window watchdog machinery stays out of it (currentItem is
+     *  cleared; every recovery path is gated on it). */
+    fun playFile(file: java.io.File) = playUri(Uri.fromFile(file))
+
+    /** Play a recording from any URI, including a content:// URI picked
+     *  from Google Drive or another storage provider. */
+    fun playUri(uri: Uri) {
+        currentItem = null
+        val player = exoPlayer?.takeIf { builtSettings == playerSettingsKey() } ?: initPlayer()
+        player.setMediaItem(MediaItem.fromUri(uri))
+        player.prepare()
+        player.playWhenReady = true
+    }
+
+    private var builtSettings = ""
+    private fun playerSettingsKey() = listOf(
+        prefs.buffer, prefs.audioDecoder, prefs.videoDecoder, prefs.afr,
+        prefs.surroundDefault, prefs.passthrough, prefs.tunneled
+    ).joinToString("|")
+
+    /** Receives caption cues; set by the activity that draws them. */
+    var onCues: ((List<androidx.media3.common.text.Cue>) -> Unit)? = null
+
+    /** Turn captions on/off for this and every later channel. */
+    fun setCaptions(on: Boolean) {
+        prefs.captionsOn = on
+        if (!on) onCues?.invoke(emptyList())
+        val player = exoPlayer ?: return
+        player.trackSelectionParameters = player.trackSelectionParameters
+            .buildUpon()
+            .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !on)
+            .build()
+    }
+
     fun selectSubtitleTrack(trackInfo: TrackInfo?) {
+        prefs.captionsOn = trackInfo != null
+        if (trackInfo == null) onCues?.invoke(emptyList())
         val player = exoPlayer ?: return
         if (trackInfo == null) {
             player.trackSelectionParameters = player.trackSelectionParameters
