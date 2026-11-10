@@ -562,7 +562,10 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                 DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON
             setExtensionRendererMode(audioExtension)
             setEnableDecoderFallback(true)
-            setAllowedVideoJoiningTimeMs(10000)
+            // Joining time 0: with 10 s allowed, video was permitted to
+            // trail audio while the decoder "caught up" after a tune or
+            // track switch, which shows as picture lagging the sound.
+            setAllowedVideoJoiningTimeMs(0)
 
             // Decoder ordering for the Google TV Streamer / MT8696: the
             // platform lists the software decoder first, which cannot keep
@@ -631,8 +634,13 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         }
 
         val livePlaybackSpeedControl = DefaultLivePlaybackSpeedControl.Builder()
-            .setFallbackMinPlaybackSpeed(0.97f)
-            .setFallbackMaxPlaybackSpeed(1.05f)
+            // Speed held at 1.0x: live catch-up speed changes (0.97-1.05x)
+            // made the MTK hardware decoder drop/late-render frames while
+            // the time-stretched audio stayed on clock, so the picture
+            // drifted behind the sound. Offset drift is handled by the
+            // watchdog's seek-to-live instead.
+            .setFallbackMinPlaybackSpeed(1.0f)
+            .setFallbackMaxPlaybackSpeed(1.0f)
             // Do not let every rebuffer ratchet the target offset further
             // back (the +500 ms default): in a ~36 s window the target
             // migrating on its own makes the trap deeper each cycle. The
@@ -921,8 +929,8 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             .setTargetOffsetMs(18000L)
             .setMinOffsetMs(10000L)
             .setMaxOffsetMs(30000L)
-            .setMinPlaybackSpeed(0.97f)
-            .setMaxPlaybackSpeed(1.05f)
+            .setMinPlaybackSpeed(1.0f)
+            .setMaxPlaybackSpeed(1.0f)
             .build()
 
         val mediaItem = MediaItem.Builder()

@@ -1028,6 +1028,9 @@ class MainActivity : Activity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val code = event.keyCode
         if (event.action == KeyEvent.ACTION_DOWN) {
+            // A held BACK auto-repeats; acting on every repeat collapsed
+            // several menu levels (or exited) from one long press.
+            if (code == KeyEvent.KEYCODE_BACK && event.repeatCount > 0) return true
             // Fullscreen handles its own keys
             if (isFullscreen) {
                 if (playerOverlay.onKey(code, event)) return true
@@ -1051,6 +1054,12 @@ class MainActivity : Activity() {
                     closeSearch()
                     return true
                 }
+            }
+
+            // Settings and search own their D-pad: the drawer shortcuts
+            // below used to fire underneath them and yank focus away.
+            if (settingsDrawer != null || searchPanel != null) {
+                return super.dispatchKeyEvent(event)
             }
 
             // DPAD navigation across drawers
@@ -1081,8 +1090,11 @@ class MainActivity : Activity() {
             // the menus (device-verified).
             if (code == KeyEvent.KEYCODE_BACK && !isFullscreen) {
                 if (isMainMenuDrawerOpen) {
-                    closeMainMenuDrawer(focusCategories = isCategoriesDrawerOpen)
-                    if (!isCategoriesDrawerOpen) closeCategoriesDrawer(focusGuide = true)
+                    // Main Menu is the top level: BACK here is the only
+                    // way out of the app. confirmAppExit() was never
+                    // called before, so the app could not be exited with
+                    // the remote. It honours the double-Back setting.
+                    confirmAppExit()
                     return true
                 }
                 if (isCategoriesDrawerOpen) {
