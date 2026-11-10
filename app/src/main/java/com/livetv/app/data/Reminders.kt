@@ -116,6 +116,7 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
             Reminders.rescheduleAll(context, Prefs(context))
+            RecordingSchedule.rescheduleAll(context, Prefs(context))
         }
     }
 }

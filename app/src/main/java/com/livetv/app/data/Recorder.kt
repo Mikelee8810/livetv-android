@@ -89,6 +89,9 @@ object Recorder {
         val rec = Active(file.name, item.name, title, file, endMs)
         active[rec.id] = rec
         fire()
+        // Foreground service keeps the recording alive if the app is
+        // closed or the TV goes to sleep.
+        RecordingService.start(ctx, null)
 
         var url = item.url
         if (url.startsWith("/")) url = SERVER + url

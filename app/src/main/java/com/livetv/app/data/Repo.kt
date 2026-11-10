@@ -47,6 +47,8 @@ object Repo {
     private val epgRunning = java.util.concurrent.atomic.AtomicBoolean(false)
 
     fun init(ctx: Context) { app = ctx.applicationContext; prefs = Prefs(app) }
+    /** Init only if not already done (services start without the activity). */
+    fun ensureInit(ctx: Context) { if (!::prefs.isInitialized) init(ctx) }
     private fun fire() = main.post { listeners.toList().forEach { it() } }
 
     // -- channels ----------------------------------------------------------------

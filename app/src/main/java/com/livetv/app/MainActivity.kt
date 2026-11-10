@@ -1157,7 +1157,8 @@ class MainActivity : Activity() {
     private fun showRecordings() {
         val R_ = com.livetv.app.data.Recorder
         val saved = R_.saved(this)
-        if (saved.isEmpty()) {
+        val scheduled = com.livetv.app.data.RecordingSchedule.all(prefs)
+        if (saved.isEmpty() && scheduled.isEmpty()) {
             Dialogs.message(this, "Recordings", "No recordings yet. While watching, open the player bar and choose Record, or open a live program in the guide and choose Record this program.")
             return
         }
@@ -1180,7 +1181,19 @@ class MainActivity : Activity() {
                 }
             )
         }
-        com.livetv.app.ui.Dialogs.menu(this, "Recordings", rows, 520f)
+        val schedFmt = java.text.SimpleDateFormat("EEE MMM d, h:mm a", java.util.Locale.US)
+        val schedRows = scheduled.map { r ->
+            com.livetv.app.ui.Row(
+                "⏰ ${r.title} — ${r.channelName}",
+                sub = "Scheduled " + schedFmt.format(java.util.Date(r.startMs)),
+                onClick = {
+                    Dialogs.confirm(this, "Scheduled Recording", "Cancel recording '${r.title}'?", "Cancel recording") {
+                        com.livetv.app.data.RecordingSchedule.cancel(this, prefs, r)
+                    }
+                }
+            )
+        }
+        com.livetv.app.ui.Dialogs.menu(this, "Recordings", schedRows + rows, 520f)
     }
 
     private fun confirmAppExit() {

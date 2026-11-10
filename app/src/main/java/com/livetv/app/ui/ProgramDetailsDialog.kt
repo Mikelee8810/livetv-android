@@ -93,6 +93,24 @@ object ProgramDetailsDialog {
             )
         }
 
+        if (startMs > nowMs) {
+            val prefs = com.livetv.app.data.Repo.prefs
+            val booked = com.livetv.app.data.RecordingSchedule.all(prefs)
+                .firstOrNull { it.channelKey == item.key && it.title == program.title && it.startMs <= startMs && it.endMs >= endMs }
+            if (booked == null) {
+                rows.add(Row("Schedule recording", onClick = {
+                    com.livetv.app.data.RecordingSchedule.add(activity, prefs, item, program.title, startMs, endMs)
+                    Dialogs.message(activity, "Recording Scheduled",
+                        "'${program.title}' on ${item.name} will record automatically, even with the app closed. Manage it under Main Menu, Recordings.")
+                }))
+            } else {
+                rows.add(Row("Cancel scheduled recording", onClick = {
+                    com.livetv.app.data.RecordingSchedule.cancel(activity, prefs, booked)
+                    Dialogs.message(activity, "Recording Cancelled", "'${program.title}' will not be recorded.")
+                }))
+            }
+        }
+
         Dialogs.menu(activity, program.title, rows, 460f)
     }
 }
