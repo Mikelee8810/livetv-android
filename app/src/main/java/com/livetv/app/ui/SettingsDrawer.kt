@@ -494,6 +494,12 @@ class SettingsDrawer(
                         com.livetv.app.data.Recorder.purgeOld(activity)
                     }
                 }),
+            Row("Keep recordings running", sub = "Stops the TV from closing the app mid-recording (uses Shizuku if running)",
+                value = if (com.livetv.app.data.BatteryFix.isExempt(activity)) "On" else "Off", onClick = {
+                    com.livetv.app.data.BatteryFix.apply(activity) { msg ->
+                        activity.runOnUiThread { Dialogs.message(activity, "Keep Recordings Running", msg); renderCurrent() }
+                    }
+                }),
             Row("Storage used", value = run {
                 val all = com.livetv.app.data.Recorder.saved(activity)
                 "${all.size} recordings, ${all.sumOf { it.sizeBytes } / (1024 * 1024)} MB"

@@ -38,5 +38,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.nanohttpd:nanohttpd:2.3.1")
     implementation("com.github.bumptech.glide:glide:4.16.0")
+    implementation("dev.rikka.shizuku:api:13.1.5")
+    implementation("dev.rikka.shizuku:provider:13.1.5")
     testImplementation("junit:junit:4.13.2")
 }
