@@ -38,6 +38,11 @@ class VlcBackend(context: Context, private val listener: Listener) {
             // Hardware MediaCodec first, software fallback inside VLC.
             "--codec=mediacodec_ndk,mediacodec_jni,all",
             "--audio-time-stretch",
+            // AudioTrack lands on the Streamer's DEEP_BUFFER output (~290 ms
+            // write latency, reported to apps as 0 ms), so VLC cannot
+            // compensate and sound trails the picture. OpenSL ES uses the
+            // primary low-latency mixer.
+            "--aout=opensles",
             "--http-reconnect",
         )
     )
