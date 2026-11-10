@@ -89,6 +89,16 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
             val delta = nowMs - lastTickMs
             if (delta in 1..120_000L) selTime += delta
             lastTickMs = nowMs
+            // Keep the grid on the current half hour. Only when the user
+            // is not browsing ahead: if the selection is on "now", slide
+            // the window forward as time passes.
+            val nowStart = floor30(nowMs).toFloat()
+            if (viewStart < nowStart && selTime <= nowMs + 60_000L) {
+                viewStart = nowStart
+                selTime = maxOf(selTime, nowMs)
+                cellCache.clear()
+                notifySel()
+            }
             invalidate()
             postDelayed(this, 30_000)
         }
@@ -109,6 +119,16 @@ class GuideView(ctx: Context, private val prefs: Prefs) : View(ctx) {
 
     fun selected(): Item? = rows.getOrNull(selRow.coerceIn(0, (rows.size - 1).coerceAtLeast(0)))
     fun selectedProgram(): Program? = selected()?.let { cellAt(it, selTime)?.program }
+    /** First channel of the current list, at the current time. */
+    fun selectTop() {
+        selRow = 0
+        scrollRow = 0f
+        selTime = System.currentTimeMillis()
+        viewStart = floor30(selTime).toFloat()
+        invalidate()
+        notifySel()
+    }
+
     fun select(key: String?) {
         val i = rows.indexOfFirst { it.key == key }
         if (i >= 0) {

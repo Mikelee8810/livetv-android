@@ -662,6 +662,8 @@ class MainActivity : Activity() {
         if (isCategoriesDrawerOpen) return
         isCategoriesDrawerOpen = true
         guideView.isFocusable = false
+        groupsList.focusGrabBlocked = false
+        categoriesDrawer.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         categoriesDrawer.bringToFront()
         categoriesDrawer.visibility = View.VISIBLE
         val curIdx = Repo.groups().indexOfFirst { it.id == prefs.lastGroup }.coerceAtLeast(0)
@@ -683,6 +685,7 @@ class MainActivity : Activity() {
             prefs.lastGroup = group.id
             updateGroups()
             updateGuideRows()
+            guideView.selectTop()
         }
         closeCategoriesDrawer(focusGuide = true)
     }
@@ -698,6 +701,12 @@ class MainActivity : Activity() {
         }
         guideView.rows = Repo.inGroup(prefs.lastGroup)
         isCategoriesDrawerOpen = false
+        // The list re-focuses a row in a posted runnable after submit();
+        // that fired after the guide took focus, so the hidden drawer kept
+        // the D-pad and UP/DOWN kept switching categories (device repro).
+        groupsList.focusGrabBlocked = true
+        categoriesDrawer.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+        groupsList.clearFocus()
         categoriesDrawer.animate()
             .translationX(-dpi(360f).toFloat())
             .setDuration(200)
@@ -877,6 +886,7 @@ class MainActivity : Activity() {
                     prefs.lastGroup = g.id
                     updateGroups()
                     updateGuideRows()
+                    guideView.selectTop()
                     closeCategoriesDrawer(focusGuide = true)
                 }
             )
