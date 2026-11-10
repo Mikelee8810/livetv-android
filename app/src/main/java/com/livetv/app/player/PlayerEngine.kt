@@ -555,7 +555,27 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
             setBackBuffer(0, false)
         }.build()
 
-        val renderersFactory = DefaultRenderersFactory(context).apply {
+        // Audio passthrough setting (was stored, never read). On: the sink
+        // uses the TV/receiver's reported capabilities, so Dolby AC-3/E-AC-3
+        // can go out as a bitstream. Off: the sink reports plain stereo PCM
+        // only, so every format is decoded in the box.
+        val allowPassthrough = prefs.passthrough
+        val renderersFactory = object : DefaultRenderersFactory(context) {
+            override fun buildAudioSink(
+                context: android.content.Context,
+                enableFloatOutput: Boolean,
+                enableAudioOutputPlaybackParams: Boolean
+            ): androidx.media3.exoplayer.audio.AudioSink? {
+                val b = androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context)
+                    .setEnableFloatOutput(enableFloatOutput)
+                    .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
+                if (!allowPassthrough) {
+                    @Suppress("DEPRECATION")
+                    b.setAudioCapabilities(androidx.media3.exoplayer.audio.AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES)
+                }
+                return b.build()
+            }
+        }.apply {
             val audioExtension = if (prefs.audioDecoder == "Software") 
                 DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER 
             else 
@@ -638,6 +658,10 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
                     // text track, so allow those to be picked.
                     .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !prefs.captionsOn)
                     .setSelectUndeterminedTextLanguage(true)
+                    // "Surround sound by default" (was never read): off
+                    // prefers stereo renditions; a stream that only has
+                    // 5.1 still plays it.
+                    .setMaxAudioChannelCount(if (prefs.surroundDefault) Int.MAX_VALUE else 2)
                     .setPreferredTextLanguage("en")
             )
         }
@@ -847,6 +871,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         mainHandler.removeCallbacks(healthCheckRunnable)
         mainHandler.postDelayed(healthCheckRunnable, 2000L)
         exoPlayer = player
+        builtSettings = playerSettingsKey()
         return player
     }
 
@@ -905,7 +930,10 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         readySinceMs = 0L
         noVideoRecoveries = 0
         resetWatchdogTracking(playbackStartMs)
-        val player = exoPlayer ?: initPlayer()
+        // Playback settings are baked in when the player is built; if any
+        // changed in Settings since, rebuild so the change applies on
+        // this tune instead of only after an app restart.
+        val player = exoPlayer?.takeIf { builtSettings == playerSettingsKey() } ?: initPlayer()
 
         var streamUrl = item.url
         if (streamUrl.startsWith("/")) {
@@ -1225,6 +1253,12 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         }
         return result
     }
+
+    private var builtSettings = ""
+    private fun playerSettingsKey() = listOf(
+        prefs.buffer, prefs.audioDecoder, prefs.videoDecoder, prefs.afr,
+        prefs.surroundDefault, prefs.passthrough, prefs.tunneled
+    ).joinToString("|")
 
     /** Receives caption cues; set by the activity that draws them. */
     var onCues: ((List<androidx.media3.common.text.Cue>) -> Unit)? = null

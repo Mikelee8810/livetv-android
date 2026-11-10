@@ -74,8 +74,8 @@ class Prefs(ctx: Context) {
     // which silently pinned every Streamer to a decoder that drops frames.
     var videoDecoder get() = str("videoDecoder", "Auto"); set(v) = put("videoDecoder", v)
     var afr get() = str("afr", "Off"); set(v) = put("afr", v)
-    var surroundDefault get() = bool("surroundDefault", false); set(v) = put("surroundDefault", v)
-    var passthrough get() = bool("passthrough", false); set(v) = put("passthrough", v)
+    var surroundDefault get() = bool("surroundDefault2", true); set(v) = put("surroundDefault2", v)
+    var passthrough get() = bool("passthrough2", true); set(v) = put("passthrough2", v)
     var captionsOn get() = bool("captionsOn", false); set(v) = put("captionsOn", v)
     var tunneled get() = bool("tunneled", false); set(v) = put("tunneled", v)
     var aspect get() = str("aspect", "Fit"); set(v) = put("aspect", v)
