@@ -796,7 +796,7 @@ class MainActivity : Activity() {
 
     private fun showSettings() {
         if (settingsDrawer == null) {
-            settingsDrawer = SettingsDrawer(this, prefs, healthProvider = { playerEngine.streamHealth() }) {
+            settingsDrawer = SettingsDrawer(this, prefs, healthProvider = { playerEngine.streamHealth() }, onAudioDelay = { playerEngine.setAudioDelay(it) }) {
                 closeSettings()
             }
             val lp = FrameLayout.LayoutParams(dpi(440f), FrameLayout.LayoutParams.MATCH_PARENT, Gravity.END)
@@ -993,6 +993,7 @@ class MainActivity : Activity() {
         }
         android.util.Log.i("MainActivity", "playChannel: " + item.name + ", key=" + item.key + ", url=" + item.url)
         prefs.lastChannel = item.key
+        prefs.recentChannels = listOf(item.key) + prefs.recentChannels.filter { it != item.key }
         guideView.playingKey = item.key
         playerEngine.play(item)
         Repo.touchRecent(item)

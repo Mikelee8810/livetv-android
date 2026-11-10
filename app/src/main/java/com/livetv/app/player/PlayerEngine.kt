@@ -1076,6 +1076,12 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     }
 
     /** Plain-language playback diagnostics for Settings > Playback > Stream health. */
+    /** Lip-sync trim, applied to the live VLC stream immediately. */
+    fun setAudioDelay(ms: Int) {
+        prefs.audioDelayMs = ms
+        if (vlcActive) vlc?.setAudioDelay(ms)
+    }
+
     fun streamHealth(): String {
         if (vlcActive) return vlc!!.healthText()
         val p = exoPlayer ?: return "Player has not started yet."

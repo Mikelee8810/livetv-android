@@ -575,6 +575,7 @@ public final class EpgRepository {
         aliases.put("TVO.ca2", "tvoca.us");
         aliases.put("YTV.HD.ca2", "ytvca.us");
         aliases.put("WCBS-DT.us_locals1", "cbsusa.us");
+        aliases.put("WABC-DT.us_locals1", "abcusa.us");
         aliases.put("WNBC-DT.us_locals1", "nbcusa.us");
         aliases.put("WNYW-DT.us_locals1", "foxusa.us");
         aliases.put("WNET-DT.us_locals1", "pbsusa.us");

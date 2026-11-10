@@ -18,6 +18,7 @@ class SettingsDrawer(
     private val activity: Activity,
     private val prefs: Prefs,
     private val healthProvider: (() -> String)? = null,
+    private val onAudioDelay: (Int) -> Unit = {},
     private val onClose: () -> Unit
 ) : LinearLayout(activity) {
 
@@ -532,8 +533,9 @@ class SettingsDrawer(
         Row("Audio delay (lip sync)", value = (if (prefs.audioDelayMs > 0) "+" else "") + prefs.audioDelayMs + " ms", onClick = {
             val steps = (-300..300 step 25).toList()
             val opts = steps.map { (if (it > 0) "+" else "") + it + " ms" + if (it == 0) " (default)" else "" }
-            Dialogs.choose(activity, "Audio delay: + if sound is early, - if late. Applies on next channel change.", opts, steps.indexOf(prefs.audioDelayMs).coerceAtLeast(0)) {
+            Dialogs.choose(activity, "Audio delay: choose a more negative value if the sound is late, positive if early.", opts, steps.indexOf(prefs.audioDelayMs).coerceAtLeast(0)) {
                 prefs.audioDelayMs = steps[it]
+                onAudioDelay(steps[it])
                 renderCurrent()
             }
         }),

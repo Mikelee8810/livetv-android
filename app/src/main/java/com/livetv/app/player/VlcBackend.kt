@@ -38,11 +38,6 @@ class VlcBackend(context: Context, private val listener: Listener) {
             // Hardware MediaCodec first, software fallback inside VLC.
             "--codec=mediacodec_ndk,mediacodec_jni,all",
             "--audio-time-stretch",
-            // AudioTrack lands on the Streamer's DEEP_BUFFER output (~290 ms
-            // write latency, reported to apps as 0 ms), so VLC cannot
-            // compensate and sound trails the picture. OpenSL ES uses the
-            // primary low-latency mixer.
-            "--aout=opensles",
             "--http-reconnect",
         )
     )
@@ -137,7 +132,7 @@ class VlcBackend(context: Context, private val listener: Listener) {
     }
 
     /** Positive delays audio; negative brings it earlier. */
-    fun setAudioDelay(ms: Int) { player.setAudioDelay(ms * 1000L) }
+    fun setAudioDelay(ms: Int) { val ok = player.setAudioDelay(ms * 1000L); Log.i(TAG, "audio delay " + ms + " ms applied=" + ok) }
 
     fun restart() { lastUrl?.let { url -> player.media?.let { player.stop(); player.play() } ?: Log.w(TAG, "no media for $url") } }
     fun pause() = player.pause()
