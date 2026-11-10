@@ -61,6 +61,14 @@ object ProgramDetailsDialog {
             if (live) {
                 rows.add(Row("Back to live", onClick = { liveHandler?.invoke(item) }))
             }
+            if (live) {
+                rows.add(Row("Record this program", onClick = {
+                    val rec = com.livetv.app.data.Recorder.start(activity, item, program.title, endMs)
+                    Dialogs.message(activity, "Recording",
+                        if (rec != null) "Recording '${program.title}' on ${item.name} until it ends. Find it under Main Menu, Recordings. Keep the app open while it records."
+                        else "${item.name} is already being recorded.")
+                }))
+            }
         }
         // Audit R1: a reminder for a live or past programme arms an
         // alarm in the past. Offer it only when the lead time still

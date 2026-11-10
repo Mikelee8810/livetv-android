@@ -368,6 +368,11 @@ class PlayerOverlay(
             }
         })
 
+        // Record: until the current programme ends, or a fixed length.
+        actionsBar.addView(makeActionButton("Record", R.drawable.ic_tv) {
+            playerEngine.currentItem?.let { item -> showRecordDialog(item) }
+        })
+
         // Channel Options
         actionsBar.addView(makeActionButton("Options", R.drawable.ic_settings) {
             playerEngine.currentItem?.let { onOpenMenu(it) }
@@ -560,6 +565,31 @@ class PlayerOverlay(
         onAspectChanged?.invoke()
         updateContent()
         showBottomBar()
+    }
+
+    private fun showRecordDialog(item: Item) {
+        val running = com.livetv.app.data.Recorder.activeList().firstOrNull { it.channelName == item.name }
+        if (running != null) {
+            Dialogs.confirm(activity, "Recording", "Stop recording ${item.name}?", "Stop") {
+                com.livetv.app.data.Recorder.stop(running.id)
+            }
+            return
+        }
+        val now = System.currentTimeMillis()
+        val prog = Repo.current(item)
+        val opts = mutableListOf<Pair<String, Long>>()
+        if (prog != null) opts.add("Until '${prog.title}' ends" to prog.end.toEpochMilli())
+        opts.add("30 minutes" to now + 30 * 60_000L)
+        opts.add("1 hour" to now + 60 * 60_000L)
+        opts.add("2 hours" to now + 120 * 60_000L)
+        opts.add("3 hours" to now + 180 * 60_000L)
+        Dialogs.choose(activity, "Record ${item.name}", opts.map { it.first }, 0) { picked ->
+            val (_, end) = opts[picked]
+            val rec = com.livetv.app.data.Recorder.start(activity, item, prog?.title ?: "Recording", end)
+            android.widget.Toast.makeText(activity,
+                if (rec != null) "Recording ${item.name} (Main Menu, Recordings)" else "Already recording ${item.name}",
+                android.widget.Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun showSubtitlesDialog() {

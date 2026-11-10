@@ -1254,6 +1254,17 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         return result
     }
 
+    /** Play a saved recording (a local .ts file). Not live, so the
+     *  live-window watchdog machinery stays out of it (currentItem is
+     *  cleared; every recovery path is gated on it). */
+    fun playFile(file: java.io.File) {
+        currentItem = null
+        val player = exoPlayer?.takeIf { builtSettings == playerSettingsKey() } ?: initPlayer()
+        player.setMediaItem(MediaItem.fromUri(Uri.fromFile(file)))
+        player.prepare()
+        player.playWhenReady = true
+    }
+
     private var builtSettings = ""
     private fun playerSettingsKey() = listOf(
         prefs.buffer, prefs.audioDecoder, prefs.videoDecoder, prefs.afr,

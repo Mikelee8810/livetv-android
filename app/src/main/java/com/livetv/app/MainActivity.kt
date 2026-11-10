@@ -570,6 +570,10 @@ class MainActivity : Activity() {
                 com.livetv.app.ui.Dialogs.menu(this, "Reminders (tap to cancel)", rows, 460f)
             }
         })
+        mainMenuDrawer.addView(makeMenuItem("Recordings", R.drawable.ic_tv) {
+            closeMainMenuDrawer(false)
+            showRecordings()
+        })
         mainMenuDrawer.addView(makeMenuItem("My list", R.drawable.ic_bookmark) {
             closeMainMenuDrawer(false)
             Dialogs.message(this, "My List", "Add channels to Favorites or schedule reminders to build your list.")
@@ -1148,6 +1152,35 @@ class MainActivity : Activity() {
         }
 
         return super.dispatchKeyEvent(event)
+    }
+
+    private fun showRecordings() {
+        val R_ = com.livetv.app.data.Recorder
+        val saved = R_.saved(this)
+        if (saved.isEmpty()) {
+            Dialogs.message(this, "Recordings", "No recordings yet. While watching, open the player bar and choose Record, or open a live program in the guide and choose Record this program.")
+            return
+        }
+        val fmt = java.text.SimpleDateFormat("EEE MMM d, h:mm a", java.util.Locale.US)
+        val rows = saved.map { s ->
+            val mb = s.sizeBytes / (1024 * 1024)
+            com.livetv.app.ui.Row(
+                (if (s.recording) "● " else "") + s.title,
+                sub = fmt.format(java.util.Date(s.modifiedMs)) + " · ${mb} MB" + (if (s.recording) " · recording" else ""),
+                onClick = {
+                    val acts = mutableListOf("Play", "Delete")
+                    if (s.recording) acts.add(1, "Stop recording")
+                    Dialogs.choose(this, s.title, acts, 0) { i ->
+                        when (acts[i]) {
+                            "Play" -> { playerEngine.playFile(s.file); enterFullscreen() }
+                            "Stop recording" -> R_.activeList().firstOrNull { it.file.absolutePath == s.file.absolutePath }?.let { R_.stop(it.id) }
+                            "Delete" -> Dialogs.confirm(this, "Delete Recording", "Delete '${s.title}'?", "Delete") { R_.delete(this, s) }
+                        }
+                    }
+                }
+            )
+        }
+        com.livetv.app.ui.Dialogs.menu(this, "Recordings", rows, 520f)
     }
 
     private fun confirmAppExit() {
