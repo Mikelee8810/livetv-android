@@ -78,6 +78,8 @@ class Prefs(ctx: Context) {
     var passthrough get() = bool("passthrough2", true); set(v) = put("passthrough2", v)
     var captionsOn get() = bool("captionsOn", false); set(v) = put("captionsOn", v)
     var tunneled get() = bool("tunneled", false); set(v) = put("tunneled", v)
+    // Live channels: VLC (smooth on the Google TV Streamer) or ExoPlayer.
+    var playerEngine get() = str("playerEngine", "VLC"); set(v) = put("playerEngine", v)
     var aspect get() = str("aspect", "Fit"); set(v) = put("aspect", v)
     var autoRetry get() = bool("autoRetry", true); set(v) = put("autoRetry", v)
     var preferAudioLang get() = str("preferAudioLang", "eng"); set(v) = put("preferAudioLang", v)

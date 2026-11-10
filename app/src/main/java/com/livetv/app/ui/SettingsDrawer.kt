@@ -522,6 +522,13 @@ class SettingsDrawer(
                 renderCurrent()
             }
         }),
+        Row("Player engine", value = prefs.playerEngine, onClick = {
+            val opts = listOf("VLC", "ExoPlayer")
+            Dialogs.choose(activity, "Player Engine", opts, opts.indexOf(prefs.playerEngine).coerceAtLeast(0)) {
+                prefs.playerEngine = opts[it]
+                renderCurrent()
+            }
+        }),
         Row("Video decoder", value = prefs.videoDecoder, onClick = {
             val opts = listOf("Auto", "Hardware", "Software")
             Dialogs.choose(activity, "Video Decoder", opts, opts.indexOf(prefs.videoDecoder).coerceAtLeast(0)) {

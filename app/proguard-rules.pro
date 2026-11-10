@@ -13,3 +13,7 @@
 -dontwarn org.conscrypt.**
 -dontwarn org.bouncycastle.**
 -dontwarn org.openjsse.**
+
+# libVLC is called from native code via JNI.
+-keep class org.videolan.libvlc.** { *; }
+-dontwarn org.videolan.**
