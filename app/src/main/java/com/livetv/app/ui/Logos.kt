@@ -10,11 +10,16 @@ import com.bumptech.glide.request.transition.Transition
 
 /** Channel logo loader with an in-memory cache; views get a callback once a bitmap arrives. */
 object Logos {
-    private val cache = object : LruCache<String, Bitmap>(260) {}
+    private val cache = object : LruCache<String, Bitmap>(600) {}
     private val pending = HashSet<String>()
     private val waiters = HashMap<String, MutableList<() -> Unit>>()
     private val failedAt = HashMap<String, Long>()
     private const val FAIL_TTL_MS = 300_000L
+    // One quick retry before the 5-minute back-off: logo hosts
+    // (imgur, raw.githubusercontent) throw transient 429/5xx when
+    // hundreds of logos are requested at once on first launch.
+    private val retried = HashSet<String>()
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
 
     fun get(ctx: Context, url: String, onReady: () -> Unit): Bitmap? {
         if (url.isEmpty()) return null
@@ -48,9 +53,26 @@ object Logos {
                     cbs.forEach { it() }
                 }
                 override fun onLoadCleared(p: Drawable?) { pending.remove(url); waiters.remove(url) }
-                override fun onLoadFailed(e: Drawable?) { pending.remove(url); waiters.remove(url); failedAt[url] = System.currentTimeMillis() }
+                override fun onLoadFailed(e: Drawable?) {
+                    pending.remove(url)
+                    if (retried.add(url)) {
+                        // Keep the waiters; retry once after a short pause.
+                        main.postDelayed({ get(ctx, url) {} }, 3000L)
+                    } else {
+                        waiters.remove(url); failedAt[url] = System.currentTimeMillis()
+                    }
+                }
             })
         }
         return null
+    }
+
+    /**
+     * Warm the cache for the first channels so the guide shows real
+     * logos on first paint instead of loading them row by row as they
+     * scroll into view. Must be called on the main thread.
+     */
+    fun prefetch(ctx: Context, urls: List<String>, limit: Int = 300) {
+        urls.asSequence().filter { it.isNotBlank() }.distinct().take(limit).forEach { get(ctx, it) {} }
     }
 }

@@ -42,6 +42,12 @@ class MainActivity : Activity() {
     private val repoListener: () -> Unit = {
         updateGroups()
         updateGuideRows()
+        // Warm channel logos for the current group first, then the rest,
+        // so the guide paints real icons instead of initials.
+        if (prefs.guideLogos) {
+            val first = Repo.inGroup(prefs.lastGroup).map { it.ch.logo }
+            com.livetv.app.ui.Logos.prefetch(this, first + Repo.items.map { it.ch.logo })
+        }
     }
     private var closingSettings = false
     private val prewarmClient = okhttp3.OkHttpClient.Builder()
