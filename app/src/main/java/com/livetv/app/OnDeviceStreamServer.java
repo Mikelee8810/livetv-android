@@ -1189,10 +1189,26 @@ public final class OnDeviceStreamServer extends NanoHTTPD {
             Pattern uriAttr = Pattern.compile("URI=\"([^\"]+)\"");
             StringBuilder output = new StringBuilder();
             List<String> segmentUrls = new ArrayList<>();
+            // Zero-length segments (2026-11-11): some upstreams now emit
+            // #EXTINF:0.000, and libVLC 3.6.5 aborts the whole process on
+            // them (SegmentList.cpp:133 assertion "duration" failed). Give
+            // every segment under 0.5s the playlist's target duration.
+            String targetDuration = "4.0";
+            Matcher td = Pattern.compile("#EXT-X-TARGETDURATION:\\s*(\\d+(?:\\.\\d+)?)").matcher(manifestBody);
+            if (td.find() && Double.parseDouble(td.group(1)) > 0) targetDuration = td.group(1);
             for (String raw : manifestBody.split("\\r?\\n")) {
                 String line = raw.trim();
                 if (line.startsWith("#EXT-X-PROGRAM-DATE-TIME")) {
                     continue; // Stripped, never replaced (v4.4 note above)
+                }
+                if (line.startsWith("#EXTINF:")) {
+                    int comma = line.indexOf(',');
+                    String dur = (comma >= 0 ? line.substring(8, comma) : line.substring(8)).trim();
+                    double d;
+                    try { d = Double.parseDouble(dur); } catch (NumberFormatException e) { d = 0; }
+                    if (d < 0.5) {
+                        line = "#EXTINF:" + targetDuration + (comma >= 0 ? line.substring(comma) : ",");
+                    }
                 }
                 if (line.contains("URI=\"")) {
                     Matcher key = uriAttr.matcher(line);
