@@ -86,6 +86,7 @@ class MainActivity : Activity() {
     private var settingsDrawer: SettingsDrawer? = null
     private var searchPanel: SearchPanel? = null
     private var isFullscreen = false
+    private var backFromVideoMs = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -662,6 +663,8 @@ class MainActivity : Activity() {
         if (isCategoriesDrawerOpen) return
         isCategoriesDrawerOpen = true
         guideView.isFocusable = false
+        groupsList.focusGrabBlocked = false
+        categoriesDrawer.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         categoriesDrawer.bringToFront()
         categoriesDrawer.visibility = View.VISIBLE
         val curIdx = Repo.groups().indexOfFirst { it.id == prefs.lastGroup }.coerceAtLeast(0)
@@ -683,6 +686,7 @@ class MainActivity : Activity() {
             prefs.lastGroup = group.id
             updateGroups()
             updateGuideRows()
+            guideView.selectTop()
         }
         closeCategoriesDrawer(focusGuide = true)
     }
@@ -698,6 +702,12 @@ class MainActivity : Activity() {
         }
         guideView.rows = Repo.inGroup(prefs.lastGroup)
         isCategoriesDrawerOpen = false
+        // The list re-focuses a row in a posted runnable after submit();
+        // that fired after the guide took focus, so the hidden drawer kept
+        // the D-pad and UP/DOWN kept switching categories (device repro).
+        groupsList.focusGrabBlocked = true
+        categoriesDrawer.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+        groupsList.clearFocus()
         categoriesDrawer.animate()
             .translationX(-dpi(360f).toFloat())
             .setDuration(200)
@@ -747,8 +757,12 @@ class MainActivity : Activity() {
     fun closeMainMenuDrawer(focusCategories: Boolean = true) {
         // The rail is closing (or already closed): Categories becomes
         // focusable again BEFORE any focus hand-off into it (v4.4.1).
-        categoriesDrawer.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
-        groupsList.focusGrabBlocked = false
+        // Only while Categories is actually open: re-enabling a closed
+        // drawer let its list steal the D-pad from the guide again.
+        if (isCategoriesDrawerOpen) {
+            categoriesDrawer.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+            groupsList.focusGrabBlocked = false
+        }
         if (!isMainMenuDrawerOpen) {
             if (focusCategories && isCategoriesDrawerOpen) {
                 val curIdx = Repo.groups().indexOfFirst { it.id == prefs.lastGroup }.coerceAtLeast(0)
@@ -782,7 +796,7 @@ class MainActivity : Activity() {
 
     private fun showSettings() {
         if (settingsDrawer == null) {
-            settingsDrawer = SettingsDrawer(this, prefs, healthProvider = { playerEngine.streamHealth() }) {
+            settingsDrawer = SettingsDrawer(this, prefs, healthProvider = { playerEngine.streamHealth() }, onAudioDelay = { playerEngine.setAudioDelay(it) }) {
                 closeSettings()
             }
             val lp = FrameLayout.LayoutParams(dpi(440f), FrameLayout.LayoutParams.MATCH_PARENT, Gravity.END)
@@ -877,6 +891,7 @@ class MainActivity : Activity() {
                     prefs.lastGroup = g.id
                     updateGroups()
                     updateGuideRows()
+                    guideView.selectTop()
                     closeCategoriesDrawer(focusGuide = true)
                 }
             )
@@ -978,6 +993,7 @@ class MainActivity : Activity() {
         }
         android.util.Log.i("MainActivity", "playChannel: " + item.name + ", key=" + item.key + ", url=" + item.url)
         prefs.lastChannel = item.key
+        prefs.recentChannels = listOf(item.key) + prefs.recentChannels.filter { it != item.key }
         guideView.playingKey = item.key
         playerEngine.play(item)
         Repo.touchRecent(item)
@@ -1084,6 +1100,16 @@ class MainActivity : Activity() {
             }
             // Fullscreen handles its own keys
             if (isFullscreen) {
+                if (code == KeyEvent.KEYCODE_BACK) {
+                    playerOverlay.onKey(code, event)
+                    // BACK left the video for the guide (not just closed an
+                    // overlay): a second BACK within 2.5 s exits the app.
+                    if (!isFullscreen) {
+                        backFromVideoMs = System.currentTimeMillis()
+                        Toast.makeText(this, "Press Back again to exit", Toast.LENGTH_SHORT).show()
+                    }
+                    return true
+                }
                 if (playerOverlay.onKey(code, event)) return true
                 if (code == KeyEvent.KEYCODE_BACK) {
                     exitFullscreen()
@@ -1159,8 +1185,20 @@ class MainActivity : Activity() {
                     guideView.invalidate()
                     return true
                 }
-                // If in Guide in Channel column: open Categories drawer!
-                openCategoriesDrawer()
+                // Guide (channel column): BACK twice from the video exits;
+                // otherwise BACK returns to the channel that is playing.
+                // Categories stay on LEFT. (Before, BACK only toggled the
+                // guide and Categories, so neither the video nor the exit
+                // could be reached with BACK.)
+                if (System.currentTimeMillis() - backFromVideoMs < 2500L) {
+                    finish()
+                    return true
+                }
+                if (playerEngine.currentItem != null) {
+                    enterFullscreen()
+                } else {
+                    confirmAppExit()
+                }
                 return true
             }
         }

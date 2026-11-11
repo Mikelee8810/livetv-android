@@ -560,6 +560,51 @@ public final class EpgRepository {
         aliases.put("American.Heroes.Channel.-.Canada.ca2", "ahcamericanheroeschannel.us");
         aliases.put("Nickelodeon.HD.us2", "nick.us");
         aliases.put("Nick.Jr.HD.us2", "nickjr.us");
+        // v4.6.1: playlist ids with no programmes in any source, mapped by
+        // hand to the guide id that carries listings (checked 2026-11-10).
+        aliases.put("A.and.E.HD.East.us2", "aeusa.us");
+        aliases.put("Big.Ten.Network.HD.us2", "bigtennetworkbtnusa.us");
+        aliases.put("Fox.Business.HD.us2", "foxbusiness.us");
+        aliases.put("MGM+.HD.us2", "mgmusaepix.us");
+        aliases.put("Racing.TV.HD.uk", "Racing TV HD.uk");
+        aliases.put("HBO.East.us2", "hbousa.us");
+        aliases.put("Showtime.2.HD.us2", "showtime2usasho2usa.us");
+        aliases.put("Showtime.Next.HD.us2", "showtimenextshonextusa.us");
+        aliases.put("Channel.5.HD.uk", "Channel 5 HD.uk");
+        aliases.put("S4C.HD.uk", "S4C HD.uk");
+        aliases.put("TVO.ca2", "tvoca.us");
+        aliases.put("YTV.HD.ca2", "ytvca.us");
+        aliases.put("WCBS-DT.us_locals1", "cbsusa.us");
+        aliases.put("WABC-DT.us_locals1", "abcusa.us");
+        aliases.put("WNBC-DT.us_locals1", "nbcusa.us");
+        aliases.put("WNYW-DT.us_locals1", "foxusa.us");
+        aliases.put("WNET-DT.us_locals1", "pbsusa.us");
+        aliases.put("Galavision.Cable.Network.HD.us2", "galavisinusa.us");
+        aliases.put("WE.tv.HD.us2", "wetvusa.us");
+        aliases.put("FS1.Fox.Sports.1.HD.us2", "foxsports1usa.us");
+        aliases.put("FS2.Fox.Sports.2.HD.us2", "foxsports2usa.us");
+        aliases.put("MSG.National.us2", "msgusa.us");
+        aliases.put("MASN.-.Mid.Atlantic.Sports.Network.us2", "masnusa.us");
+        aliases.put("Turner.Classic.Movies.HD.us2", "tcmusa.us");
+        aliases.put("National.Geographic.Wild.HD.us2", "natgeowildusa.us");
+        aliases.put("Showtime.Familyzone.HD.us2", "showtimefamilyzoneshofamilyzoneusa.us");
+        aliases.put("Crime.and.Investigation.Network.HD.us2", "crimeinvestigationusa.us");
+        aliases.put("CBC.Toronto.HD.ca2", "cbcca.us");
+        aliases.put("CTV.Two.-.Toronto.ca2", "ctv2canada.us");
+        aliases.put("YesTV.ca2", "YES Network HD.ca");
+        aliases.put("BBC.One.Lon.HD.uk", "bbconeuk.us");
+        aliases.put("SkySp.F1.HD.uk", "Sky Sports F1 HD.uk");
+        aliases.put("SkySp.Golf.HD.uk", "Sky Sports Golf HD.uk");
+        aliases.put("SkySp.News.HD.uk", "Sky Sports News HD.uk");
+        aliases.put("SkySp.Mix.HD.uk", "Sky Sports Mix HD.uk");
+        aliases.put("SkySp.Racing.HD.uk", "Sky Sports Racing HD.uk");
+        aliases.put("Sky.Premiere.uk", "Sky Cinema Premiere HD.uk");
+        aliases.put("Sky.Greats.HD.uk", "Sky Cinema Greats HD.uk");
+        aliases.put("Sky.Thriller.HD.uk", "Sky Cinema Thriller HD.uk");
+        aliases.put("Sky.Drama.HD.uk", "Sky Cinema Drama HD.uk");
+        aliases.put("Sky.Action.HD.uk", "Sky Cinema Action HD.uk");
+        aliases.put("Sky.Family.HD.uk", "Sky Cinema Family HD.uk");
+        aliases.put("Sky.Sci-Fi.HD.uk", "Sky Cinema Sci Fi and Horror HD.uk");
         return aliases;
     }
 

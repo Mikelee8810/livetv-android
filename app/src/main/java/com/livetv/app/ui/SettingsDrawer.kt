@@ -18,6 +18,7 @@ class SettingsDrawer(
     private val activity: Activity,
     private val prefs: Prefs,
     private val healthProvider: (() -> String)? = null,
+    private val onAudioDelay: (Int) -> Unit = {},
     private val onClose: () -> Unit
 ) : LinearLayout(activity) {
 
@@ -519,6 +520,22 @@ class SettingsDrawer(
             val opts = listOf("Hardware", "Software")
             Dialogs.choose(activity, "Audio Decoder", opts, opts.indexOf(prefs.audioDecoder).coerceAtLeast(0)) {
                 prefs.audioDecoder = opts[it]
+                renderCurrent()
+            }
+        }),
+        Row("Player engine", value = prefs.playerEngine, onClick = {
+            val opts = listOf("VLC", "ExoPlayer")
+            Dialogs.choose(activity, "Player Engine", opts, opts.indexOf(prefs.playerEngine).coerceAtLeast(0)) {
+                prefs.playerEngine = opts[it]
+                renderCurrent()
+            }
+        }),
+        Row("Audio delay (lip sync)", value = (if (prefs.audioDelayMs > 0) "+" else "") + prefs.audioDelayMs + " ms", onClick = {
+            val steps = (-300..300 step 25).toList()
+            val opts = steps.map { (if (it > 0) "+" else "") + it + " ms" + if (it == 0) " (default)" else "" }
+            Dialogs.choose(activity, "Audio delay: choose a more negative value if the sound is late, positive if early.", opts, steps.indexOf(prefs.audioDelayMs).coerceAtLeast(0)) {
+                prefs.audioDelayMs = steps[it]
+                onAudioDelay(steps[it])
                 renderCurrent()
             }
         }),

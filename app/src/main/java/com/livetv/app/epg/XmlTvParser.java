@@ -60,7 +60,12 @@ public final class XmlTvParser {
             factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
         } catch (Exception ignored) {
         }
-        factory.setXIncludeAware(false);
+        // Android's SAXParserFactory throws UnsupportedOperationException
+        // here for any value; it never processes XInclude anyway.
+        try {
+            factory.setXIncludeAware(false);
+        } catch (UnsupportedOperationException ignored) {
+        }
         factory.newSAXParser().parse(xml, handler);
         return handler.programs;
     }

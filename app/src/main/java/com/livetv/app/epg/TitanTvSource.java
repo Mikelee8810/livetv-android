@@ -367,7 +367,7 @@ final class TitanTvSource {
                 throw new IOException("TitanTV body too large");
             }
             okio.BufferedSource bodySource = response.body().source();
-            if (!bodySource.request(MAX_BODY_BYTES + 1L)) {
+            if (bodySource.request(MAX_BODY_BYTES + 1L)) {
                 throw new IOException("TitanTV body too large");
             }
             String strString = bodySource.readUtf8();

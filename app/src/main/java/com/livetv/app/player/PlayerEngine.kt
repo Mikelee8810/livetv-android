@@ -75,6 +75,39 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     private var attachedTextureView: TextureView? = null
 
     var currentItem: Item? = null; private set
+
+    // Live channels play through libVLC unless Settings > Playback >
+    // Player engine says ExoPlayer (see VlcBackend for why).
+    private var vlc: VlcBackend? = null
+    private fun vlcEnabled() = prefs.playerEngine == "VLC"
+    private val vlcActive get() = vlc?.isActive == true
+    private var vlcErrors = 0
+    private val vlcListener = object : VlcBackend.Listener {
+        override fun onVlcPlaying() {
+            mainHandler.post {
+                isPlaying = true; isBuffering = false; vlcErrors = 0
+                currentItem?.let { if (!routeSaved) { routeSaved = true; prefs.put("route_" + it.ch.id, routeAttempt % ROUTE_COUNT) } }
+                onStateChanged?.invoke()
+            }
+        }
+        override fun onVlcBuffering(buffering: Boolean) {
+            mainHandler.post { if (isBuffering != buffering) { isBuffering = buffering; onStateChanged?.invoke() } }
+        }
+        override fun onVlcVideoSize(width: Int, height: Int) {
+            mainHandler.post { videoWidth = width; videoHeight = height; onStateChanged?.invoke() }
+        }
+        override fun onVlcError(reason: String) {
+            mainHandler.post {
+                Log.w(TAG, "VLC playback failed: " + reason)
+                val item = currentItem ?: return@post
+                isPlaying = false
+                vlcErrors++
+                if (vlcErrors > ROUTE_COUNT) { onError?.invoke("Stream unavailable"); return@post }
+                routeAttempt++
+                mainHandler.postDelayed({ if (currentItem === item) play(item, false) }, 1000L)
+            }
+        }
+    }
     var isPlaying = false; private set
     var isBuffering = false; private set
     var videoWidth = 0; private set
@@ -525,6 +558,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
 
     init {
         try {
+            OnDeviceStreamServer.attachContext(context)
             OnDeviceStreamServer.ensureStarted()
         } catch (e: Exception) {
             Log.e(TAG, "Error starting local stream server", e)
@@ -895,6 +929,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         attachedTextureView = textureView
         attachedSurfaceView = null
         exoPlayer?.setVideoTextureView(textureView)
+        vlc?.attach(textureView)
     }
 
     fun play(item: Item, resetRetry: Boolean = true) {
@@ -933,8 +968,6 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         // Playback settings are baked in when the player is built; if any
         // changed in Settings since, rebuild so the change applies on
         // this tune instead of only after an app restart.
-        val player = exoPlayer?.takeIf { builtSettings == playerSettingsKey() } ?: initPlayer()
-
         var streamUrl = item.url
         if (streamUrl.startsWith("/")) {
             streamUrl = "http://127.0.0.1:48913$streamUrl"
@@ -947,6 +980,19 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         }
 
         val userAgent = prefs.userAgent.ifBlank { "Mozilla/5.0 (Linux; Android 14; Google TV Streamer) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" }
+        val isHls = streamUrl.contains(".m3u8", ignoreCase = true) || streamUrl.contains("manifest", ignoreCase = true)
+        if (vlcEnabled() && isHls) {
+            if (exoPlayer != null) release()
+            val v = vlc ?: VlcBackend(context, vlcListener).also { vlc = it }
+            v.attach(attachedTextureView)
+            isPlaying = false
+            isBuffering = true
+            v.play(streamUrl, userAgent, prefs.captionsOn, prefs.audioDelayMs)
+            onStateChanged?.invoke()
+            return
+        }
+        vlc?.stop()
+        val player = exoPlayer?.takeIf { builtSettings == playerSettingsKey() } ?: initPlayer()
         val httpFactory = DefaultHttpDataSource.Factory()
             .setUserAgent(userAgent)
             .setConnectTimeoutMs(8000)
@@ -1030,7 +1076,14 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     }
 
     /** Plain-language playback diagnostics for Settings > Playback > Stream health. */
+    /** Lip-sync trim, applied to the live VLC stream immediately. */
+    fun setAudioDelay(ms: Int) {
+        prefs.audioDelayMs = ms
+        if (vlcActive) vlc?.setAudioDelay(ms)
+    }
+
     fun streamHealth(): String {
+        if (vlcActive) return vlc!!.healthText()
         val p = exoPlayer ?: return "Player has not started yet."
         val fmt = p.videoFormat
         val bufferedSec = ((p.bufferedPosition - p.currentPosition).coerceAtLeast(0L)) / 1000L
@@ -1085,23 +1138,27 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     /** Jump back to the live edge after watching behind live. */
     fun returnToLive() {
         userBehindLive = false
+        if (vlcActive) { currentItem?.let { play(it, false) }; return }
         exoPlayer?.seekToDefaultPosition()
         exoPlayer?.play()
     }
 
     fun pause() {
         userPaused = true
+        if (vlcActive) vlc?.pause()
         exoPlayer?.pause()
     }
 
     /** User-initiated resume (the overlay's play action). */
     fun resume() {
         userPaused = false
+        if (vlcActive) vlc?.resume()
         exoPlayer?.play()
     }
 
     // Lifecycle pause: not a user pause, so it does not set userPaused.
     fun pauseFromLifecycle() {
+        if (vlcActive) vlc?.pause()
         exoPlayer?.pause()
     }
 
@@ -1112,6 +1169,8 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     // through BEHIND_LIVE_WINDOW (audit M4).
     fun resumeFromLifecycle() {
         if (userPaused) return
+        // Live through VLC: re-tune to land back at the live edge.
+        if (vlcActive) { currentItem?.let { play(it, false) }; return }
         exoPlayer?.seekToDefaultPosition()
         exoPlayer?.play()
     }
@@ -1263,6 +1322,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
      *  from Google Drive or another storage provider. */
     fun playUri(uri: Uri) {
         currentItem = null
+        vlc?.stop()
         val player = exoPlayer?.takeIf { builtSettings == playerSettingsKey() } ?: initPlayer()
         player.setMediaItem(MediaItem.fromUri(uri))
         player.prepare()
@@ -1282,6 +1342,7 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
     fun setCaptions(on: Boolean) {
         prefs.captionsOn = on
         if (!on) onCues?.invoke(emptyList())
+        if (vlcActive) vlc?.setCaptions(on)
         val player = exoPlayer ?: return
         player.trackSelectionParameters = player.trackSelectionParameters
             .buildUpon()
@@ -1324,6 +1385,8 @@ class PlayerEngine(private val context: Context, private val prefs: Prefs) {
         exoPlayer?.release()
         exoPlayer = null
         if (terminal) {
+            vlc?.release()
+            vlc = null
             attachedSurfaceView = null
             attachedTextureView = null
         }

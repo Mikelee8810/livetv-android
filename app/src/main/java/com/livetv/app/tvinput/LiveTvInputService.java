@@ -21,6 +21,7 @@ public class LiveTvInputService extends TvInputService {
     public void onCreate() {
         super.onCreate();
         try {
+            OnDeviceStreamServer.attachContext(this);
             OnDeviceStreamServer.ensureStarted();
         } catch (Exception e) {
             Log.e(TAG, "On-device stream resolver unavailable", e);

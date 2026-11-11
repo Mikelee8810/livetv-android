@@ -450,9 +450,14 @@ class PlayerOverlay(
         quickListContainer.animate().translationX(0f).setDuration(180).setListener(null).start()
         isQuickListVisible = true
         quickList.post {
-            val cur = playerEngine.currentItem
-            val idx = Repo.visibleItems().indexOfFirst { it.key == cur?.key }.coerceAtLeast(0)
-            quickList.focusRow(idx)
+            // Open on the previous channel, so OK, OK flips back to it.
+            if (quickListOffset > 0) {
+                quickList.focusRow(1)
+            } else {
+                val cur = playerEngine.currentItem
+                val idx = Repo.visibleItems().indexOfFirst { it.key == cur?.key }.coerceAtLeast(0)
+                quickList.focusRow(idx)
+            }
         }
     }
 
@@ -468,10 +473,34 @@ class PlayerOverlay(
         }
     }
 
+    // Rows above the channel list: "Recent" header + recent channels +
+    // a header for the list. Used to map list positions to rows.
+    private var quickListOffset = 0
+
+    private fun recentItems(): List<Item> {
+        val curKey = playerEngine.currentItem?.key
+        val all = Repo.inGroup(Repo.ALL).associateBy { it.key }
+        return prefs.recentChannels.filter { it != curKey }.mapNotNull { all[it] }.take(5)
+    }
+
     private fun updateQuickList() {
         val items = Repo.visibleItems()
         val curKey = playerEngine.currentItem?.key
-        val rows = items.map { item ->
+        val recent = recentItems()
+        val head = mutableListOf<Row>()
+        if (recent.isNotEmpty()) {
+            head += Row(title = "Recent", kind = Kind.HEADER)
+            recent.forEach { item ->
+                head += Row(
+                    title = "${item.number}. ${item.name}",
+                    sub = Repo.current(item)?.title ?: "No information",
+                    onClick = { onSwitchChannel(item); updateQuickList() }
+                )
+            }
+            head += Row(title = "All channels", kind = Kind.HEADER)
+        }
+        quickListOffset = head.size
+        val rows = head + items.map { item ->
             val curProg = Repo.current(item)
             Row(
                 title = "${item.number}. ${item.name}",

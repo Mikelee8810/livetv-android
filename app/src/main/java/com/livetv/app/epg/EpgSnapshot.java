@@ -65,6 +65,14 @@ public final class EpgSnapshot {
                         return EpgSnapshot.lambda$map$1((String) obj);
                     }
                 }).add(program);
+                // An aliased guide id can also feed a second channel: the
+                // NY local feed (exact id) and the national network channel
+                // (alias) share one schedule.
+                String alias = aliases == null ? null : aliases.get(program.channelId);
+                Channel extra = alias == null ? null : index.exactIds.get(alias.toLowerCase(Locale.ROOT));
+                if (extra != null && !extra.id.equals(channel.id)) {
+                    mapped.computeIfAbsent(extra.id, k -> new ArrayList<>()).add(program);
+                }
             }
         }
         return new EpgSnapshot(snapshotChannels, mapped);
@@ -183,6 +191,17 @@ public final class EpgSnapshot {
                 }
             }
         }
+        // One line per 40 unmatched channels (group | name | tvg-id), so
+        // guide gaps can be fixed from what the device actually sees.
+        StringBuilder sb = new StringBuilder();
+        int n = 0;
+        for (Channel channel : this.channels) {
+            if (programsFor(channel).isEmpty()) {
+                sb.append(channel.group).append('|').append(channel.name).append('|').append(channel.tvgId).append(" ;; ");
+                if (++n % 40 == 0) { android.util.Log.i("LiveTV-EPG-Gaps", sb.toString()); sb.setLength(0); }
+            }
+        }
+        if (sb.length() > 0) android.util.Log.i("LiveTV-EPG-Gaps", sb.toString());
         return new Diagnostics(mappedChannels, this.channels.size() - mappedChannels, mappedPrograms, currentFuturePrograms);
     }
 
